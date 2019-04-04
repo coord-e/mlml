@@ -10,7 +10,7 @@ let rec read_int rest acc =
   | h :: t -> (
     match h with
     | '0' .. '9' -> read_int t (acc * 10 + to_digit h)
-    | _ -> (acc, t)
+    | _ -> (acc, rest)
   )
   | _ -> (acc, [])
 
@@ -20,7 +20,7 @@ let rec tokenize_aux rest acc =
   | h :: t ->
     match h with
     | '0' .. '9' -> (
-      let num, rest = read_int t 0 in
+      let num, rest = read_int rest 0 in
       tokenize_aux rest (IntLiteral num :: acc)
     )
     | '+' -> tokenize_aux t (Plus :: acc)
