@@ -1,1 +1,1 @@
-print_endline "Hello, world!"
+Lexer.tokenize "1+1"
