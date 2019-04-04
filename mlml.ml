@@ -1,1 +1,1 @@
-Lexer.tokenize "1+1"
+print_endline (Lexer.tokens_to_string (Lexer.tokenize "1+1"))

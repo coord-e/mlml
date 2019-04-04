@@ -34,3 +34,14 @@ let explode s =
 
 let tokenize source =
   tokenize_aux (explode source) []
+
+let token_to_string t =
+  match t with
+  | IntLiteral num -> string_of_int num
+  | Plus -> "+"
+  | Mult -> "*"
+
+let tokens_to_string l =
+  let aux acc t =
+    (token_to_string t) ^ ", " ^ acc
+  in List.fold_left aux "" l
