@@ -39,23 +39,23 @@ let rec value_to_asm ctx = function
   | Register kind -> (string_of_register kind, "")
   | Constant num -> (string_of_constant num, "")
   | Add (lhs, rhs) -> (
-    let add = Printf.sprintf "addl %s %s" (string_of_register lhs) (string_of_register rhs) in
+    let add = Printf.sprintf "addl %s, %s" (string_of_register lhs) (string_of_register rhs) in
     let new_stack = alloc_stack ctx in
     let stack_str, _ = value_to_asm ctx new_stack in
-    let mov = Printf.sprintf "movl %s %s" (string_of_register rhs) stack_str in
+    let mov = Printf.sprintf "movl %s, %s" (string_of_register rhs) stack_str in
     (stack_str, String.concat "\n" [add; mov])
   )
 
 let turn_into_register ctx = function
   | Stack num -> (
     let new_register = alloc_register ctx in
-    let load = Printf.sprintf "movl %s %s" (string_of_stack num) (string_of_register new_register) in
+    let load = Printf.sprintf "movl %s, %s" (string_of_stack num) (string_of_register new_register) in
     (new_register, load)
   )
   | Register r -> (r, "")
   | Constant c -> (
     let new_register = alloc_register ctx in
-    let load = Printf.sprintf "movl %s %s" (string_of_constant c) (string_of_register new_register) in
+    let load = Printf.sprintf "movl %s, %s" (string_of_constant c) (string_of_register new_register) in
     (new_register, load)
   )
   | _ -> failwith "Cannot turn value into register"
