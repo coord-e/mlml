@@ -1,7 +1,7 @@
 type token =
   | IntLiteral of int
   | Plus
-  | Mult
+  | Star
 
 let to_digit c = int_of_char c - int_of_char '0'
 
@@ -24,7 +24,7 @@ let rec tokenize_aux rest acc =
       tokenize_aux rest (IntLiteral num :: acc)
     )
     | '+' -> tokenize_aux t (Plus :: acc)
-    | '*' -> tokenize_aux t (Mult :: acc)
+    | '*' -> tokenize_aux t (Star :: acc)
     | _ -> failwith (Printf.sprintf "unexpected character: '%c'" h)
 
 let explode s =
@@ -39,7 +39,7 @@ let token_to_string t =
   match t with
   | IntLiteral num -> string_of_int num
   | Plus -> "+"
-  | Mult -> "*"
+  | Star -> "*"
 
 let tokens_to_string l =
   let aux acc t =
