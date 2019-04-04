@@ -25,7 +25,7 @@ let rec tokenize_aux acc rest =
     )
     | '+' -> tokenize_aux (Plus :: acc) t
     | '*' -> tokenize_aux (Star :: acc) t
-    | _ -> failwith (Printf.sprintf "unexpected character: '%c'" h)
+    | _ -> failwith @@ Printf.sprintf "unexpected character: '%c'" h
 
 let explode s =
   let rec exp i l =
@@ -33,15 +33,14 @@ let explode s =
   exp (String.length s - 1) []
 
 let tokenize source =
-  tokenize_aux [] (explode source)
+  tokenize_aux [] @@ explode source
 
-let token_to_string t =
-  match t with
+let token_to_string = function
   | IntLiteral num -> string_of_int num
   | Plus -> "+"
   | Star -> "*"
 
-let tokens_to_string l =
+let tokens_to_string =
   let aux acc t =
     (token_to_string t) ^ ", " ^ acc
-  in List.fold_left aux "" l
+  in List.fold_left aux ""
