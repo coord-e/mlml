@@ -89,7 +89,7 @@ let rec codegen_expr ctx = function
 let codegen ast =
   let ctx = {
     current_stack = -8;
-    unused_registers = [RegName "rax"; RegName "rbx"; RegName "rcx"; RegName "rdx"];
+    unused_registers = [RegName "%eax"; RegName "%ebx"; RegName "%ecx"; RegName "%edx"];
   } in
   let buf = Buffer.create 100 in
   Buffer.add_string buf ".text\n";
