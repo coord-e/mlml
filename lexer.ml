@@ -5,26 +5,26 @@ type token =
 
 let to_digit c = int_of_char c - int_of_char '0'
 
-let rec read_int rest acc =
+let rec read_int acc rest =
   match rest with
   | h :: t -> (
     match h with
-    | '0' .. '9' -> read_int t (acc * 10 + to_digit h)
-    | _ -> (acc, rest)
+    | '0' .. '9' -> read_int (acc * 10 + to_digit h) t
+    | _ -> (rest, acc)
   )
-  | _ -> (acc, [])
+  | _ -> ([], acc)
 
-let rec tokenize_aux rest acc =
+let rec tokenize_aux acc rest =
   match rest with
   | [] -> acc
   | h :: t ->
     match h with
     | '0' .. '9' -> (
-      let num, rest = read_int rest 0 in
-      tokenize_aux rest (IntLiteral num :: acc)
+      let rest, num = read_int 0 rest in
+      tokenize_aux (IntLiteral num :: acc) rest
     )
-    | '+' -> tokenize_aux t (Plus :: acc)
-    | '*' -> tokenize_aux t (Star :: acc)
+    | '+' -> tokenize_aux (Plus :: acc) t
+    | '*' -> tokenize_aux (Star :: acc) t
     | _ -> failwith (Printf.sprintf "unexpected character: '%c'" h)
 
 let explode s =
@@ -33,7 +33,7 @@ let explode s =
   exp (String.length s - 1) []
 
 let tokenize source =
-  tokenize_aux (explode source) []
+  tokenize_aux [] (explode source)
 
 let token_to_string t =
   match t with
