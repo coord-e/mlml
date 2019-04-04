@@ -33,14 +33,14 @@ let explode s =
   exp (String.length s - 1) []
 
 let tokenize source =
-  tokenize_aux [] @@ explode source
+  tokenize_aux [] @@ explode source |> List.rev
 
 let token_to_string = function
   | IntLiteral num -> string_of_int num
   | Plus -> "+"
   | Star -> "*"
 
-let tokens_to_string =
+let tokens_to_string tokens =
   let aux acc t =
     (token_to_string t) ^ ", " ^ acc
-  in List.fold_left aux ""
+  in List.fold_left aux "" @@ List.rev tokens
