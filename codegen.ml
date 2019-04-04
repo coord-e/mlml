@@ -6,6 +6,7 @@ type value =
   | Register of register
   | Constant of int
   | Add of register * register
+  | Mul of register * register
 
 type context = {
   mutable current_stack : int;
@@ -45,6 +46,13 @@ let rec value_to_asm ctx = function
     let mov = Printf.sprintf "movl %s, %s" (string_of_register rhs) stack_str in
     (stack_str, String.concat "\n" [add; mov])
   )
+  | Mul (lhs, rhs) -> (
+    let add = Printf.sprintf "imull %s, %s" (string_of_register lhs) (string_of_register rhs) in
+    let new_stack = alloc_stack ctx in
+    let stack_str, _ = value_to_asm ctx new_stack in
+    let mov = Printf.sprintf "movl %s, %s" (string_of_register rhs) stack_str in
+    (stack_str, String.concat "\n" [add; mov])
+  )
 
 let turn_into_register ctx = function
   | Stack num -> (
@@ -75,7 +83,7 @@ let rec codegen_expr ctx = function
       let lhs, lhs_reg_asm = turn_into_register ctx lhs in
       let rhs, rhs_asm = codegen_expr ctx rhs in
       let rhs, rhs_reg_asm = turn_into_register ctx rhs in
-      (Add (lhs, rhs), String.concat "\n" [lhs_asm; rhs_asm; lhs_reg_asm; rhs_reg_asm])
+      (Mul (lhs, rhs), String.concat "\n" [lhs_asm; rhs_asm; lhs_reg_asm; rhs_reg_asm])
   )
 
 let codegen ast =
