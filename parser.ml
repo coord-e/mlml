@@ -45,6 +45,24 @@ let rec parse_let = function
     )
     | _ -> failwith "could not find 'in'"
   )
+  | L.Let :: L.LowerIdent ident :: rest -> (
+    let rec aux = function
+      | L.Equal :: rest -> (rest, [])
+      | L.LowerIdent ident :: rest -> (
+        let rest, acc = aux rest in
+        (rest, ident :: acc)
+      )
+      | _ -> failwith "could not find '='"
+    in
+    let rest, params = aux rest in
+    let rest, lhs = parse_expression rest in
+    match rest with
+    | L.In :: rest -> (
+      let rest, rhs = parse_expression rest in
+      (rest, LetFun (ident, params, lhs, rhs))
+    )
+    | _ -> failwith "could not find 'in'"
+  )
   | tokens -> parse_add tokens
 
 and parse_expression tokens = parse_let tokens
