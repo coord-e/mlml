@@ -101,11 +101,10 @@ let rec assign_to_stack ctx buf v stack =
   | RegisterValue _ | ConstantValue _ ->
     emit_instruction buf
     @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_stack stack)
-  | StackValue _ -> (
+  | StackValue _ ->
     let reg, free = turn_into_register ctx buf v in
     assign_to_stack ctx buf (RegisterValue reg) stack;
     free ctx
-  )
 ;;
 
 let turn_into_stack ctx buf = function StackValue s -> s | v -> push_to_stack ctx buf v
@@ -204,7 +203,8 @@ let rec codegen_expr ctx buf = function
     (* Use rdx temporarily (8-bit register(dl) is needed) *)
     let rdx = Register "%rdx" in
     use_register ctx rdx;
-    emit_instruction buf @@ Printf.sprintf "cmpq %s, %s" (string_of_value lhs) (string_of_register rhs);
+    emit_instruction buf
+    @@ Printf.sprintf "cmpq %s, %s" (string_of_value lhs) (string_of_register rhs);
     free ctx;
     emit_instruction buf "sete %dl";
     emit_instruction buf "movzbq %dl, %rdx";
