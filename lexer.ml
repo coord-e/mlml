@@ -64,6 +64,8 @@ let rec tokenize_aux acc rest =
     | '+' -> tokenize_aux (Plus :: acc) t
     | '*' -> tokenize_aux (Star :: acc) t
     | '=' -> tokenize_aux (Equal :: acc) t
+    | '(' -> tokenize_aux (LParen :: acc) t
+    | ')' -> tokenize_aux (RParen :: acc) t
     | _ -> failwith @@ Printf.sprintf "unexpected character: '%c'" h
 
 let explode s =
