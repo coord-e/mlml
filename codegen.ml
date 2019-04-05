@@ -9,6 +9,7 @@ type value =
 type context = {
   mutable current_stack : int;
   mutable unused_registers : register list;
+  mutable env : (string, int) Hashtbl.t;
 }
 
 let alloc_register context =
@@ -68,6 +69,16 @@ let turn_into_stack ctx buf = function
       new_stack
   )
 
+let define_variable ctx buf ident v =
+  let s = turn_into_stack ctx buf v in
+  Hashtbl.add ctx.env ident s
+
+let undef_variable ctx ident =
+  Hashtbl.remove ctx.env ident
+
+let get_variable ctx ident =
+  Hashtbl.find ctx.env ident
+
 let rec codegen_expr ctx buf = function
   | P.Int num -> Constant num
   | P.Add (lhs, rhs) -> (
@@ -88,11 +99,20 @@ let rec codegen_expr ctx buf = function
       free ctx;
       Stack new_stack
   )
+  | P.LetVar (ident, lhs, rhs) -> (
+    let lhs = codegen_expr ctx buf lhs in
+    define_variable ctx buf ident lhs;
+    let rhs = codegen_expr ctx buf rhs in
+    undef_variable ctx ident;
+    rhs
+  )
+  | P.Var ident -> Stack (get_variable ctx ident)
 
 let codegen ast =
   let ctx = {
     current_stack = -8;
     unused_registers = [RegName "%eax"; RegName "%ebx"; RegName "%ecx"; RegName "%edx"];
+    env = Hashtbl.create 10;
   } in
   let buf = Buffer.create 100 in
   emit_instruction buf ".text";
