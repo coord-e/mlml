@@ -5,10 +5,12 @@ type ast =
   | Add of ast * ast
   | Mul of ast * ast
   | LetVar of string * ast * ast
+  | Var of string
 
 let parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> (tokens, Int num)
+  | L.LowerIdent ident :: tokens  -> (tokens, Var ident)
   | h :: _ -> failwith @@ Printf.sprintf "unexpected token: '%s'" (L.token_to_string h)
   | _ -> failwith "Empty input"
 
