@@ -27,6 +27,7 @@ type context = {
 }
 
 let usable_registers = [Register "%rsi"; Register "%rdi"; Register "%r8"; Register "%r9"; Register "%r10"; Register "%r11"]
+let ret_register = Register "%rax"
 
 let new_context () = {
   current_stack = -8;
@@ -163,7 +164,7 @@ let rec codegen_expr ctx buf = function
       emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_value rhs) (string_of_register param);
       emit_instruction buf @@ Printf.sprintf "call *%s" (string_of_value lhs);
       free ctx;
-      RegisterValue (Register "%rax")
+      RegisterValue ret_register
   )
 
 and emit_function main_buf name ast params =
@@ -178,7 +179,7 @@ and emit_function main_buf name ast params =
     define_variable ctx buf name (StackValue arg)
   ) params;
   let value = codegen_expr ctx buf ast |> string_of_value in
-  emit_instruction buf @@ Printf.sprintf "movq %s, %%rax" value;
+  emit_instruction buf @@ Printf.sprintf "movq %s, %s" value (string_of_register ret_register);
   emit_instruction buf "popq	%rbp";
   emit_instruction buf "ret";
   (* TODO: Use more effective and sufficient way to prepend to the buffer *)
