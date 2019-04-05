@@ -1,5 +1,7 @@
 type token =
   | IntLiteral of int
+  | CapitalIdent of string
+  | LowerIdent of string
   | Plus
   | Star
   | Let
@@ -64,6 +66,7 @@ let tokenize source =
 
 let token_to_string = function
   | IntLiteral num -> string_of_int num
+  | CapitalIdent ident | LowerIdent ident -> ident
   | Plus -> "+"
   | Star -> "*"
   | Let -> "let"
