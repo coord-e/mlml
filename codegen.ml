@@ -29,61 +29,59 @@ let alloc_stack context =
   context.current_stack <- (c - 4);
   Stack c
 
+let emit_instruction buf inst =
+  Buffer.add_string buf inst;
+  Buffer.add_char buf '\n'
+
 let string_of_register = function
   | RegName n -> n
 
 let string_of_stack num = (string_of_int num) ^ "(%rbp)"
 let string_of_constant num = "$" ^ (string_of_int num)
 
-let rec value_to_asm ctx = function
-  | Stack num -> (string_of_stack num, "")
-  | Register kind -> (string_of_register kind, "")
-  | Constant num -> (string_of_constant num, "")
+let rec value_to_asm ctx buf = function
+  | Stack num -> string_of_stack num
+  | Register kind -> string_of_register kind
+  | Constant num -> string_of_constant num
   | Add (lhs, rhs) -> (
-    let add = Printf.sprintf "addl %s, %s" (string_of_register lhs) (string_of_register rhs) in
-    let new_stack = alloc_stack ctx in
-    let stack_str, _ = value_to_asm ctx new_stack in
-    let mov = Printf.sprintf "movl %s, %s" (string_of_register rhs) stack_str in
-    (stack_str, String.concat "\n" [add; mov])
+    emit_instruction buf @@ Printf.sprintf "addl %s, %s" (string_of_register lhs) (string_of_register rhs);
+    let new_stack = alloc_stack ctx |> value_to_asm ctx buf in
+    emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register rhs) new_stack;
+    new_stack
   )
   | Mul (lhs, rhs) -> (
-    let add = Printf.sprintf "imull %s, %s" (string_of_register lhs) (string_of_register rhs) in
-    let new_stack = alloc_stack ctx in
-    let stack_str, _ = value_to_asm ctx new_stack in
-    let mov = Printf.sprintf "movl %s, %s" (string_of_register rhs) stack_str in
-    (stack_str, String.concat "\n" [add; mov])
+    emit_instruction buf @@ Printf.sprintf "imull %s, %s" (string_of_register lhs) (string_of_register rhs);
+    let new_stack = alloc_stack ctx |> value_to_asm ctx buf in
+    emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register rhs) new_stack;
+    new_stack
   )
 
-let turn_into_register ctx = function
+let turn_into_register ctx buf = function
   | Stack num -> (
     let new_register = alloc_register ctx in
-    let load = Printf.sprintf "movl %s, %s" (string_of_stack num) (string_of_register new_register) in
-    (new_register, load)
+    emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_stack num) (string_of_register new_register);
+    new_register
   )
-  | Register r -> (r, "")
+  | Register r -> r
   | Constant c -> (
     let new_register = alloc_register ctx in
-    let load = Printf.sprintf "movl %s, %s" (string_of_constant c) (string_of_register new_register) in
-    (new_register, load)
+    emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_constant c) (string_of_register new_register);
+    new_register
   )
   | _ -> failwith "Cannot turn value into register"
 
 
-let rec codegen_expr ctx = function
-  | P.Int num -> (Constant num, "")
+let rec codegen_expr ctx buf = function
+  | P.Int num -> Constant num
   | P.Add (lhs, rhs) -> (
-      let lhs, lhs_asm = codegen_expr ctx lhs in
-      let lhs, lhs_reg_asm = turn_into_register ctx lhs in
-      let rhs, rhs_asm = codegen_expr ctx rhs in
-      let rhs, rhs_reg_asm = turn_into_register ctx rhs in
-      (Add (lhs, rhs), String.concat "\n" [lhs_asm; rhs_asm; lhs_reg_asm; rhs_reg_asm])
+      let lhs = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
+      let rhs = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
+      Add (lhs, rhs)
   )
   | P.Mul (lhs, rhs) -> (
-      let lhs, lhs_asm = codegen_expr ctx lhs in
-      let lhs, lhs_reg_asm = turn_into_register ctx lhs in
-      let rhs, rhs_asm = codegen_expr ctx rhs in
-      let rhs, rhs_reg_asm = turn_into_register ctx rhs in
-      (Mul (lhs, rhs), String.concat "\n" [lhs_asm; rhs_asm; lhs_reg_asm; rhs_reg_asm])
+      let lhs = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
+      let rhs = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
+      Mul (lhs, rhs)
   )
 
 let codegen ast =
@@ -92,16 +90,14 @@ let codegen ast =
     unused_registers = [RegName "%eax"; RegName "%ebx"; RegName "%ecx"; RegName "%edx"];
   } in
   let buf = Buffer.create 100 in
-  Buffer.add_string buf ".text\n";
-  Buffer.add_string buf ".globl main\n";
-  Buffer.add_string buf "main:\n";
-  Buffer.add_string buf "pushq	%rbp\n";
-  Buffer.add_string buf "movq	%rsp, %rbp\n";
-  let value, asm = codegen_expr ctx ast in
-  Buffer.add_string buf @@ asm ^ "\n";
-  let value, asm = value_to_asm ctx value in
-  Buffer.add_string buf @@ asm ^ "\n";
-  Buffer.add_string buf @@ Printf.sprintf "movl %s, %%eax\n" value;
-  Buffer.add_string buf "popq	%rbp\n";
-  Buffer.add_string buf "ret\n";
+  emit_instruction buf ".text";
+  emit_instruction buf ".globl main";
+  emit_instruction buf "main:";
+  emit_instruction buf "pushq	%rbp";
+  emit_instruction buf "movq	%rsp, %rbp";
+  let value = codegen_expr ctx buf ast in
+  let str = value_to_asm ctx buf value in
+  emit_instruction buf @@ Printf.sprintf "movl %s, %%eax" str;
+  emit_instruction buf "popq	%rbp";
+  emit_instruction buf "ret";
   Buffer.contents buf
