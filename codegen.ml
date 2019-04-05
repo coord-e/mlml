@@ -54,11 +54,6 @@ let alloc_register context =
 let free_register reg context =
   context.unused_registers <- reg :: context.unused_registers
 
-let alloc_stack context =
-  let c = context.current_stack in
-  context.current_stack <- (c - 8);
-  Stack c
-
 let emit_instruction buf inst =
   Buffer.add_string buf inst;
   Buffer.add_char buf '\n'
@@ -68,6 +63,12 @@ let assign_to_register buf v reg =
 
 let assign_to_stack buf v stack =
     emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_stack stack)
+
+let push_to_stack ctx buf v =
+  emit_instruction buf @@ Printf.sprintf "pushq %s" (string_of_value v);
+  let c = ctx.current_stack in
+  ctx.current_stack <- (c - 8);
+  Stack c
 
 let turn_into_register ctx buf = function
   | RegisterValue r -> (r, fun _ -> ())
@@ -79,11 +80,7 @@ let turn_into_register ctx buf = function
 
 let turn_into_stack ctx buf = function
   | StackValue s -> s
-  | v -> (
-    let new_stack = alloc_stack ctx in
-    assign_to_stack buf v new_stack;
-    new_stack
-  )
+  | v -> push_to_stack ctx buf v
 
 let nth_arg_register context n =
   let r = (
