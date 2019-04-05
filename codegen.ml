@@ -156,7 +156,15 @@ let rec codegen_expr ctx buf = function
     undef_variable ctx ident;
     rhs
   )
-  | _ -> failwith "UNEX"
+  | P.App (lhs, rhs) -> (
+      let lhs = codegen_expr ctx buf lhs in
+      let rhs = codegen_expr ctx buf rhs in
+      let param, free = nth_arg_register ctx 0 in
+      emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_value rhs) (string_of_register param);
+      emit_instruction buf @@ Printf.sprintf "call *%s" (string_of_value lhs);
+      free ctx;
+      RegisterValue (Register "%rax")
+  )
 
 and emit_function main_buf name ast params =
   let ctx = new_context () in
