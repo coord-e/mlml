@@ -9,6 +9,7 @@ type ast =
   | IfThenElse of ast * ast * ast
   | App of ast * ast
   | Var of string
+  | Equal of ast * ast
 
 let rec try_parse_literal tokens =
   match tokens with
@@ -59,6 +60,17 @@ and parse_add tokens =
   in
   aux lhs tokens
 
+and parse_equal tokens =
+  let tokens, lhs = parse_add tokens in
+  let rec aux lhs tokens =
+    match tokens with
+    | L.Equal :: rest ->
+      let rest, rhs = parse_add rest in
+      aux (Equal (lhs, rhs)) rest
+    | _ -> tokens, lhs
+  in
+  aux lhs tokens
+
 and parse_if = function
   | L.If :: rest ->
     let rest, cond = parse_expression rest in
@@ -71,7 +83,7 @@ and parse_if = function
         rest, IfThenElse (cond, then_, else_)
       | _ -> failwith "could not find 'else'")
     | _ -> failwith "could not find 'then'")
-  | tokens -> parse_add tokens
+  | tokens -> parse_equal tokens
 
 and parse_let = function
   | L.Let :: L.LowerIdent ident :: L.Equal :: rest ->
@@ -111,6 +123,8 @@ let rec string_of_ast = function
     Printf.sprintf "Add (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | Mul (lhs, rhs) ->
     Printf.sprintf "Mul (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
+  | Equal (lhs, rhs) ->
+    Printf.sprintf "Equal (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | LetVar (ident, lhs, rhs) ->
     Printf.sprintf
       "Let (%s) = (%s) in (%s)"
