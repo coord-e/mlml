@@ -49,7 +49,11 @@ let rec tokenize_aux acc rest =
       match ident_str with
       | "let" -> tokenize_aux (Let :: acc) rest
       | "in" -> tokenize_aux (In :: acc) rest
-      | _ -> failwith @@ Printf.sprintf "unexpected idenfitier: '%s'" ident_str
+      | _ -> (
+        match ident_str.[0] with
+        | 'A' .. 'Z' -> tokenize_aux (CapitalIdent ident_str :: acc) rest
+        | _ -> tokenize_aux (LowerIdent ident_str :: acc) rest
+      )
     )
     | '+' -> tokenize_aux (Plus :: acc) t
     | '*' -> tokenize_aux (Star :: acc) t
