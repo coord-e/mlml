@@ -29,10 +29,9 @@ let rec read_ident acc rest =
   match rest with
   | h :: t ->
     (match h with
-    | 'a' .. 'z' | 'A' .. 'Z' | '_' -> (
+    | 'a' .. 'z' | 'A' .. 'Z' | '_' ->
       let rest, ident = read_ident acc t in
-      (rest, h :: ident)
-    )
+      rest, h :: ident
     | _ -> rest, acc)
   | _ -> [], acc
 ;;
