@@ -3,6 +3,7 @@ module L = Lexer
 type ast =
   | Int of int
   | Add of ast * ast
+  | Sub of ast * ast
   | Mul of ast * ast
   | LetVar of string * ast * ast
   | LetFun of string * string list * ast * ast
@@ -57,6 +58,9 @@ and parse_add tokens =
     | L.Plus :: rest ->
       let rest, rhs = parse_mult rest in
       aux (Add (lhs, rhs)) rest
+    | L.Minus :: rest ->
+      let rest, rhs = parse_mult rest in
+      aux (Sub (lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -134,6 +138,8 @@ let rec string_of_ast = function
   | Int num -> Printf.sprintf "Int %d" num
   | Add (lhs, rhs) ->
     Printf.sprintf "Add (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
+  | Sub (lhs, rhs) ->
+    Printf.sprintf "Sub (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | Mul (lhs, rhs) ->
     Printf.sprintf "Mul (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | Equal (lhs, rhs) ->
