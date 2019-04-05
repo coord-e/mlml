@@ -1,15 +1,16 @@
 module P = Parser
 
-type register = RegName of string
+type register = Register of string
+type stack = Stack of int
 type value =
-  | Stack of int
-  | Register of register
-  | Constant of int
+  | StackValue of stack
+  | RegisterValue of register
+  | ConstantValue of int
 
 type context = {
   mutable current_stack : int;
   mutable unused_registers : register list;
-  mutable env : (string, int) Hashtbl.t;
+  mutable env : (string, stack) Hashtbl.t;
 }
 
 let alloc_register context =
@@ -26,44 +27,46 @@ let free_register reg context =
 let alloc_stack context =
   let c = context.current_stack in
   context.current_stack <- (c - 4);
-  c
+  Stack c
 
 let emit_instruction buf inst =
   Buffer.add_string buf inst;
   Buffer.add_char buf '\n'
 
 let string_of_register = function
-  | RegName n -> n
+  | Register n -> n
 
-let string_of_stack num = (string_of_int num) ^ "(%rbp)"
+let string_of_stack = function
+  | Stack num -> (string_of_int num) ^ "(%rbp)"
+
 let string_of_constant num = "$" ^ (string_of_int num)
 
 let string_of_value = function
-  | Stack num -> string_of_stack num
-  | Register kind -> string_of_register kind
-  | Constant num -> string_of_constant num
+  | StackValue num -> string_of_stack num
+  | RegisterValue kind -> string_of_register kind
+  | ConstantValue num -> string_of_constant num
 
 let turn_into_register ctx buf = function
-  | Stack num -> (
+  | StackValue num -> (
     let new_register = alloc_register ctx in
     emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_stack num) (string_of_register new_register);
     (new_register, free_register new_register)
   )
-  | Register r -> (r, fun _ -> ())
-  | Constant c -> (
+  | RegisterValue r -> (r, fun _ -> ())
+  | ConstantValue c -> (
     let new_register = alloc_register ctx in
     emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_constant c) (string_of_register new_register);
     (new_register, free_register new_register)
   )
 
 let turn_into_stack ctx buf = function
-  | Stack num -> num
-  | Register r -> (
+  | StackValue num -> num
+  | RegisterValue r -> (
       let new_stack = alloc_stack ctx in
       emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register r) (string_of_stack new_stack);
       new_stack
   )
-  | Constant c -> (
+  | ConstantValue c -> (
       let new_stack = alloc_stack ctx in
       emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_constant c) (string_of_stack new_stack);
       new_stack
@@ -80,7 +83,7 @@ let get_variable ctx ident =
   Hashtbl.find ctx.env ident
 
 let rec codegen_expr ctx buf = function
-  | P.Int num -> Constant num
+  | P.Int num -> ConstantValue num
   | P.Add (lhs, rhs) -> (
       let lhs = codegen_expr ctx buf lhs in
       let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
@@ -88,7 +91,7 @@ let rec codegen_expr ctx buf = function
       let new_stack = alloc_stack ctx in
       emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register rhs) (string_of_stack new_stack);
       free ctx;
-      Stack new_stack
+      StackValue new_stack
   )
   | P.Mul (lhs, rhs) -> (
       let lhs = codegen_expr ctx buf lhs in
@@ -97,7 +100,7 @@ let rec codegen_expr ctx buf = function
       let new_stack = alloc_stack ctx in
       emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register rhs) (string_of_stack new_stack);
       free ctx;
-      Stack new_stack
+      StackValue new_stack
   )
   | P.LetVar (ident, lhs, rhs) -> (
     let lhs = codegen_expr ctx buf lhs in
@@ -106,12 +109,12 @@ let rec codegen_expr ctx buf = function
     undef_variable ctx ident;
     rhs
   )
-  | P.Var ident -> Stack (get_variable ctx ident)
+  | P.Var ident -> StackValue (get_variable ctx ident)
 
 let codegen ast =
   let ctx = {
     current_stack = -8;
-    unused_registers = [RegName "%eax"; RegName "%ebx"; RegName "%ecx"; RegName "%edx"];
+    unused_registers = [Register "%eax"; Register "%ebx"; Register "%ecx"; Register "%edx"];
     env = Hashtbl.create 10;
   } in
   let buf = Buffer.create 100 in
