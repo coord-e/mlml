@@ -59,17 +59,17 @@ let turn_into_register ctx buf = function
 let rec codegen_expr ctx buf = function
   | P.Int num -> Constant num
   | P.Add (lhs, rhs) -> (
-      let lhs = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
+      let lhs = codegen_expr ctx buf lhs in
       let rhs = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
-      emit_instruction buf @@ Printf.sprintf "addl %s, %s" (string_of_register lhs) (string_of_register rhs);
+      emit_instruction buf @@ Printf.sprintf "addl %s, %s" (value_to_asm lhs) (string_of_register rhs);
       let new_stack = alloc_stack ctx in
       emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register rhs) (value_to_asm new_stack);
       new_stack
   )
   | P.Mul (lhs, rhs) -> (
-      let lhs = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
+      let lhs = codegen_expr ctx buf lhs in
       let rhs = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
-      emit_instruction buf @@ Printf.sprintf "imull %s, %s" (string_of_register lhs) (string_of_register rhs);
+      emit_instruction buf @@ Printf.sprintf "imull %s, %s" (value_to_asm lhs) (string_of_register rhs);
       let new_stack = alloc_stack ctx in
       emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register rhs) (value_to_asm new_stack);
       new_stack
