@@ -1,5 +1,6 @@
 type token =
   | IntLiteral of int
+  | BoolLiteral of bool
   | CapitalIdent of string
   | LowerIdent of string
   | Plus
@@ -51,6 +52,8 @@ let rec tokenize_aux acc rest =
       (match ident_str with
       | "let" -> tokenize_aux (Let :: acc) rest
       | "in" -> tokenize_aux (In :: acc) rest
+      | "true" -> tokenize_aux (BoolLiteral true :: acc) rest
+      | "false" -> tokenize_aux (BoolLiteral false :: acc) rest
       | _ ->
         (match ident_str.[0] with
         | 'A' .. 'Z' -> tokenize_aux (CapitalIdent ident_str :: acc) rest
@@ -72,6 +75,7 @@ let tokenize source = tokenize_aux [] @@ explode source |> List.rev
 
 let string_of_token = function
   | IntLiteral num -> string_of_int num
+  | BoolLiteral b -> string_of_bool b
   | CapitalIdent ident | LowerIdent ident -> ident
   | Plus -> "+"
   | Star -> "*"
