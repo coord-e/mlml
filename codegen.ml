@@ -171,6 +171,7 @@ and emit_function main_buf name ast params =
   ) params;
   let value = codegen_expr ctx buf ast in
   assign_to_register buf value ret_register;
+  emit_instruction buf "movq %rbp, %rsp";
   emit_instruction buf "popq	%rbp";
   emit_instruction buf "ret";
   (* TODO: Use more effective and sufficient way to prepend to the buffer *)
