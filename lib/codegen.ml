@@ -173,6 +173,12 @@ let rec codegen_expr ctx buf = function
     let rhs = codegen_expr ctx buf rhs in
     undef_variable ctx ident;
     rhs
+  | P.LetRecFun (ident, params, lhs, rhs) ->
+    let lhs = emit_function_value ctx buf ident lhs params in
+    define_variable ctx buf ident lhs;
+    let rhs = codegen_expr ctx buf rhs in
+    undef_variable ctx ident;
+    rhs
   | P.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
