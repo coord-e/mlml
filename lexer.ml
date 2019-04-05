@@ -2,6 +2,9 @@ type token =
   | IntLiteral of int
   | Plus
   | Star
+  | Let
+  | In
+  | Equal
 
 let to_digit c = int_of_char c - int_of_char '0'
 
@@ -39,6 +42,9 @@ let token_to_string = function
   | IntLiteral num -> string_of_int num
   | Plus -> "+"
   | Star -> "*"
+  | Let -> "let"
+  | In -> "in"
+  | Equal -> "="
 
 let tokens_to_string tokens =
   let aux acc t =
