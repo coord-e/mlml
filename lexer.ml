@@ -7,6 +7,8 @@ type token =
   | Let
   | In
   | Equal
+  | LParen
+  | RParen
 
 let to_digit c = int_of_char c - int_of_char '0'
 
@@ -62,6 +64,8 @@ let rec tokenize_aux acc rest =
     | '+' -> tokenize_aux (Plus :: acc) t
     | '*' -> tokenize_aux (Star :: acc) t
     | '=' -> tokenize_aux (Equal :: acc) t
+    | '(' -> tokenize_aux (LParen :: acc) t
+    | ')' -> tokenize_aux (RParen :: acc) t
     | _ -> failwith @@ Printf.sprintf "unexpected character: '%c'" h
 
 let explode s =
@@ -80,6 +84,8 @@ let string_of_token = function
   | Let -> "let"
   | In -> "in"
   | Equal -> "="
+  | LParen -> "("
+  | RParen -> ")"
 
 let string_of_tokens tokens =
   let aux acc t =

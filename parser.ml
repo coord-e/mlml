@@ -9,19 +9,25 @@ type ast =
   | App of ast * ast
   | Var of string
 
-let try_parse_literal tokens =
+let rec try_parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> (tokens, Some (Int num))
   | L.LowerIdent ident :: tokens  -> (tokens, Some (Var ident))
+  | L.LParen :: tokens -> (
+    let rest, v = parse_expression tokens in
+    match rest with
+    | L.RParen :: rest -> (rest, Some v)
+    | _ -> (rest, None)
+  )
   | _ -> (tokens, None)
 
-let parse_literal tokens =
+and parse_literal tokens =
   match try_parse_literal tokens with
   | (tokens, Some v) -> (tokens, v)
   | (h :: _, None) -> failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
   | ([], None) -> failwith "Empty input"
 
-let parse_app tokens =
+and parse_app tokens =
   let rest, f = parse_literal tokens in
   let rec aux lhs tokens =
     match try_parse_literal tokens with
@@ -29,7 +35,7 @@ let parse_app tokens =
     | (rest, None) -> (rest, lhs)
   in aux f rest
 
-let parse_mult tokens =
+and parse_mult tokens =
   let tokens, lhs = parse_app tokens in
   let rec aux lhs tokens =
     match tokens with
@@ -39,7 +45,7 @@ let parse_mult tokens =
     | _ -> (tokens, lhs)
   in aux lhs tokens
 
-let parse_add tokens =
+and parse_add tokens =
   let tokens, lhs = parse_mult tokens in
   let rec aux lhs tokens =
     match tokens with
@@ -49,7 +55,7 @@ let parse_add tokens =
     | _ -> (tokens, lhs)
   in aux lhs tokens
 
-let rec parse_let = function
+and parse_let = function
   | L.Let :: L.LowerIdent ident :: L.Equal :: rest -> (
     let rest, lhs = parse_expression rest in
     match rest with
