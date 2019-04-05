@@ -36,6 +36,7 @@ let rec tokenize_aux acc rest =
   | [] -> acc
   | h :: t ->
     match h with
+    | ' ' | '\t' | '\n' -> tokenize_aux acc t
     | '0' .. '9' -> (
       let rest, num = read_int 0 rest in
       tokenize_aux (IntLiteral num :: acc) rest
