@@ -155,7 +155,7 @@ let rec codegen_expr ctx buf = function
       assign_to_register buf rhs param;
       emit_instruction buf @@ Printf.sprintf "call *%s" (string_of_value lhs);
       free ctx;
-      RegisterValue ret_register
+      StackValue (turn_into_stack ctx buf (RegisterValue ret_register))
   )
 
 and emit_function main_buf name ast params =
