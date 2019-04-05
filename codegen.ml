@@ -25,7 +25,7 @@ let free_register reg context =
 let alloc_stack context =
   let c = context.current_stack in
   context.current_stack <- (c - 4);
-  Stack c
+  c
 
 let emit_instruction buf inst =
   Buffer.add_string buf inst;
@@ -55,6 +55,18 @@ let turn_into_register ctx buf = function
     (new_register, free_register new_register)
   )
 
+let turn_into_stack ctx buf = function
+  | Stack num -> num
+  | Register r -> (
+      let new_stack = alloc_stack ctx in
+      emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register r) (string_of_stack new_stack);
+      new_stack
+  )
+  | Constant c -> (
+      let new_stack = alloc_stack ctx in
+      emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_constant c) (string_of_stack new_stack);
+      new_stack
+  )
 
 let rec codegen_expr ctx buf = function
   | P.Int num -> Constant num
@@ -63,18 +75,18 @@ let rec codegen_expr ctx buf = function
       let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
       emit_instruction buf @@ Printf.sprintf "addl %s, %s" (value_to_asm lhs) (string_of_register rhs);
       let new_stack = alloc_stack ctx in
-      emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register rhs) (value_to_asm new_stack);
+      emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register rhs) (string_of_stack new_stack);
       free ctx;
-      new_stack
+      Stack new_stack
   )
   | P.Mul (lhs, rhs) -> (
       let lhs = codegen_expr ctx buf lhs in
       let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
       emit_instruction buf @@ Printf.sprintf "imull %s, %s" (value_to_asm lhs) (string_of_register rhs);
       let new_stack = alloc_stack ctx in
-      emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register rhs) (value_to_asm new_stack);
+      emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register rhs) (string_of_stack new_stack);
       free ctx;
-      new_stack
+      Stack new_stack
   )
 
 let codegen ast =
