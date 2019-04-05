@@ -6,7 +6,7 @@ type ast =
   | Mul of ast * ast
   | LetVar of string * ast * ast
   | LetFun of string * (string list) * ast * ast
-  | App of ast * (ast list)
+  | App of ast * ast
   | Var of string
 
 let try_parse_literal tokens =
@@ -23,22 +23,11 @@ let parse_literal tokens =
 
 let parse_app tokens =
   let rest, f = parse_literal tokens in
-  let rec aux tokens =
-    match tokens with
-    | _ :: _ -> (
-      match try_parse_literal tokens with
-      | (rest, Some p) -> (
-        let rest, params = aux rest in
-        (rest, p :: params)
-      )
-      | (rest, None) -> (rest, [])
-    )
-    | _ -> (rest, [])
-  in
-  let rest, params = aux rest in
-  match params with
-  | _ :: _ -> (rest, App (f, params))
-  | _ -> (rest, f)
+  let rec aux lhs tokens =
+    match try_parse_literal tokens with
+    | (rest, Some p) -> aux (App (lhs, p)) rest
+    | (rest, None) -> (rest, lhs)
+  in aux f rest
 
 let parse_mult tokens =
   let tokens, lhs = parse_app tokens in
@@ -105,8 +94,5 @@ let rec string_of_ast = function
     let p = String.concat ", " params in
     Printf.sprintf "Let (%s) (%s) = (%s) in (%s)" ident p (string_of_ast lhs) (string_of_ast rhs)
   )
-  | App (lhs, params) -> (
-    let p = List.map string_of_ast params |> String.concat ", " in
-    Printf.sprintf "App (%s) (%s)" (string_of_ast lhs) p
-  )
+  | App (lhs, rhs) -> Printf.sprintf "App (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | Var ident -> Printf.sprintf "Var %s" ident
