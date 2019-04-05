@@ -8,6 +8,9 @@ type token =
   | Let
   | In
   | Equal
+  | If
+  | Then
+  | Else
   | LParen
   | RParen
 
@@ -54,6 +57,9 @@ let rec tokenize_aux acc rest =
       | "in" -> tokenize_aux (In :: acc) rest
       | "true" -> tokenize_aux (BoolLiteral true :: acc) rest
       | "false" -> tokenize_aux (BoolLiteral false :: acc) rest
+      | "if" -> tokenize_aux (If :: acc) rest
+      | "then" -> tokenize_aux (Then :: acc) rest
+      | "else" -> tokenize_aux (Else :: acc) rest
       | _ ->
         (match ident_str.[0] with
         | 'A' .. 'Z' -> tokenize_aux (CapitalIdent ident_str :: acc) rest
@@ -82,6 +88,9 @@ let string_of_token = function
   | Let -> "let"
   | In -> "in"
   | Equal -> "="
+  | If -> "if"
+  | Then -> "then"
+  | Else -> "else"
   | LParen -> "("
   | RParen -> ")"
 ;;
