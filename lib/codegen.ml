@@ -74,6 +74,8 @@ let emit_instruction buf inst =
   Buffer.add_char buf '\n'
 ;;
 
+let start_label buf label = emit_instruction buf @@ string_of_label label ^ ":"
+
 let assign_to_register buf v reg =
   emit_instruction buf
   @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_register reg)
@@ -191,10 +193,10 @@ let rec codegen_expr ctx buf = function
     let else_ = codegen_expr ctx buf else_ in
     assign_to_stack ctx buf else_ eval_stack;
     emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
-    emit_instruction buf @@ string_of_label then_label ^ ":";
+    start_label buf then_label;
     let then_ = codegen_expr ctx buf then_ in
     assign_to_stack ctx buf then_ eval_stack;
-    emit_instruction buf @@ string_of_label join_label ^ ":";
+    start_label buf join_label;
     StackValue eval_stack
   | P.Equal (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
@@ -214,7 +216,7 @@ and emit_function main_buf name ast params =
   let ctx = new_context () in
   let buf = Buffer.create 100 in
   emit_instruction buf @@ ".globl " ^ name;
-  emit_instruction buf @@ name ^ ":";
+  start_label buf @@ Label name;
   emit_instruction buf "pushq\t%rbp";
   emit_instruction buf "movq\t%rsp, %rbp";
   List.iteri
