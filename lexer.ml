@@ -24,14 +24,18 @@ let rec read_int acc rest =
   )
   | _ -> ([], acc)
 
-let rec read_ident acc rest =
+let rec read_ident_aux acc rest =
   match rest with
   | h :: t -> (
     match h with
-    | 'a' .. 'z' | 'A' .. 'Z' | '_' -> read_ident (h :: acc) t
+    | 'a' .. 'z' | 'A' .. 'Z' | '_' -> read_ident_aux (h :: acc) t
     | _ -> (rest, acc)
   )
   | _ -> ([], acc)
+
+let read_ident acc rest =
+  let rest, acc = read_ident_aux acc rest in
+  (rest, List.rev acc)
 
 let rec tokenize_aux acc rest =
   match rest with
