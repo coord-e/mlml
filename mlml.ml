@@ -1,3 +1,3 @@
 let () = (
-  Lexer.tokenize "11+1" |> Parser.parse |> Codegen.codegen |> print_endline
+  Lexer.tokenize "11+14*11" |> Parser.parse |> Codegen.codegen |> print_endline
 )
