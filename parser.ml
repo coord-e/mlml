@@ -11,7 +11,7 @@ let parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> (tokens, Int num)
   | L.LowerIdent ident :: tokens  -> (tokens, Var ident)
-  | h :: _ -> failwith @@ Printf.sprintf "unexpected token: '%s'" (L.token_to_string h)
+  | h :: _ -> failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
   | _ -> failwith "Empty input"
 
 let parse_mult tokens =
@@ -52,9 +52,9 @@ let parse tokens =
   let _rest, ast = parse_expression tokens in
   ast
 
-let rec ast_to_string = function
+let rec string_of_ast = function
   | Int num -> Printf.sprintf "Int %d" num
-  | Add (lhs, rhs) -> Printf.sprintf "Add (%s) (%s)" (ast_to_string lhs) (ast_to_string rhs)
-  | Mul (lhs, rhs) -> Printf.sprintf "Mul (%s) (%s)" (ast_to_string lhs) (ast_to_string rhs)
-  | LetVar (ident, lhs, rhs) -> Printf.sprintf "Let (%s) = (%s) in (%s)" ident (ast_to_string lhs) (ast_to_string rhs)
+  | Add (lhs, rhs) -> Printf.sprintf "Add (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
+  | Mul (lhs, rhs) -> Printf.sprintf "Mul (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
+  | LetVar (ident, lhs, rhs) -> Printf.sprintf "Let (%s) = (%s) in (%s)" ident (string_of_ast lhs) (string_of_ast rhs)
   | Var ident -> Printf.sprintf "Var %s" ident

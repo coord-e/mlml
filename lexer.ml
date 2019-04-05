@@ -72,7 +72,7 @@ let explode s =
 let tokenize source =
   tokenize_aux [] @@ explode source |> List.rev
 
-let token_to_string = function
+let string_of_token = function
   | IntLiteral num -> string_of_int num
   | CapitalIdent ident | LowerIdent ident -> ident
   | Plus -> "+"
@@ -81,7 +81,7 @@ let token_to_string = function
   | In -> "in"
   | Equal -> "="
 
-let tokens_to_string tokens =
+let string_of_tokens tokens =
   let aux acc t =
-    (token_to_string t) ^ ", " ^ acc
+    (string_of_token t) ^ ", " ^ acc
   in List.fold_left aux "" @@ List.rev tokens
