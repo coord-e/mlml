@@ -7,6 +7,8 @@ type token =
   | Let
   | In
   | Equal
+  | LParen
+  | RParen
 
 let to_digit c = int_of_char c - int_of_char '0'
 
@@ -80,6 +82,8 @@ let string_of_token = function
   | Let -> "let"
   | In -> "in"
   | Equal -> "="
+  | LParen -> "("
+  | RParen -> ")"
 
 let string_of_tokens tokens =
   let aux acc t =
