@@ -5,6 +5,7 @@ type ast =
   | Add of ast * ast
   | Mul of ast * ast
   | LetVar of string * ast * ast
+  | LetFun of string * (string list) * ast * ast
   | Var of string
 
 let parse_literal tokens =
@@ -57,4 +58,8 @@ let rec string_of_ast = function
   | Add (lhs, rhs) -> Printf.sprintf "Add (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | Mul (lhs, rhs) -> Printf.sprintf "Mul (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | LetVar (ident, lhs, rhs) -> Printf.sprintf "Let (%s) = (%s) in (%s)" ident (string_of_ast lhs) (string_of_ast rhs)
+  | LetFun (ident, params, lhs, rhs) -> (
+    let p = String.concat ", " params in
+    Printf.sprintf "Let (%s) (%s) = (%s) in (%s)" ident p (string_of_ast lhs) (string_of_ast rhs)
+  )
   | Var ident -> Printf.sprintf "Var %s" ident
