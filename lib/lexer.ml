@@ -4,6 +4,7 @@ type token =
   | CapitalIdent of string
   | LowerIdent of string
   | Plus
+  | Minus
   | Star
   | Let
   | In
@@ -65,6 +66,7 @@ let rec tokenize_aux acc rest =
         | 'A' .. 'Z' -> tokenize_aux (CapitalIdent ident_str :: acc) rest
         | _ -> tokenize_aux (LowerIdent ident_str :: acc) rest))
     | '+' -> tokenize_aux (Plus :: acc) t
+    | '-' -> tokenize_aux (Minus :: acc) t
     | '*' -> tokenize_aux (Star :: acc) t
     | '=' -> tokenize_aux (Equal :: acc) t
     | '(' -> tokenize_aux (LParen :: acc) t
@@ -84,6 +86,7 @@ let string_of_token = function
   | BoolLiteral b -> string_of_bool b
   | CapitalIdent ident | LowerIdent ident -> ident
   | Plus -> "+"
+  | Minus -> "-"
   | Star -> "*"
   | Let -> "let"
   | In -> "in"

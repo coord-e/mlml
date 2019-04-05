@@ -152,6 +152,14 @@ let rec codegen_expr ctx buf = function
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free ctx;
     StackValue s
+  | P.Sub (lhs, rhs) ->
+    let rhs = codegen_expr ctx buf rhs in
+    let lhs, free = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
+    emit_instruction buf
+    @@ Printf.sprintf "subq %s, %s" (string_of_value rhs) (string_of_register lhs);
+    let s = turn_into_stack ctx buf (RegisterValue lhs) in
+    free ctx;
+    StackValue s
   | P.Mul (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
