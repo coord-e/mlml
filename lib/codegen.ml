@@ -38,7 +38,10 @@ let usable_registers =
 let ret_register = Register "%rax"
 
 let new_context () =
-  {current_stack = -8; unused_registers = usable_registers; env = Hashtbl.create 10; label_index = 0}
+  { current_stack = -8
+  ; unused_registers = usable_registers
+  ; env = Hashtbl.create 10
+  ; label_index = 0 }
 ;;
 
 let new_unnamed_label ctx =
@@ -177,16 +180,13 @@ let rec codegen_expr ctx buf = function
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label then_label);
     let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
     let join_label = new_unnamed_label ctx in
-
     let else_ = codegen_expr ctx buf else_ in
     assign_to_stack buf else_ eval_stack;
     emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
-
-    emit_instruction buf @@ (string_of_label then_label) ^ ":";
+    emit_instruction buf @@ string_of_label then_label ^ ":";
     let then_ = codegen_expr ctx buf then_ in
     assign_to_stack buf then_ eval_stack;
-
-    emit_instruction buf @@ (string_of_label join_label) ^ ":";
+    emit_instruction buf @@ string_of_label join_label ^ ":";
     StackValue eval_stack
 
 and emit_function main_buf name ast params =

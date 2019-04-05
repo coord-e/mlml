@@ -128,6 +128,10 @@ let rec string_of_ast = function
   | App (lhs, rhs) ->
     Printf.sprintf "App (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | IfThenElse (cond, then_, else_) ->
-    Printf.sprintf "If (%s) then (%s) else (%s)" (string_of_ast cond) (string_of_ast then_) (string_of_ast else_)
+    Printf.sprintf
+      "If (%s) then (%s) else (%s)"
+      (string_of_ast cond)
+      (string_of_ast then_)
+      (string_of_ast else_)
   | Var ident -> Printf.sprintf "Var %s" ident
 ;;
