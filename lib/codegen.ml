@@ -188,6 +188,19 @@ let rec codegen_expr ctx buf = function
     assign_to_stack buf then_ eval_stack;
     emit_instruction buf @@ string_of_label join_label ^ ":";
     StackValue eval_stack
+  | P.Equal (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
+    (* Use rdx temporarily (8-bit register(dl) is needed) *)
+    let rdx = Register "%rdx" in
+    use_register ctx rdx;
+    emit_instruction buf @@ Printf.sprintf "cmpq %s, %s" (string_of_value lhs) (string_of_register rhs);
+    free ctx;
+    emit_instruction buf "sete %dl";
+    emit_instruction buf "movzbq %dl, %rdx";
+    let s = push_to_stack ctx buf (RegisterValue rdx) in
+    free_register rdx ctx;
+    StackValue s
 
 and emit_function main_buf name ast params =
   let ctx = new_context () in
