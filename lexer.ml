@@ -8,11 +8,25 @@ type token =
 
 let to_digit c = int_of_char c - int_of_char '0'
 
+let string_of_chars chars =
+  let buf = Buffer.create 8 in
+  List.iter (Buffer.add_char buf) chars;
+  Buffer.contents buf
+
 let rec read_int acc rest =
   match rest with
   | h :: t -> (
     match h with
     | '0' .. '9' -> read_int (acc * 10 + to_digit h) t
+    | _ -> (rest, acc)
+  )
+  | _ -> ([], acc)
+
+let rec read_ident acc rest =
+  match rest with
+  | h :: t -> (
+    match h with
+    | 'a' .. 'z' | 'A' .. 'Z' | '_' -> read_ident (h :: acc) t
     | _ -> (rest, acc)
   )
   | _ -> ([], acc)
@@ -25,6 +39,14 @@ let rec tokenize_aux acc rest =
     | '0' .. '9' -> (
       let rest, num = read_int 0 rest in
       tokenize_aux (IntLiteral num :: acc) rest
+    )
+    | 'a' .. 'z' | 'A' .. 'Z' | '_' -> (
+      let rest, ident = read_ident [] rest in
+      let ident_str = string_of_chars ident in
+      match ident_str with
+      | "let" -> tokenize_aux (Let :: acc) rest
+      | "in" -> tokenize_aux (In :: acc) rest
+      | _ -> failwith @@ Printf.sprintf "unexpected idenfitier: '%s'" ident_str
     )
     | '+' -> tokenize_aux (Plus :: acc) t
     | '*' -> tokenize_aux (Star :: acc) t
