@@ -2,6 +2,7 @@ module P = Parser
 
 type register = Register of string
 type stack = Stack of int
+type label = Label of string
 
 type value =
   | StackValue of stack
@@ -10,6 +11,7 @@ type value =
 
 let string_of_register = function Register n -> n
 let string_of_stack = function Stack num -> string_of_int num ^ "(%rbp)"
+let string_of_label = function Label n -> n
 let string_of_constant num = "$" ^ string_of_int num
 
 let string_of_value = function
@@ -21,7 +23,8 @@ let string_of_value = function
 type context =
   { mutable current_stack : int
   ; mutable unused_registers : register list
-  ; mutable env : (string, stack) Hashtbl.t }
+  ; mutable env : (string, stack) Hashtbl.t
+  ; mutable label_index : int }
 
 let usable_registers =
   [ Register "%rsi"
@@ -29,13 +32,23 @@ let usable_registers =
   ; Register "%r8"
   ; Register "%r9"
   ; Register "%r10"
-  ; Register "%r11" ]
+  ; Register "%r11"
+  ; Register "%rdx" ]
 ;;
 
 let ret_register = Register "%rax"
 
 let new_context () =
-  {current_stack = -8; unused_registers = usable_registers; env = Hashtbl.create 10}
+  { current_stack = -8
+  ; unused_registers = usable_registers
+  ; env = Hashtbl.create 10
+  ; label_index = 0 }
+;;
+
+let new_unnamed_label ctx =
+  let i = ctx.label_index in
+  ctx.label_index <- i + 1;
+  Label (Printf.sprintf ".L%d" i)
 ;;
 
 let use_register ctx reg =
@@ -61,14 +74,11 @@ let emit_instruction buf inst =
   Buffer.add_char buf '\n'
 ;;
 
+let start_label buf label = emit_instruction buf @@ string_of_label label ^ ":"
+
 let assign_to_register buf v reg =
   emit_instruction buf
   @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_register reg)
-;;
-
-let assign_to_stack buf v stack =
-  emit_instruction buf
-  @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_stack stack)
 ;;
 
 let push_to_stack ctx buf v =
@@ -84,6 +94,17 @@ let turn_into_register ctx buf = function
     let new_register = alloc_register ctx in
     assign_to_register buf v new_register;
     new_register, free_register new_register
+;;
+
+let rec assign_to_stack ctx buf v stack =
+  match v with
+  | RegisterValue _ | ConstantValue _ ->
+    emit_instruction buf
+    @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_stack stack)
+  | StackValue _ ->
+    let reg, free = turn_into_register ctx buf v in
+    assign_to_stack ctx buf (RegisterValue reg) stack;
+    free ctx
 ;;
 
 let turn_into_stack ctx buf = function StackValue s -> s | v -> push_to_stack ctx buf v
@@ -160,12 +181,42 @@ let rec codegen_expr ctx buf = function
     emit_instruction buf @@ Printf.sprintf "call *%s" (string_of_value lhs);
     free ctx;
     StackValue (turn_into_stack ctx buf (RegisterValue ret_register))
+  | P.IfThenElse (cond, then_, else_) ->
+    let cond, free = codegen_expr ctx buf cond |> turn_into_register ctx buf in
+    emit_instruction buf @@ Printf.sprintf "cmpq $0, %s" (string_of_register cond);
+    free ctx;
+    let then_label = new_unnamed_label ctx in
+    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label then_label);
+    let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
+    let join_label = new_unnamed_label ctx in
+    let else_ = codegen_expr ctx buf else_ in
+    assign_to_stack ctx buf else_ eval_stack;
+    emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
+    start_label buf then_label;
+    let then_ = codegen_expr ctx buf then_ in
+    assign_to_stack ctx buf then_ eval_stack;
+    start_label buf join_label;
+    StackValue eval_stack
+  | P.Equal (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
+    (* Use rdx temporarily (8-bit register(dl) is needed) *)
+    let rdx = Register "%rdx" in
+    use_register ctx rdx;
+    emit_instruction buf
+    @@ Printf.sprintf "cmpq %s, %s" (string_of_value lhs) (string_of_register rhs);
+    free ctx;
+    emit_instruction buf "sete %dl";
+    emit_instruction buf "movzbq %dl, %rdx";
+    let s = push_to_stack ctx buf (RegisterValue rdx) in
+    free_register rdx ctx;
+    StackValue s
 
 and emit_function main_buf name ast params =
   let ctx = new_context () in
   let buf = Buffer.create 100 in
   emit_instruction buf @@ ".globl " ^ name;
-  emit_instruction buf @@ name ^ ":";
+  start_label buf @@ Label name;
   emit_instruction buf "pushq\t%rbp";
   emit_instruction buf "movq\t%rsp, %rbp";
   List.iteri

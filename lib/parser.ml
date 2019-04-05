@@ -6,12 +6,16 @@ type ast =
   | Mul of ast * ast
   | LetVar of string * ast * ast
   | LetFun of string * string list * ast * ast
+  | IfThenElse of ast * ast * ast
   | App of ast * ast
   | Var of string
+  | Equal of ast * ast
 
 let rec try_parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
+  (* TODO: Add boolean value *)
+  | L.BoolLiteral b :: tokens -> tokens, Some (Int (if b then 1 else 0))
   | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
   | L.LParen :: tokens ->
     let rest, v = parse_expression tokens in
@@ -56,6 +60,31 @@ and parse_add tokens =
   in
   aux lhs tokens
 
+and parse_equal tokens =
+  let tokens, lhs = parse_add tokens in
+  let rec aux lhs tokens =
+    match tokens with
+    | L.Equal :: rest ->
+      let rest, rhs = parse_add rest in
+      aux (Equal (lhs, rhs)) rest
+    | _ -> tokens, lhs
+  in
+  aux lhs tokens
+
+and parse_if = function
+  | L.If :: rest ->
+    let rest, cond = parse_expression rest in
+    (match rest with
+    | L.Then :: rest ->
+      let rest, then_ = parse_expression rest in
+      (match rest with
+      | L.Else :: rest ->
+        let rest, else_ = parse_expression rest in
+        rest, IfThenElse (cond, then_, else_)
+      | _ -> failwith "could not find 'else'")
+    | _ -> failwith "could not find 'then'")
+  | tokens -> parse_equal tokens
+
 and parse_let = function
   | L.Let :: L.LowerIdent ident :: L.Equal :: rest ->
     let rest, lhs = parse_expression rest in
@@ -79,7 +108,7 @@ and parse_let = function
       let rest, rhs = parse_expression rest in
       rest, LetFun (ident, params, lhs, rhs)
     | _ -> failwith "could not find 'in'")
-  | tokens -> parse_add tokens
+  | tokens -> parse_if tokens
 
 and parse_expression tokens = parse_let tokens
 
@@ -94,6 +123,8 @@ let rec string_of_ast = function
     Printf.sprintf "Add (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | Mul (lhs, rhs) ->
     Printf.sprintf "Mul (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
+  | Equal (lhs, rhs) ->
+    Printf.sprintf "Equal (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | LetVar (ident, lhs, rhs) ->
     Printf.sprintf
       "Let (%s) = (%s) in (%s)"
@@ -110,5 +141,11 @@ let rec string_of_ast = function
       (string_of_ast rhs)
   | App (lhs, rhs) ->
     Printf.sprintf "App (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
+  | IfThenElse (cond, then_, else_) ->
+    Printf.sprintf
+      "If (%s) then (%s) else (%s)"
+      (string_of_ast cond)
+      (string_of_ast then_)
+      (string_of_ast else_)
   | Var ident -> Printf.sprintf "Var %s" ident
 ;;
