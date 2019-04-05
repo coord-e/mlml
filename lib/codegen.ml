@@ -11,7 +11,7 @@ type value =
 
 let string_of_register = function Register n -> n
 let string_of_stack = function Stack num -> string_of_int num ^ "(%rbp)"
-let string_of_label = function Label n -> n ^ ":"
+let string_of_label = function Label n -> n
 let string_of_constant num = "$" ^ string_of_int num
 
 let string_of_value = function
@@ -23,7 +23,8 @@ let string_of_value = function
 type context =
   { mutable current_stack : int
   ; mutable unused_registers : register list
-  ; mutable env : (string, stack) Hashtbl.t }
+  ; mutable env : (string, stack) Hashtbl.t
+  ; mutable label_index : int }
 
 let usable_registers =
   [ Register "%rsi"
@@ -37,7 +38,13 @@ let usable_registers =
 let ret_register = Register "%rax"
 
 let new_context () =
-  {current_stack = -8; unused_registers = usable_registers; env = Hashtbl.create 10}
+  {current_stack = -8; unused_registers = usable_registers; env = Hashtbl.create 10; label_index = 0}
+;;
+
+let new_unnamed_label ctx =
+  let i = ctx.label_index in
+  ctx.label_index <- i + 1;
+  Label (Printf.sprintf ".L%d" i)
 ;;
 
 let use_register ctx reg =
@@ -163,22 +170,23 @@ let rec codegen_expr ctx buf = function
     free ctx;
     StackValue (turn_into_stack ctx buf (RegisterValue ret_register))
   | P.IfThenElse (cond, then_, else_) ->
-    let cond = codegen_expr ctx buf cond in
-    emit_instruction buf @@ Printf.sprintf "cmpq $0 %s" (string_of_value cond);
-    let else_label = new_label ctx "." in
+    let cond, free = codegen_expr ctx buf cond |> turn_into_register ctx buf in
+    emit_instruction buf @@ Printf.sprintf "cmpq $0, %s" (string_of_register cond);
+    free ctx;
+    let else_label = new_unnamed_label ctx in
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label else_label);
     let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
-    let join_label = new_label ctx "." in
+    let join_label = new_unnamed_label ctx in
 
     let then_ = codegen_expr ctx buf then_ in
     assign_to_stack buf then_ eval_stack;
     emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
 
-    emit_instruction buf @@ string_of_label else_label;
-    let else_ = codegen_expr ctx buf then_ in
+    emit_instruction buf @@ (string_of_label else_label) ^ ":";
+    let else_ = codegen_expr ctx buf else_ in
     assign_to_stack buf else_ eval_stack;
 
-    emit_instruction buf @@ string_of_label join_label;
+    emit_instruction buf @@ (string_of_label join_label) ^ ":";
     StackValue eval_stack
 
 and emit_function main_buf name ast params =
