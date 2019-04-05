@@ -2,6 +2,7 @@ module P = Parser
 
 type register = Register of string
 type stack = Stack of int
+type label = Label of string
 
 type value =
   | StackValue of stack
@@ -10,6 +11,7 @@ type value =
 
 let string_of_register = function Register n -> n
 let string_of_stack = function Stack num -> string_of_int num ^ "(%rbp)"
+let string_of_label = function Label n -> n ^ ":"
 let string_of_constant num = "$" ^ string_of_int num
 
 let string_of_value = function
@@ -160,6 +162,24 @@ let rec codegen_expr ctx buf = function
     emit_instruction buf @@ Printf.sprintf "call *%s" (string_of_value lhs);
     free ctx;
     StackValue (turn_into_stack ctx buf (RegisterValue ret_register))
+  | P.IfThenElse (cond, then_, else_) ->
+    let cond = codegen_expr ctx buf cond in
+    emit_instruction buf @@ Printf.sprintf "cmpq $0 %s" (string_of_value cond);
+    let else_label = new_label ctx "." in
+    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label else_label);
+    let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
+    let join_label = new_label ctx "." in
+
+    let then_ = codegen_expr ctx buf then_ in
+    assign_to_stack buf then_ eval_stack;
+    emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
+
+    emit_instruction buf @@ string_of_label else_label;
+    let else_ = codegen_expr ctx buf then_ in
+    assign_to_stack buf else_ eval_stack;
+
+    emit_instruction buf @@ string_of_label join_label;
+    StackValue eval_stack
 
 and emit_function main_buf name ast params =
   let ctx = new_context () in
