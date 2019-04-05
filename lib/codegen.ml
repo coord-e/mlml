@@ -79,11 +79,6 @@ let assign_to_register buf v reg =
   @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_register reg)
 ;;
 
-let assign_to_stack buf v stack =
-  emit_instruction buf
-  @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_stack stack)
-;;
-
 let push_to_stack ctx buf v =
   emit_instruction buf @@ Printf.sprintf "pushq %s" (string_of_value v);
   let c = ctx.current_stack in
@@ -97,6 +92,18 @@ let turn_into_register ctx buf = function
     let new_register = alloc_register ctx in
     assign_to_register buf v new_register;
     new_register, free_register new_register
+;;
+
+let rec assign_to_stack ctx buf v stack =
+  match v with
+  | RegisterValue _ | ConstantValue _ ->
+    emit_instruction buf
+    @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_stack stack)
+  | StackValue _ -> (
+    let reg, free = turn_into_register ctx buf v in
+    assign_to_stack ctx buf (RegisterValue reg) stack;
+    free ctx
+  )
 ;;
 
 let turn_into_stack ctx buf = function StackValue s -> s | v -> push_to_stack ctx buf v
@@ -182,11 +189,11 @@ let rec codegen_expr ctx buf = function
     let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
     let join_label = new_unnamed_label ctx in
     let else_ = codegen_expr ctx buf else_ in
-    assign_to_stack buf else_ eval_stack;
+    assign_to_stack ctx buf else_ eval_stack;
     emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
     emit_instruction buf @@ string_of_label then_label ^ ":";
     let then_ = codegen_expr ctx buf then_ in
-    assign_to_stack buf then_ eval_stack;
+    assign_to_stack ctx buf then_ eval_stack;
     emit_instruction buf @@ string_of_label join_label ^ ":";
     StackValue eval_stack
   | P.Equal (lhs, rhs) ->
