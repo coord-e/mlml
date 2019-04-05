@@ -19,7 +19,7 @@ let alloc_register context =
   )
   | [] -> failwith "Could not allocate register"
 
-let free_register context reg =
+let free_register reg context =
   context.unused_registers <- reg :: context.unused_registers
 
 let alloc_stack context =
@@ -46,13 +46,13 @@ let turn_into_register ctx buf = function
   | Stack num -> (
     let new_register = alloc_register ctx in
     emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_stack num) (string_of_register new_register);
-    (new_register, free_register ctx)
+    (new_register, free_register new_register)
   )
   | Register r -> (r, fun _ -> ())
   | Constant c -> (
     let new_register = alloc_register ctx in
     emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_constant c) (string_of_register new_register);
-    (new_register, free_register ctx)
+    (new_register, free_register new_register)
   )
 
 
@@ -64,7 +64,7 @@ let rec codegen_expr ctx buf = function
       emit_instruction buf @@ Printf.sprintf "addl %s, %s" (value_to_asm lhs) (string_of_register rhs);
       let new_stack = alloc_stack ctx in
       emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register rhs) (value_to_asm new_stack);
-      free rhs;
+      free ctx;
       new_stack
   )
   | P.Mul (lhs, rhs) -> (
@@ -73,7 +73,7 @@ let rec codegen_expr ctx buf = function
       emit_instruction buf @@ Printf.sprintf "imull %s, %s" (value_to_asm lhs) (string_of_register rhs);
       let new_stack = alloc_stack ctx in
       emit_instruction buf @@ Printf.sprintf "movl %s, %s" (string_of_register rhs) (value_to_asm new_stack);
-      free rhs;
+      free ctx;
       new_stack
   )
 
