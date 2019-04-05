@@ -6,21 +6,46 @@ type ast =
   | Mul of ast * ast
   | LetVar of string * ast * ast
   | LetFun of string * (string list) * ast * ast
+  | App of ast * (ast list)
   | Var of string
 
-let parse_literal tokens =
+let try_parse_literal tokens =
   match tokens with
-  | L.IntLiteral num :: tokens -> (tokens, Int num)
-  | L.LowerIdent ident :: tokens  -> (tokens, Var ident)
-  | h :: _ -> failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
-  | _ -> failwith "Empty input"
+  | L.IntLiteral num :: tokens -> (tokens, Some (Int num))
+  | L.LowerIdent ident :: tokens  -> (tokens, Some (Var ident))
+  | _ -> (tokens, None)
+
+let parse_literal tokens =
+  match try_parse_literal tokens with
+  | (tokens, Some v) -> (tokens, v)
+  | (h :: _, None) -> failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
+  | ([], None) -> failwith "Empty input"
+
+let parse_app tokens =
+  let rest, f = parse_literal tokens in
+  let rec aux tokens =
+    match tokens with
+    | _ :: _ -> (
+      match try_parse_literal tokens with
+      | (rest, Some p) -> (
+        let rest, params = aux rest in
+        (rest, p :: params)
+      )
+      | (rest, None) -> (rest, [])
+    )
+    | _ -> (rest, [])
+  in
+  let rest, params = aux rest in
+  match params with
+  | _ :: _ -> (rest, App (f, params))
+  | _ -> (rest, f)
 
 let parse_mult tokens =
-  let tokens, lhs = parse_literal tokens in
+  let tokens, lhs = parse_app tokens in
   let rec aux lhs tokens =
     match tokens with
     | L.Star :: rest ->
-      let rest, rhs = parse_literal rest in
+      let rest, rhs = parse_app rest in
       aux (Mul (lhs, rhs)) rest
     | _ -> (tokens, lhs)
   in aux lhs tokens
@@ -79,5 +104,9 @@ let rec string_of_ast = function
   | LetFun (ident, params, lhs, rhs) -> (
     let p = String.concat ", " params in
     Printf.sprintf "Let (%s) (%s) = (%s) in (%s)" ident p (string_of_ast lhs) (string_of_ast rhs)
+  )
+  | App (lhs, params) -> (
+    let p = List.map string_of_ast params |> String.concat ", " in
+    Printf.sprintf "App (%s) (%s)" (string_of_ast lhs) p
   )
   | Var ident -> Printf.sprintf "Var %s" ident
