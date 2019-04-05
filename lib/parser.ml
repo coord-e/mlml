@@ -6,6 +6,7 @@ type ast =
   | Mul of ast * ast
   | LetVar of string * ast * ast
   | LetFun of string * string list * ast * ast
+  | IfThenElse of ast * ast * ast
   | App of ast * ast
   | Var of string
 
@@ -58,6 +59,20 @@ and parse_add tokens =
   in
   aux lhs tokens
 
+and parse_if = function
+  | L.If :: rest ->
+    let rest, cond = parse_expression rest in
+    (match rest with
+    | L.Then :: rest ->
+      let rest, then_ = parse_expression rest in
+      (match rest with
+      | L.Else :: rest ->
+        let rest, else_ = parse_expression rest in
+        rest, IfThenElse (cond, then_, else_)
+      | _ -> failwith "could not find 'else'")
+    | _ -> failwith "could not find 'then'")
+  | tokens -> parse_add tokens
+
 and parse_let = function
   | L.Let :: L.LowerIdent ident :: L.Equal :: rest ->
     let rest, lhs = parse_expression rest in
@@ -81,7 +96,7 @@ and parse_let = function
       let rest, rhs = parse_expression rest in
       rest, LetFun (ident, params, lhs, rhs)
     | _ -> failwith "could not find 'in'")
-  | tokens -> parse_add tokens
+  | tokens -> parse_if tokens
 
 and parse_expression tokens = parse_let tokens
 
