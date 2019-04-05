@@ -32,7 +32,8 @@ let usable_registers =
   ; Register "%r8"
   ; Register "%r9"
   ; Register "%r10"
-  ; Register "%r11" ]
+  ; Register "%r11"
+  ; Register "%rdx" ]
 ;;
 
 let ret_register = Register "%rax"
