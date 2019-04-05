@@ -116,8 +116,16 @@ let rec codegen_expr ctx buf = function
     rhs
   )
   | P.Var ident -> StackValue (get_variable ctx ident)
+  | P.LetFun (ident, _params, lhs, rhs) -> (
+    let lhs = emit_function_value ctx buf ident lhs in
+    define_variable ctx buf ident lhs;
+    let rhs = codegen_expr ctx buf rhs in
+    undef_variable ctx ident;
+    rhs
+  )
+  | _ -> failwith "UNEX"
 
-let emit_function name ast main_buf =
+and emit_function name ast main_buf =
   let ctx = new_context () in
   let buf = Buffer.create 100 in
   emit_instruction buf @@ ".globl " ^ name;
@@ -132,6 +140,14 @@ let emit_function name ast main_buf =
   Buffer.add_buffer buf main_buf;
   Buffer.reset main_buf;
   Buffer.add_buffer main_buf buf
+
+and emit_function_value ctx buf name ast =
+  emit_function name ast buf;
+  let reg = alloc_register ctx in
+  emit_instruction buf @@ Printf.sprintf "leaq %s(%%rip), %s" name (string_of_register reg);
+  let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
+  free_register reg ctx;
+  s
 
 let codegen ast =
   let buf = Buffer.create 100 in
