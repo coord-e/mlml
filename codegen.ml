@@ -7,17 +7,40 @@ type value =
   | RegisterValue of register
   | ConstantValue of int
 
+let string_of_register = function
+  | Register n -> n
+
+let string_of_stack = function
+  | Stack num -> (string_of_int num) ^ "(%rbp)"
+
+let string_of_constant num = "$" ^ (string_of_int num)
+
+let string_of_value = function
+  | StackValue num -> string_of_stack num
+  | RegisterValue kind -> string_of_register kind
+  | ConstantValue num -> string_of_constant num
+
 type context = {
   mutable current_stack : int;
   mutable unused_registers : register list;
   mutable env : (string, stack) Hashtbl.t;
 }
 
+let usable_registers = [Register "%rax"; Register "%rbx"; Register "%rcx"; Register "%rdx"]
+
 let new_context () = {
   current_stack = -8;
-  unused_registers = [Register "%rax"; Register "%rbx"; Register "%rcx"; Register "%rdx"];
+  unused_registers = usable_registers;
   env = Hashtbl.create 10;
 }
+
+let use_register ctx reg =
+  if List.mem reg ctx.unused_registers
+  then (
+    ctx.unused_registers <-
+      List.filter (fun x -> x != reg) ctx.unused_registers
+  )
+  else failwith @@ Printf.sprintf "Register '%s' is unavailable" (string_of_register reg)
 
 let alloc_register context =
   match context.unused_registers with
@@ -38,19 +61,6 @@ let alloc_stack context =
 let emit_instruction buf inst =
   Buffer.add_string buf inst;
   Buffer.add_char buf '\n'
-
-let string_of_register = function
-  | Register n -> n
-
-let string_of_stack = function
-  | Stack num -> (string_of_int num) ^ "(%rbp)"
-
-let string_of_constant num = "$" ^ (string_of_int num)
-
-let string_of_value = function
-  | StackValue num -> string_of_stack num
-  | RegisterValue kind -> string_of_register kind
-  | ConstantValue num -> string_of_constant num
 
 let turn_into_register ctx buf = function
   | StackValue num -> (
@@ -77,6 +87,29 @@ let turn_into_stack ctx buf = function
       emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_constant c) (string_of_stack new_stack);
       new_stack
   )
+
+let nth_arg_register context n =
+  let r = (
+    match n with
+    | 0 -> Register "%rdi"
+    | 1 -> Register "%rsi"
+    | 2 -> Register "%rdx"
+    | 3 -> Register "%rcx"
+    | 4 -> Register "%r8"
+    | 5 -> Register "%r9"
+    | _ -> failwith "Too many arguments"
+  ) in
+  if List.mem r usable_registers
+  then (
+    use_register context r;
+    (r, free_register r)
+  ) else (r, fun _ -> ())
+
+let nth_arg_stack ctx buf n =
+  let r, free = nth_arg_register ctx n in
+  let s = turn_into_stack ctx buf (RegisterValue r) in
+  free ctx;
+  s
 
 let define_variable ctx buf ident v =
   let s = turn_into_stack ctx buf v in
@@ -116,8 +149,8 @@ let rec codegen_expr ctx buf = function
     rhs
   )
   | P.Var ident -> StackValue (get_variable ctx ident)
-  | P.LetFun (ident, _params, lhs, rhs) -> (
-    let lhs = emit_function_value ctx buf ident lhs in
+  | P.LetFun (ident, params, lhs, rhs) -> (
+    let lhs = emit_function_value ctx buf ident lhs params in
     define_variable ctx buf ident lhs;
     let rhs = codegen_expr ctx buf rhs in
     undef_variable ctx ident;
@@ -125,13 +158,17 @@ let rec codegen_expr ctx buf = function
   )
   | _ -> failwith "UNEX"
 
-and emit_function name ast main_buf =
+and emit_function main_buf name ast params =
   let ctx = new_context () in
   let buf = Buffer.create 100 in
   emit_instruction buf @@ ".globl " ^ name;
   emit_instruction buf @@ name ^ ":";
   emit_instruction buf "pushq	%rbp";
   emit_instruction buf "movq	%rsp, %rbp";
+  List.iteri (fun i name ->
+    let arg = nth_arg_stack ctx buf i in
+    define_variable ctx buf name (StackValue arg)
+  ) params;
   let value = codegen_expr ctx buf ast |> string_of_value in
   emit_instruction buf @@ Printf.sprintf "movq %s, %%rax" value;
   emit_instruction buf "popq	%rbp";
@@ -141,8 +178,8 @@ and emit_function name ast main_buf =
   Buffer.reset main_buf;
   Buffer.add_buffer main_buf buf
 
-and emit_function_value ctx buf name ast =
-  emit_function name ast buf;
+and emit_function_value ctx buf name ast params =
+  emit_function buf name ast params;
   let reg = alloc_register ctx in
   emit_instruction buf @@ Printf.sprintf "leaq %s(%%rip), %s" name (string_of_register reg);
   let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
@@ -151,5 +188,5 @@ and emit_function_value ctx buf name ast =
 
 let codegen ast =
   let buf = Buffer.create 100 in
-  emit_function "main" ast buf;
+  emit_function buf "main" ast [];
   Buffer.contents buf
