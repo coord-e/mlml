@@ -26,7 +26,7 @@ type context = {
   mutable env : (string, stack) Hashtbl.t;
 }
 
-let usable_registers = [Register "%rax"; Register "%rbx"; Register "%rcx"; Register "%rdx"]
+let usable_registers = [Register "%rsi"; Register "%rdi"; Register "%r8"; Register "%r9"; Register "%r10"; Register "%r11"]
 
 let new_context () = {
   current_stack = -8;
