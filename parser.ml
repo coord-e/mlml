@@ -56,5 +56,5 @@ let rec ast_to_string = function
   | Int num -> Printf.sprintf "Int %d" num
   | Add (lhs, rhs) -> Printf.sprintf "Add (%s) (%s)" (ast_to_string lhs) (ast_to_string rhs)
   | Mul (lhs, rhs) -> Printf.sprintf "Mul (%s) (%s)" (ast_to_string lhs) (ast_to_string rhs)
-  | LetVar (ident, lhs, rhs) -> Printf.sprintf "Let (%s) (%s) (%s)" ident (ast_to_string lhs) (ast_to_string rhs)
+  | LetVar (ident, lhs, rhs) -> Printf.sprintf "Let (%s) = (%s) in (%s)" ident (ast_to_string lhs) (ast_to_string rhs)
   | Var ident -> Printf.sprintf "Var %s" ident
