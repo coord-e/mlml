@@ -12,6 +12,8 @@ type ast =
 let rec try_parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
+  (* TODO: Add boolean value *)
+  | L.BoolLiteral b :: tokens -> tokens, Some (Int (if b then 1 else 0))
   | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
   | L.LParen :: tokens ->
     let rest, v = parse_expression tokens in
