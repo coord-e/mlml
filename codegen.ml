@@ -63,30 +63,26 @@ let emit_instruction buf inst =
   Buffer.add_string buf inst;
   Buffer.add_char buf '\n'
 
+let assign_to_register buf v reg =
+    emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_register reg)
+
+let assign_to_stack buf v stack =
+    emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_stack stack)
+
 let turn_into_register ctx buf = function
-  | StackValue num -> (
-    let new_register = alloc_register ctx in
-    emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_stack num) (string_of_register new_register);
-    (new_register, free_register new_register)
-  )
   | RegisterValue r -> (r, fun _ -> ())
-  | ConstantValue c -> (
+  | v -> (
     let new_register = alloc_register ctx in
-    emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_constant c) (string_of_register new_register);
+    assign_to_register buf v new_register;
     (new_register, free_register new_register)
   )
 
 let turn_into_stack ctx buf = function
-  | StackValue num -> num
-  | RegisterValue r -> (
-      let new_stack = alloc_stack ctx in
-      emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_register r) (string_of_stack new_stack);
-      new_stack
-  )
-  | ConstantValue c -> (
-      let new_stack = alloc_stack ctx in
-      emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_constant c) (string_of_stack new_stack);
-      new_stack
+  | StackValue s -> s
+  | v -> (
+    let new_stack = alloc_stack ctx in
+    assign_to_stack buf v new_stack;
+    new_stack
   )
 
 let nth_arg_register context n =
@@ -128,19 +124,17 @@ let rec codegen_expr ctx buf = function
       let lhs = codegen_expr ctx buf lhs in
       let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
       emit_instruction buf @@ Printf.sprintf "addq %s, %s" (string_of_value lhs) (string_of_register rhs);
-      let new_stack = alloc_stack ctx in
-      emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_register rhs) (string_of_stack new_stack);
+      let s = turn_into_stack ctx buf (RegisterValue rhs) in
       free ctx;
-      StackValue new_stack
+      StackValue s
   )
   | P.Mul (lhs, rhs) -> (
       let lhs = codegen_expr ctx buf lhs in
       let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
       emit_instruction buf @@ Printf.sprintf "imulq %s, %s" (string_of_value lhs) (string_of_register rhs);
-      let new_stack = alloc_stack ctx in
-      emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_register rhs) (string_of_stack new_stack);
+      let s = turn_into_stack ctx buf (RegisterValue rhs) in
       free ctx;
-      StackValue new_stack
+      StackValue s
   )
   | P.LetVar (ident, lhs, rhs) -> (
     let lhs = codegen_expr ctx buf lhs in
@@ -161,7 +155,7 @@ let rec codegen_expr ctx buf = function
       let lhs = codegen_expr ctx buf lhs in
       let rhs = codegen_expr ctx buf rhs in
       let param, free = nth_arg_register ctx 0 in
-      emit_instruction buf @@ Printf.sprintf "movq %s, %s" (string_of_value rhs) (string_of_register param);
+      assign_to_register buf rhs param;
       emit_instruction buf @@ Printf.sprintf "call *%s" (string_of_value lhs);
       free ctx;
       RegisterValue ret_register
@@ -178,8 +172,8 @@ and emit_function main_buf name ast params =
     let arg = nth_arg_stack ctx buf i in
     define_variable ctx buf name (StackValue arg)
   ) params;
-  let value = codegen_expr ctx buf ast |> string_of_value in
-  emit_instruction buf @@ Printf.sprintf "movq %s, %s" value (string_of_register ret_register);
+  let value = codegen_expr ctx buf ast in
+  assign_to_register buf value ret_register;
   emit_instruction buf "popq	%rbp";
   emit_instruction buf "ret";
   (* TODO: Use more effective and sufficient way to prepend to the buffer *)
