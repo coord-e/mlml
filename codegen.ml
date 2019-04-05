@@ -82,6 +82,21 @@ let undef_variable ctx ident =
 let get_variable ctx ident =
   Hashtbl.find ctx.env ident
 
+let emit_function name main_buf content_buf value =
+  let buf = Buffer.create 100 in
+  emit_instruction buf @@ ".globl " ^ name;
+  emit_instruction buf @@ name ^ ":";
+  emit_instruction buf "pushq	%rbp";
+  emit_instruction buf "movq	%rsp, %rbp";
+  Buffer.add_buffer buf content_buf;
+  emit_instruction buf @@ Printf.sprintf "movq %s, %%rax" (string_of_value value);
+  emit_instruction buf "popq	%rbp";
+  emit_instruction buf "ret";
+  (* TODO: Use more effective and sufficient way to prepend to the buffer *)
+  Buffer.add_buffer buf main_buf;
+  Buffer.reset main_buf;
+  Buffer.add_buffer main_buf buf
+
 let rec codegen_expr ctx buf = function
   | P.Int num -> ConstantValue num
   | P.Add (lhs, rhs) -> (
@@ -119,13 +134,7 @@ let codegen ast =
     env = Hashtbl.create 10;
   } in
   let buf = Buffer.create 100 in
-  emit_instruction buf ".text";
-  emit_instruction buf ".globl main";
-  emit_instruction buf "main:";
-  emit_instruction buf "pushq	%rbp";
-  emit_instruction buf "movq	%rsp, %rbp";
-  let value = codegen_expr ctx buf ast |> string_of_value in
-  emit_instruction buf @@ Printf.sprintf "movq %s, %%rax" value;
-  emit_instruction buf "popq	%rbp";
-  emit_instruction buf "ret";
+  let main_buf = Buffer.create 100 in
+  let value = codegen_expr ctx main_buf ast in
+  emit_function "main" buf main_buf value;
   Buffer.contents buf
