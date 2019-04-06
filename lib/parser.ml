@@ -157,12 +157,13 @@ and parse_let = function
       then rest, LetVar (bind, lhs, rhs)
       else
         let ident =
-          match bind with Pat.Var x -> x
-          (* | _ ->                                          *)
-          (*   failwith                                      *)
-          (*   @@ Printf.sprintf                             *)
-          (*        "cannot name function with pattern '%s'" *)
-          (*        (Pat.string_of_pattern bind)             *)
+          match bind with
+          | Pat.Var x -> x
+          | _ ->
+            failwith
+            @@ Printf.sprintf
+                 "cannot name function with pattern '%s'"
+                 (Pat.string_of_pattern bind)
         in
         rest, LetFun (false, ident, params, lhs, rhs)
     | _ -> failwith "could not find 'in'")
