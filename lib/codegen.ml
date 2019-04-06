@@ -21,6 +21,8 @@ let string_of_value = function
 ;;
 
 (* function-local environment *)
+(* TODO: current_stack is path-local,
+ * consider an alternative way to allocate stack area *)
 type local_env =
   { mutable current_stack : int
   ; mutable vars : (string, stack) Hashtbl.t }
@@ -234,10 +236,12 @@ let rec codegen_expr ctx buf = function
     let then_label = new_unnamed_label ctx in
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label then_label);
     let join_label = new_unnamed_label ctx in
+    let save_stack_c = ctx.current_env.current_stack in
     let else_ = codegen_expr ctx buf else_ in
     assign_to_stack ctx buf else_ eval_stack;
     emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
     start_label buf then_label;
+    ctx.current_env.current_stack <- save_stack_c;
     let then_ = codegen_expr ctx buf then_ in
     assign_to_stack ctx buf then_ eval_stack;
     start_label buf join_label;
