@@ -27,7 +27,7 @@ type local_env =
 
 type context =
   { mutable unused_registers : register list
-  ; mutable label_index : int
+  ; mutable used_labels : label list
   ; mutable current_env : local_env }
 
 let usable_registers =
@@ -44,7 +44,7 @@ let ret_register = Register "%rax"
 let new_local_env () = {current_stack = -8; vars = Hashtbl.create 10}
 
 let new_context () =
-  {unused_registers = usable_registers; label_index = 0; current_env = new_local_env ()}
+  {unused_registers = usable_registers; used_labels = []; current_env = new_local_env ()}
 ;;
 
 let use_env ctx env =
@@ -54,9 +54,15 @@ let use_env ctx env =
 ;;
 
 let new_unnamed_label ctx =
-  let i = ctx.label_index in
-  ctx.label_index <- i + 1;
-  Label (Printf.sprintf ".L%d" i)
+  let rec aux i =
+    let label = Label (Printf.sprintf ".L%d" i) in
+    if List.mem label ctx.used_labels
+    then aux (i + 1)
+    else (
+      ctx.used_labels <- label :: ctx.used_labels;
+      label )
+  in
+  aux 0
 ;;
 
 let use_register ctx reg =
