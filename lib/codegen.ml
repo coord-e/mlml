@@ -147,6 +147,17 @@ let assign_to_address ctx buf src dest offset =
   free ctx
 ;;
 
+let read_from_address ctx buf src dest offset =
+  let reg, free = turn_into_register ctx buf dest in
+  emit_instruction buf
+  @@ Printf.sprintf
+       "movq %d(%s), %s"
+       (-offset * 8)
+       (string_of_value src)
+       (string_of_register reg);
+  free ctx
+;;
+
 let nth_arg_register context n =
   let r =
     match n with
@@ -192,8 +203,20 @@ let define_variable ctx buf ident v =
 let undef_variable ctx ident = Hashtbl.remove ctx.current_env.vars ident
 let get_variable ctx ident = Hashtbl.find ctx.current_env.vars ident
 
-let define_variable_pattern ctx buf pat v =
-  match pat with Pat.Var x -> define_variable ctx buf x v
+let rec define_variable_pattern ctx buf pat v =
+  match pat with
+  | Pat.Var x -> define_variable ctx buf x v
+  | Pat.Tuple values ->
+    (* assume v holds heap address *)
+    let aux i p =
+      let reg = alloc_register ctx in
+      let reg_value = RegisterValue reg in
+      read_from_address ctx buf v reg_value i;
+      let s = turn_into_stack ctx buf reg_value in
+      free_register reg ctx;
+      define_variable_pattern ctx buf p (StackValue s)
+    in
+    List.iteri aux values
 ;;
 
 let undef_variable_pattern ctx pat =
