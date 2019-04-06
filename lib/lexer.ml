@@ -13,6 +13,8 @@ type token =
   | If
   | Then
   | Else
+  | Type
+  | Vertical
   | Comma
   | LParen
   | RParen
@@ -64,6 +66,7 @@ let rec tokenize_aux acc rest =
       | "if" -> tokenize_aux (If :: acc) rest
       | "then" -> tokenize_aux (Then :: acc) rest
       | "else" -> tokenize_aux (Else :: acc) rest
+      | "type" -> tokenize_aux (Type :: acc) rest
       | _ ->
         (match ident_str.[0] with
         | 'A' .. 'Z' -> tokenize_aux (CapitalIdent ident_str :: acc) rest
@@ -72,6 +75,7 @@ let rec tokenize_aux acc rest =
     | '-' -> tokenize_aux (Minus :: acc) t
     | '*' -> tokenize_aux (Star :: acc) t
     | '=' -> tokenize_aux (Equal :: acc) t
+    | '|' -> tokenize_aux (Vertical :: acc) t
     | ',' -> tokenize_aux (Comma :: acc) t
     | '(' -> tokenize_aux (LParen :: acc) t
     | ')' -> tokenize_aux (RParen :: acc) t
@@ -92,6 +96,8 @@ let string_of_token = function
   | If -> "if"
   | Then -> "then"
   | Else -> "else"
+  | Type -> "type"
+  | Vertical -> "|"
   | Comma -> ","
   | LParen -> "("
   | RParen -> ")"
