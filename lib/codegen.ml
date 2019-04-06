@@ -142,6 +142,19 @@ let define_variable ctx buf ident v =
 let undef_variable ctx ident = Hashtbl.remove ctx.env ident
 let get_variable ctx ident = Hashtbl.find ctx.env ident
 
+let function_ptr_to_register buf name reg =
+  emit_instruction buf
+  @@ Printf.sprintf "leaq %s(%%rip), %s" name (string_of_register reg)
+;;
+
+let function_ptr ctx buf name =
+  let reg = alloc_register ctx in
+  function_ptr_to_register buf name reg;
+  let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
+  free_register reg ctx;
+  s
+;;
+
 let rec codegen_expr ctx buf = function
   | P.Int num -> ConstantValue num
   | P.Add (lhs, rhs) ->
@@ -175,8 +188,8 @@ let rec codegen_expr ctx buf = function
     undef_variable ctx ident;
     rhs
   | P.Var ident -> StackValue (get_variable ctx ident)
-  | P.LetFun (ident, params, lhs, rhs) ->
-    let lhs = emit_function_value ctx buf ident lhs params in
+  | P.LetFun (is_rec, ident, params, lhs, rhs) ->
+    let lhs = emit_function_value ctx buf is_rec ident params lhs in
     define_variable ctx buf ident lhs;
     let rhs = codegen_expr ctx buf rhs in
     undef_variable ctx ident;
@@ -220,7 +233,7 @@ let rec codegen_expr ctx buf = function
     free_register rdx ctx;
     StackValue s
 
-and emit_function main_buf name ast params =
+and emit_function main_buf is_rec name params ast =
   let ctx = new_context () in
   let buf = Buffer.create 100 in
   emit_instruction buf @@ ".globl " ^ name;
@@ -232,6 +245,10 @@ and emit_function main_buf name ast params =
       let arg = nth_arg_stack ctx buf i in
       define_variable ctx buf name (StackValue arg) )
     params;
+  (if is_rec
+  then
+    let ptr = function_ptr ctx buf name in
+    define_variable ctx buf name ptr);
   let value = codegen_expr ctx buf ast in
   assign_to_register buf value ret_register;
   emit_instruction buf "movq %rbp, %rsp";
@@ -242,18 +259,13 @@ and emit_function main_buf name ast params =
   Buffer.reset main_buf;
   Buffer.add_buffer main_buf buf
 
-and emit_function_value ctx buf name ast params =
-  emit_function buf name ast params;
-  let reg = alloc_register ctx in
-  emit_instruction buf
-  @@ Printf.sprintf "leaq %s(%%rip), %s" name (string_of_register reg);
-  let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
-  free_register reg ctx;
-  s
+and emit_function_value ctx buf is_rec name params ast =
+  emit_function buf is_rec name params ast;
+  function_ptr ctx buf name
 ;;
 
 let codegen ast =
   let buf = Buffer.create 100 in
-  emit_function buf "main" ast [];
+  emit_function buf false "main" [] ast;
   Buffer.contents buf
 ;;

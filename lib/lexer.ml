@@ -7,6 +7,7 @@ type token =
   | Minus
   | Star
   | Let
+  | Rec
   | In
   | Equal
   | If
@@ -55,6 +56,7 @@ let rec tokenize_aux acc rest =
       let ident_str = string_of_chars ident in
       (match ident_str with
       | "let" -> tokenize_aux (Let :: acc) rest
+      | "rec" -> tokenize_aux (Rec :: acc) rest
       | "in" -> tokenize_aux (In :: acc) rest
       | "true" -> tokenize_aux (BoolLiteral true :: acc) rest
       | "false" -> tokenize_aux (BoolLiteral false :: acc) rest
@@ -89,6 +91,7 @@ let string_of_token = function
   | Minus -> "-"
   | Star -> "*"
   | Let -> "let"
+  | Rec -> "rec"
   | In -> "in"
   | Equal -> "="
   | If -> "if"

@@ -1,3 +1,3 @@
 (tests
-  (names arith let_bind simple_func conditional)
+  (names arith let_bind simple_func conditional factorial)
   (libraries mlml))
