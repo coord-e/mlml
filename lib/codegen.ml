@@ -54,15 +54,17 @@ let use_env ctx env =
 ;;
 
 let new_label ctx name =
+  let is_used label = List.mem label ctx.used_labels in
+  let use_label label =
+    ctx.used_labels <- label :: ctx.used_labels;
+    label
+  in
   let rec aux i =
     let label = Label (Printf.sprintf "%s%d" name i) in
-    if List.mem label ctx.used_labels
-    then aux (i + 1)
-    else (
-      ctx.used_labels <- label :: ctx.used_labels;
-      label )
+    if is_used label then aux (i + 1) else use_label label
   in
-  aux 0
+  let raw = Label name in
+  if is_used raw then aux 1 else use_label raw
 ;;
 
 let new_unnamed_label ctx = new_label ctx ".L"
