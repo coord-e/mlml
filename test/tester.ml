@@ -6,7 +6,7 @@ let exec_with_mlml source =
   Printf.fprintf oc "%s\n" @@ Compile.f source;
   close_out oc;
   let exec_file = Filename.temp_file "." "" in
-  let ret_code = Sys.command @@ Printf.sprintf "gcc %s -o %s" as_file exec_file in
+  let ret_code = Sys.command @@ Printf.sprintf "gcc %s -lgc -o %s" as_file exec_file in
   if ret_code != 0 then failwith "Failed to compile resulting assembly";
   Sys.command @@ exec_file
 ;;

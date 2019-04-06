@@ -1,12 +1,14 @@
 module L = Lexer
+module Pat = Pattern
 
 type ast =
   | Int of int
+  | Tuple of ast list
   | Add of ast * ast
   | Sub of ast * ast
   | Mul of ast * ast
-  | LetVar of string * ast * ast
-  | LetFun of bool * string * string list * ast * ast
+  | LetVar of Pat.t * ast * ast
+  | LetFun of bool * string * Pat.t list * ast * ast
   | IfThenElse of ast * ast * ast
   | App of ast * ast
   | Var of string
@@ -75,6 +77,21 @@ and parse_equal tokens =
   in
   aux lhs tokens
 
+and parse_tuple tokens =
+  let rec aux tokens =
+    let rest, curr = parse_equal tokens in
+    match rest with
+    | L.Comma :: rest ->
+      let rest, tail = aux rest in
+      rest, curr :: tail
+    | _ -> rest, [curr]
+  in
+  let rest, values = aux tokens in
+  match values with
+  | [] -> failwith "unreachable"
+  | [value] -> rest, value
+  | _ -> rest, Tuple values
+
 and parse_if = function
   | L.If :: rest ->
     let rest, cond = parse_expression rest in
@@ -87,34 +104,68 @@ and parse_if = function
         rest, IfThenElse (cond, then_, else_)
       | _ -> failwith "could not find 'else'")
     | _ -> failwith "could not find 'then'")
-  | tokens -> parse_equal tokens
+  | tokens -> parse_tuple tokens
 
 and parse_let = function
-  | L.Let :: rest ->
-    let is_rec, ident, rest =
-      match rest with
-      | L.Rec :: L.LowerIdent ident :: rest -> true, ident, rest
-      | L.LowerIdent ident :: rest -> false, ident, rest
-      | c :: _ ->
-        failwith
-        @@ Printf.sprintf "unexpected token '%s' after 'let'" (L.string_of_token c)
-      | [] -> failwith "failed to parse let expression"
-    in
+  (* `let rec` -> function definition *)
+  | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
     let rec aux = function
       | L.Equal :: rest -> rest, []
-      | L.LowerIdent ident :: rest ->
+      | tokens ->
+        let rest, pat = Pat.parse_pattern tokens in
         let rest, acc = aux rest in
-        rest, ident :: acc
-      | _ -> failwith "could not find '='"
+        rest, pat :: acc
     in
     let rest, params = aux rest in
     let rest, lhs = parse_expression rest in
     (match rest with
     | L.In :: rest ->
       let rest, rhs = parse_expression rest in
+      (match params with
+      (* TODO: Support let rec without arguments *)
+      | [] -> failwith "'let rec' without arguments"
+      | _ -> rest, LetFun (true, ident, params, lhs, rhs))
+    | _ -> failwith "could not find 'in'")
+  | L.Let :: L.Rec :: t :: _ ->
+    failwith
+    @@ Printf.sprintf "unexpected token '%s' after let rec" (L.string_of_token t)
+  | L.Let :: rest ->
+    let rest, bind = Pat.parse_pattern rest in
+    let rest, params, lhs =
+      match rest with
+      | L.Equal :: rest ->
+        (* variable *)
+        let rest, lhs = parse_expression rest in
+        rest, [], lhs
+      | _ ->
+        (* function *)
+        let rec aux = function
+          | L.Equal :: rest -> rest, []
+          | tokens ->
+            let rest, pat = Pat.parse_pattern tokens in
+            let rest, acc = aux rest in
+            rest, pat :: acc
+        in
+        let rest, params = aux rest in
+        let rest, lhs = parse_expression rest in
+        rest, params, lhs
+    in
+    (match rest with
+    | L.In :: rest ->
+      let rest, rhs = parse_expression rest in
       if List.length params == 0
-      then rest, LetVar (ident, lhs, rhs)
-      else rest, LetFun (is_rec, ident, params, lhs, rhs)
+      then rest, LetVar (bind, lhs, rhs)
+      else
+        let ident =
+          match bind with
+          | Pat.Var x -> x
+          | _ ->
+            failwith
+            @@ Printf.sprintf
+                 "cannot name function with pattern '%s'"
+                 (Pat.string_of_pattern bind)
+        in
+        rest, LetFun (false, ident, params, lhs, rhs)
     | _ -> failwith "could not find 'in'")
   | tokens -> parse_if tokens
 
@@ -122,6 +173,9 @@ and parse_expression tokens = parse_let tokens
 
 let rec string_of_ast = function
   | Int num -> Printf.sprintf "Int %d" num
+  | Tuple values ->
+    let p = List.map string_of_ast values |> String.concat ", " in
+    Printf.sprintf "Tuple (%s)" p
   | Add (lhs, rhs) ->
     Printf.sprintf "Add (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | Sub (lhs, rhs) ->
@@ -130,14 +184,14 @@ let rec string_of_ast = function
     Printf.sprintf "Mul (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | Equal (lhs, rhs) ->
     Printf.sprintf "Equal (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
-  | LetVar (ident, lhs, rhs) ->
+  | LetVar (pat, lhs, rhs) ->
     Printf.sprintf
       "Let (%s) = (%s) in (%s)"
-      ident
+      (Pat.string_of_pattern pat)
       (string_of_ast lhs)
       (string_of_ast rhs)
   | LetFun (is_rec, ident, params, lhs, rhs) ->
-    let p = String.concat ", " params in
+    let p = List.map Pat.string_of_pattern params |> String.concat ", " in
     Printf.sprintf
       "Let %s (%s) (%s) = (%s) in (%s)"
       (if is_rec then "rec" else "")

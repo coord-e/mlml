@@ -1,4 +1,5 @@
 module P = Parser
+module Pat = Pattern
 
 type register = Register of string
 type stack = Stack of int
@@ -34,7 +35,6 @@ type context =
 
 let usable_registers =
   [ Register "%rsi"
-  ; Register "%rdi"
   ; Register "%r8"
   ; Register "%r9"
   ; Register "%r10"
@@ -85,8 +85,9 @@ let alloc_register context =
   | [] -> failwith "Could not allocate register"
 ;;
 
-let free_register reg context =
-  context.unused_registers <- reg :: context.unused_registers
+let free_register reg ctx =
+  if not (List.mem reg ctx.unused_registers)
+  then ctx.unused_registers <- reg :: ctx.unused_registers
 ;;
 
 let emit_instruction buf inst =
@@ -135,6 +136,32 @@ let rec assign_to_stack ctx buf v stack =
 
 let turn_into_stack ctx buf = function StackValue s -> s | v -> push_to_stack ctx buf v
 
+let assign_to_address ctx buf src dest offset =
+  let src, free_src = turn_into_register ctx buf src in
+  let dest, free_dest = turn_into_register ctx buf dest in
+  emit_instruction buf
+  @@ Printf.sprintf
+       "movq %s, %d(%s)"
+       (string_of_register src)
+       offset
+       (string_of_register dest);
+  free_src ctx;
+  free_dest ctx
+;;
+
+let read_from_address ctx buf src dest offset =
+  let src, free_src = turn_into_register ctx buf src in
+  let dest, free_dest = turn_into_register ctx buf dest in
+  emit_instruction buf
+  @@ Printf.sprintf
+       "movq %d(%s), %s"
+       offset
+       (string_of_register src)
+       (string_of_register dest);
+  free_src ctx;
+  free_dest ctx
+;;
+
 let nth_arg_register context n =
   let r =
     match n with
@@ -160,6 +187,37 @@ let nth_arg_stack ctx buf n =
   s
 ;;
 
+let call_ext_func ctx buf name args =
+  (* save registers (used but not by arguments) *)
+  (* usable - unused - args                     *)
+  let aux i v =
+    let reg, free = nth_arg_register ctx i in
+    assign_to_register buf v reg;
+    reg, free
+  in
+  let arg_regs, free_fns = List.mapi aux args |> List.split in
+  let filt x = not (List.mem x ctx.unused_registers || List.mem x arg_regs) in
+  let regs_to_save = List.filter filt usable_registers in
+  let saver x =
+    let s = push_to_stack ctx buf (RegisterValue x) in
+    x, s
+  in
+  let saved_regs = List.map saver regs_to_save in
+  emit_instruction buf @@ "call " ^ name;
+  List.iter (fun f -> f ctx) free_fns;
+  let restore (x, s) = assign_to_register buf (StackValue s) x in
+  List.iter restore saved_regs;
+  ret_register
+;;
+
+let alloc_heap_ptr ctx buf size dest =
+  let ptr = RegisterValue (call_ext_func ctx buf "GC_malloc@PLT" [size]) in
+  match dest with
+  | RegisterValue r -> assign_to_register buf ptr r
+  | StackValue s -> assign_to_stack ctx buf ptr s
+  | ConstantValue _ -> failwith "can't assign to constant"
+;;
+
 let define_variable ctx buf ident v =
   let s = turn_into_stack ctx buf v in
   Hashtbl.add ctx.current_env.vars ident s
@@ -167,6 +225,26 @@ let define_variable ctx buf ident v =
 
 let undef_variable ctx ident = Hashtbl.remove ctx.current_env.vars ident
 let get_variable ctx ident = Hashtbl.find ctx.current_env.vars ident
+
+let rec define_variable_pattern ctx buf pat v =
+  match pat with
+  | Pat.Var x -> define_variable ctx buf x v
+  | Pat.Tuple values ->
+    (* assume v holds heap address *)
+    let aux i p =
+      let reg = alloc_register ctx in
+      let reg_value = RegisterValue reg in
+      read_from_address ctx buf v reg_value (-i * 8);
+      let s = turn_into_stack ctx buf reg_value in
+      free_register reg ctx;
+      define_variable_pattern ctx buf p (StackValue s)
+    in
+    List.iteri aux values
+;;
+
+let undef_variable_pattern ctx pat =
+  List.iter (undef_variable ctx) (Pat.introduced_idents pat)
+;;
 
 let function_ptr_to_register buf label reg =
   emit_instruction buf
@@ -207,11 +285,11 @@ let rec codegen_expr ctx buf = function
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free ctx;
     StackValue s
-  | P.LetVar (ident, lhs, rhs) ->
+  | P.LetVar (pat, lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
-    define_variable ctx buf ident lhs;
+    define_variable_pattern ctx buf pat lhs;
     let rhs = codegen_expr ctx buf rhs in
-    undef_variable ctx ident;
+    undef_variable_pattern ctx pat;
     rhs
   | P.Var ident -> StackValue (get_variable ctx ident)
   | P.LetFun (is_rec, ident, params, lhs, rhs) ->
@@ -241,7 +319,7 @@ let rec codegen_expr ctx buf = function
     assign_to_stack ctx buf else_ eval_stack;
     emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
     start_label buf then_label;
-    ctx.current_env.current_stack <- save_stack_c;
+    (ctx.current_env).current_stack <- save_stack_c;
     let then_ = codegen_expr ctx buf then_ in
     assign_to_stack ctx buf then_ eval_stack;
     start_label buf join_label;
@@ -260,6 +338,16 @@ let rec codegen_expr ctx buf = function
     let s = push_to_stack ctx buf (RegisterValue rdx) in
     free_register rdx ctx;
     StackValue s
+  | P.Tuple values ->
+    let size = List.length values in
+    let reg = alloc_register ctx in
+    let reg_value = RegisterValue reg in
+    alloc_heap_ptr ctx buf (ConstantValue (size * 2)) reg_value;
+    let values = List.map (codegen_expr ctx buf) values in
+    List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-i * 8)) values;
+    let s = StackValue (turn_into_stack ctx buf reg_value) in
+    free_register reg ctx;
+    s
 
 and emit_function ctx main_buf is_rec name params ast =
   let old_env = use_env ctx @@ new_local_env () in
@@ -268,10 +356,12 @@ and emit_function ctx main_buf is_rec name params ast =
   start_global_label buf label;
   emit_instruction buf "pushq %rbp";
   emit_instruction buf "movq %rsp, %rbp";
+  (* TODO: more generic and explicit method *)
+  if name = "main" then emit_instruction buf "call GC_init@PLT";
   List.iteri
-    (fun i name ->
+    (fun i pat ->
       let arg = nth_arg_stack ctx buf i in
-      define_variable ctx buf name (StackValue arg) )
+      define_variable_pattern ctx buf pat (StackValue arg) )
     params;
   (if is_rec
   then

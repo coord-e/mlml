@@ -13,6 +13,7 @@ type token =
   | If
   | Then
   | Else
+  | Comma
   | LParen
   | RParen
 
@@ -71,6 +72,7 @@ let rec tokenize_aux acc rest =
     | '-' -> tokenize_aux (Minus :: acc) t
     | '*' -> tokenize_aux (Star :: acc) t
     | '=' -> tokenize_aux (Equal :: acc) t
+    | ',' -> tokenize_aux (Comma :: acc) t
     | '(' -> tokenize_aux (LParen :: acc) t
     | ')' -> tokenize_aux (RParen :: acc) t
     | _ -> failwith @@ Printf.sprintf "unexpected character: '%c'" h)
@@ -90,6 +92,7 @@ let string_of_token = function
   | If -> "if"
   | Then -> "then"
   | Else -> "else"
+  | Comma -> ","
   | LParen -> "("
   | RParen -> ")"
 ;;
