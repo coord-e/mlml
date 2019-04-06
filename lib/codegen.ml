@@ -166,14 +166,14 @@ let define_variable ctx buf ident v =
 let undef_variable ctx ident = Hashtbl.remove ctx.current_env.vars ident
 let get_variable ctx ident = Hashtbl.find ctx.current_env.vars ident
 
-let function_ptr_to_register buf name reg =
+let function_ptr_to_register buf label reg =
   emit_instruction buf
-  @@ Printf.sprintf "leaq %s(%%rip), %s" name (string_of_register reg)
+  @@ Printf.sprintf "leaq %s(%%rip), %s" (string_of_label label) (string_of_register reg)
 ;;
 
-let function_ptr ctx buf name =
+let function_ptr ctx buf label =
   let reg = alloc_register ctx in
-  function_ptr_to_register buf name reg;
+  function_ptr_to_register buf label reg;
   let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
   free_register reg ctx;
   s
@@ -260,7 +260,8 @@ let rec codegen_expr ctx buf = function
 and emit_function ctx main_buf is_rec name params ast =
   let old_env = use_env ctx @@ new_local_env () in
   let buf = Buffer.create 100 in
-  start_global_label buf @@ new_label ctx name;
+  let label = new_label ctx name in
+  start_global_label buf label;
   emit_instruction buf "pushq %rbp";
   emit_instruction buf "movq %rsp, %rbp";
   List.iteri
@@ -270,7 +271,7 @@ and emit_function ctx main_buf is_rec name params ast =
     params;
   (if is_rec
   then
-    let ptr = function_ptr ctx buf name in
+    let ptr = function_ptr ctx buf label in
     define_variable ctx buf name ptr);
   let value = codegen_expr ctx buf ast in
   assign_to_register buf value ret_register;
@@ -281,16 +282,18 @@ and emit_function ctx main_buf is_rec name params ast =
   (* TODO: Use more effective and sufficient way to prepend to the buffer *)
   Buffer.add_buffer buf main_buf;
   Buffer.reset main_buf;
-  Buffer.add_buffer main_buf buf
+  Buffer.add_buffer main_buf buf;
+  label
 
 and emit_function_value ctx buf is_rec name params ast =
-  emit_function ctx buf is_rec name params ast;
-  function_ptr ctx buf name
+  let label = emit_function ctx buf is_rec name params ast in
+  function_ptr ctx buf label
 ;;
 
 let f ast =
   let buf = Buffer.create 100 in
   let ctx = new_context () in
-  emit_function ctx buf false "main" [] ast;
+  let label = emit_function ctx buf false "main" [] ast in
+  assert (string_of_label label = "main");
   Buffer.contents buf
 ;;
