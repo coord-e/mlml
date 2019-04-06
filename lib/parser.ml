@@ -90,13 +90,6 @@ and parse_if = function
   | tokens -> parse_equal tokens
 
 and parse_let = function
-  | L.Let :: L.LowerIdent ident :: L.Equal :: rest ->
-    let rest, lhs = parse_expression rest in
-    (match rest with
-    | L.In :: rest ->
-      let rest, rhs = parse_expression rest in
-      rest, LetVar (ident, lhs, rhs)
-    | _ -> failwith "could not find 'in'")
   | L.Let :: rest ->
     let is_rec, ident, rest =
       match rest with
@@ -119,7 +112,9 @@ and parse_let = function
     (match rest with
     | L.In :: rest ->
       let rest, rhs = parse_expression rest in
-      rest, LetFun (is_rec, ident, params, lhs, rhs)
+      if List.length params == 0
+      then rest, LetVar (ident, lhs, rhs)
+      else rest, LetFun (is_rec, ident, params, lhs, rhs)
     | _ -> failwith "could not find 'in'")
   | tokens -> parse_if tokens
 
