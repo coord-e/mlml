@@ -111,10 +111,10 @@ and parse_let = function
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
     let rec aux = function
       | L.Equal :: rest -> rest, []
-      | L.LowerIdent ident :: rest ->
+      | tokens ->
+        let rest, pat = Pat.parse_pattern tokens in
         let rest, acc = aux rest in
-        rest, ident :: acc
-      | _ -> failwith "could not find '='"
+        rest, pat :: acc
     in
     let rest, params = aux rest in
     let rest, lhs = parse_expression rest in
@@ -126,11 +126,11 @@ and parse_let = function
       | [] -> failwith "'let rec' without arguments"
       | _ -> rest, LetFun (true, ident, params, lhs, rhs))
     | _ -> failwith "could not find 'in'")
-  | L.Let :: L.Rec :: c :: _ ->
+  | L.Let :: L.Rec :: t :: _ ->
     failwith
     @@ Printf.sprintf "unexpected token '%s' after let rec" (L.string_of_token t)
   | L.Let :: rest ->
-    let rest, bind = parse_pattern rest in
+    let rest, bind = Pat.parse_pattern rest in
     let rest, params, lhs =
       match rest with
       | L.Equal :: rest ->
@@ -142,12 +142,12 @@ and parse_let = function
         let rec aux = function
           | L.Equal :: rest -> rest, []
           | tokens ->
-            let rest, pat = parse_pattern tokens in
+            let rest, pat = Pat.parse_pattern tokens in
             let rest, acc = aux rest in
             rest, pat :: acc
         in
         let rest, params = aux rest in
-        let rest, lhs = parse_expression tokens in
+        let rest, lhs = parse_expression rest in
         rest, params, lhs
     in
     (match rest with
@@ -157,15 +157,14 @@ and parse_let = function
       then rest, LetVar (bind, lhs, rhs)
       else
         let ident =
-          match bind with
-          | Pat.Var x -> x
-          | _ ->
-            failwith
-            @@ Printf.sprintf
-                 "cannot name function with pattern '%s'"
-                 (Pat.string_of_pattern bind)
+          match bind with Pat.Var x -> x
+          (* | _ ->                                          *)
+          (*   failwith                                      *)
+          (*   @@ Printf.sprintf                             *)
+          (*        "cannot name function with pattern '%s'" *)
+          (*        (Pat.string_of_pattern bind)             *)
         in
-        rest, LetFun (is_rec, ident, params, lhs, rhs)
+        rest, LetFun (false, ident, params, lhs, rhs)
     | _ -> failwith "could not find 'in'")
   | tokens -> parse_if tokens
 
@@ -184,14 +183,14 @@ let rec string_of_ast = function
     Printf.sprintf "Mul (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | Equal (lhs, rhs) ->
     Printf.sprintf "Equal (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
-  | LetVar (ident, lhs, rhs) ->
+  | LetVar (pat, lhs, rhs) ->
     Printf.sprintf
       "Let (%s) = (%s) in (%s)"
-      ident
+      (Pat.string_of_pattern pat)
       (string_of_ast lhs)
       (string_of_ast rhs)
   | LetFun (is_rec, ident, params, lhs, rhs) ->
-    let p = String.concat ", " params in
+    let p = List.map Pat.string_of_pattern params |> String.concat ", " in
     Printf.sprintf
       "Let %s (%s) (%s) = (%s) in (%s)"
       (if is_rec then "rec" else "")
