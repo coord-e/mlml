@@ -20,3 +20,4 @@ and parse_pattern_literal tokens =
 and parse_pattern tokens = parse_pattern_literal tokens
 
 let string_of_pattern = function Var x -> x
+let introduced_idents = function Var x -> [x]

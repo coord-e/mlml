@@ -1,4 +1,5 @@
 module P = Parser
+module Pat = Pattern
 
 type register = Register of string
 type stack = Stack of int
@@ -191,6 +192,14 @@ let define_variable ctx buf ident v =
 let undef_variable ctx ident = Hashtbl.remove ctx.current_env.vars ident
 let get_variable ctx ident = Hashtbl.find ctx.current_env.vars ident
 
+let define_variable_pattern ctx buf pat v =
+  match pat with Pat.Var x -> define_variable ctx buf x v
+;;
+
+let undef_variable_pattern ctx pat =
+  List.iter (undef_variable ctx) (Pat.introduced_idents pat)
+;;
+
 let function_ptr_to_register buf label reg =
   emit_instruction buf
   @@ Printf.sprintf "leaq %s(%%rip), %s" (string_of_label label) (string_of_register reg)
@@ -230,11 +239,11 @@ let rec codegen_expr ctx buf = function
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free ctx;
     StackValue s
-  | P.LetVar (ident, lhs, rhs) ->
+  | P.LetVar (pat, lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
-    define_variable ctx buf ident lhs;
+    define_variable_pattern ctx buf pat lhs;
     let rhs = codegen_expr ctx buf rhs in
-    undef_variable ctx ident;
+    undef_variable_pattern ctx pat;
     rhs
   | P.Var ident -> StackValue (get_variable ctx ident)
   | P.LetFun (is_rec, ident, params, lhs, rhs) ->
@@ -302,9 +311,9 @@ and emit_function ctx main_buf is_rec name params ast =
   emit_instruction buf "pushq %rbp";
   emit_instruction buf "movq %rsp, %rbp";
   List.iteri
-    (fun i name ->
+    (fun i pat ->
       let arg = nth_arg_stack ctx buf i in
-      define_variable ctx buf name (StackValue arg) )
+      define_variable_pattern ctx buf pat (StackValue arg) )
     params;
   (if is_rec
   then
