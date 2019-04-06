@@ -142,6 +142,19 @@ let define_variable ctx buf ident v =
 let undef_variable ctx ident = Hashtbl.remove ctx.env ident
 let get_variable ctx ident = Hashtbl.find ctx.env ident
 
+let function_ptr_to_register buf name reg =
+  emit_instruction buf
+  @@ Printf.sprintf "leaq %s(%%rip), %s" name (string_of_register reg)
+;;
+
+let function_ptr ctx buf name =
+  let reg = alloc_register ctx in
+  function_ptr_to_register buf name reg;
+  let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
+  free_register reg ctx;
+  s
+;;
+
 let rec codegen_expr ctx buf = function
   | P.Int num -> ConstantValue num
   | P.Add (lhs, rhs) ->
@@ -232,14 +245,10 @@ and emit_function main_buf name ast params is_rec =
       let arg = nth_arg_stack ctx buf i in
       define_variable ctx buf name (StackValue arg) )
     params;
-  if is_rec
-  then (
-    let reg = alloc_register ctx in
-    emit_instruction buf
-    @@ Printf.sprintf "leaq %s(%%rip), %s" name (string_of_register reg);
-    let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
-    free_register reg ctx;
-    define_variable ctx buf name s );
+  (if is_rec
+  then
+    let ptr = function_ptr ctx buf name in
+    define_variable ctx buf name ptr);
   let value = codegen_expr ctx buf ast in
   assign_to_register buf value ret_register;
   emit_instruction buf "movq %rbp, %rsp";
@@ -252,12 +261,7 @@ and emit_function main_buf name ast params is_rec =
 
 and emit_function_value ctx buf name ast params is_rec =
   emit_function buf name ast params is_rec;
-  let reg = alloc_register ctx in
-  emit_instruction buf
-  @@ Printf.sprintf "leaq %s(%%rip), %s" name (string_of_register reg);
-  let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
-  free_register reg ctx;
-  s
+  function_ptr ctx buf name
 ;;
 
 let codegen ast =
