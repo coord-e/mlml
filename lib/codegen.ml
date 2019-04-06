@@ -20,11 +20,15 @@ let string_of_value = function
   | ConstantValue num -> string_of_constant num
 ;;
 
-type context =
+(* function-local environment *)
+type local_env =
   { mutable current_stack : int
-  ; mutable unused_registers : register list
-  ; mutable env : (string, stack) Hashtbl.t
-  ; mutable label_index : int }
+  ; mutable vars : (string, stack) Hashtbl.t }
+
+type context =
+  { mutable unused_registers : register list
+  ; mutable label_index : int
+  ; mutable current_env : local_env }
 
 let usable_registers =
   [ Register "%rsi"
@@ -37,12 +41,16 @@ let usable_registers =
 ;;
 
 let ret_register = Register "%rax"
+let new_local_env () = {current_stack = -8; vars = Hashtbl.create 10}
 
 let new_context () =
-  { current_stack = -8
-  ; unused_registers = usable_registers
-  ; env = Hashtbl.create 10
-  ; label_index = 0 }
+  {unused_registers = usable_registers; label_index = 0; current_env = new_local_env ()}
+;;
+
+let use_env ctx env =
+  let old_env = ctx.current_env in
+  ctx.current_env <- env;
+  old_env
 ;;
 
 let new_unnamed_label ctx =
@@ -84,8 +92,8 @@ let assign_to_register buf v reg =
 
 let push_to_stack ctx buf v =
   emit_instruction buf @@ Printf.sprintf "pushq %s" (string_of_value v);
-  let c = ctx.current_stack in
-  ctx.current_stack <- c - 8;
+  let c = ctx.current_env.current_stack in
+  (ctx.current_env).current_stack <- c - 8;
   Stack c
 ;;
 
@@ -137,11 +145,11 @@ let nth_arg_stack ctx buf n =
 
 let define_variable ctx buf ident v =
   let s = turn_into_stack ctx buf v in
-  Hashtbl.add ctx.env ident s
+  Hashtbl.add ctx.current_env.vars ident s
 ;;
 
-let undef_variable ctx ident = Hashtbl.remove ctx.env ident
-let get_variable ctx ident = Hashtbl.find ctx.env ident
+let undef_variable ctx ident = Hashtbl.remove ctx.current_env.vars ident
+let get_variable ctx ident = Hashtbl.find ctx.current_env.vars ident
 
 let function_ptr_to_register buf name reg =
   emit_instruction buf
@@ -234,8 +242,8 @@ let rec codegen_expr ctx buf = function
     free_register rdx ctx;
     StackValue s
 
-and emit_function main_buf is_rec name params ast =
-  let ctx = new_context () in
+and emit_function ctx main_buf is_rec name params ast =
+  let old_env = use_env ctx @@ new_local_env () in
   let buf = Buffer.create 100 in
   emit_instruction buf @@ ".globl " ^ name;
   start_label buf @@ Label name;
@@ -255,18 +263,20 @@ and emit_function main_buf is_rec name params ast =
   emit_instruction buf "movq %rbp, %rsp";
   emit_instruction buf "popq %rbp";
   emit_instruction buf "ret";
+  let _ = use_env ctx old_env in
   (* TODO: Use more effective and sufficient way to prepend to the buffer *)
   Buffer.add_buffer buf main_buf;
   Buffer.reset main_buf;
   Buffer.add_buffer main_buf buf
 
 and emit_function_value ctx buf is_rec name params ast =
-  emit_function buf is_rec name params ast;
+  emit_function ctx buf is_rec name params ast;
   function_ptr ctx buf name
 ;;
 
 let f ast =
   let buf = Buffer.create 100 in
-  emit_function buf false "main" [] ast;
+  let ctx = new_context () in
+  emit_function ctx buf false "main" [] ast;
   Buffer.contents buf
 ;;
