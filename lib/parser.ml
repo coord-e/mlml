@@ -6,8 +6,7 @@ type ast =
   | Sub of ast * ast
   | Mul of ast * ast
   | LetVar of string * ast * ast
-  | LetFun of string * string list * ast * ast
-  | LetRecFun of string * string list * ast * ast
+  | LetFun of bool * string * string list * ast * ast
   | IfThenElse of ast * ast * ast
   | App of ast * ast
   | Var of string
@@ -120,10 +119,7 @@ and parse_let = function
     (match rest with
     | L.In :: rest ->
       let rest, rhs = parse_expression rest in
-      ( rest
-      , if is_rec
-        then LetRecFun (ident, params, lhs, rhs)
-        else LetFun (ident, params, lhs, rhs) )
+      rest, LetFun (is_rec, ident, params, lhs, rhs)
     | _ -> failwith "could not find 'in'")
   | tokens -> parse_if tokens
 
@@ -150,18 +146,11 @@ let rec string_of_ast = function
       ident
       (string_of_ast lhs)
       (string_of_ast rhs)
-  | LetFun (ident, params, lhs, rhs) ->
+  | LetFun (is_rec, ident, params, lhs, rhs) ->
     let p = String.concat ", " params in
     Printf.sprintf
-      "Let (%s) (%s) = (%s) in (%s)"
-      ident
-      p
-      (string_of_ast lhs)
-      (string_of_ast rhs)
-  | LetRecFun (ident, params, lhs, rhs) ->
-    let p = String.concat ", " params in
-    Printf.sprintf
-      "Let rec (%s) (%s) = (%s) in (%s)"
+      "Let %s (%s) (%s) = (%s) in (%s)"
+      (if is_rec then "rec" else "")
       ident
       p
       (string_of_ast lhs)

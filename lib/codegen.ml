@@ -175,14 +175,8 @@ let rec codegen_expr ctx buf = function
     undef_variable ctx ident;
     rhs
   | P.Var ident -> StackValue (get_variable ctx ident)
-  | P.LetFun (ident, params, lhs, rhs) ->
-    let lhs = emit_function_value ctx buf ident lhs params false in
-    define_variable ctx buf ident lhs;
-    let rhs = codegen_expr ctx buf rhs in
-    undef_variable ctx ident;
-    rhs
-  | P.LetRecFun (ident, params, lhs, rhs) ->
-    let lhs = emit_function_value ctx buf ident lhs params true in
+  | P.LetFun (is_rec, ident, params, lhs, rhs) ->
+    let lhs = emit_function_value ctx buf ident lhs params is_rec in
     define_variable ctx buf ident lhs;
     let rhs = codegen_expr ctx buf rhs in
     undef_variable ctx ident;
