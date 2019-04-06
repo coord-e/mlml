@@ -18,5 +18,11 @@ let () =
   Tester.f {|
     let add (a, b) = a + b in
     add (1, 2)
+  |};
+  Tester.f
+    {|
+    let add (a, b, (d, e)) = a * b + d * e in
+    let v, t = 10, (3, 4) in
+    add (5, v, t)
   |}
 ;;
