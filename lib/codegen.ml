@@ -148,13 +148,13 @@ let assign_to_address ctx buf src dest offset =
 ;;
 
 let read_from_address ctx buf src dest offset =
-  let reg, free = turn_into_register ctx buf dest in
+  let reg, free = turn_into_register ctx buf src in
   emit_instruction buf
   @@ Printf.sprintf
        "movq %d(%s), %s"
        (-offset * 8)
-       (string_of_value src)
-       (string_of_register reg);
+       (string_of_register reg)
+       (string_of_value dest);
   free ctx
 ;;
 
