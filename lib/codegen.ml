@@ -324,7 +324,7 @@ let rec codegen_expr ctx buf = function
     let size = List.length values in
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
-    alloc_heap_ptr ctx buf (ConstantValue size) reg_value;
+    alloc_heap_ptr ctx buf (ConstantValue (size * 2)) reg_value;
     let values = List.map (codegen_expr ctx buf) values in
     List.iteri (fun i x -> assign_to_address ctx buf x reg_value i) values;
     let s = StackValue (turn_into_stack ctx buf reg_value) in
