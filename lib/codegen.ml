@@ -137,25 +137,29 @@ let rec assign_to_stack ctx buf v stack =
 let turn_into_stack ctx buf = function StackValue s -> s | v -> push_to_stack ctx buf v
 
 let assign_to_address ctx buf src dest offset =
-  let reg, free = turn_into_register ctx buf dest in
+  let src, free_src = turn_into_register ctx buf src in
+  let dest, free_dest = turn_into_register ctx buf dest in
   emit_instruction buf
   @@ Printf.sprintf
        "movq %s, %d(%s)"
-       (string_of_value src)
+       (string_of_register src)
        (-offset * 8)
-       (string_of_register reg);
-  free ctx
+       (string_of_register dest);
+  free_src ctx;
+  free_dest ctx
 ;;
 
 let read_from_address ctx buf src dest offset =
-  let reg, free = turn_into_register ctx buf src in
+  let src, free_src = turn_into_register ctx buf src in
+  let dest, free_dest = turn_into_register ctx buf dest in
   emit_instruction buf
   @@ Printf.sprintf
        "movq %d(%s), %s"
        (-offset * 8)
-       (string_of_register reg)
-       (string_of_value dest);
-  free ctx
+       (string_of_register src)
+       (string_of_register dest);
+  free_src ctx;
+  free_dest ctx
 ;;
 
 let nth_arg_register context n =
