@@ -12,6 +12,10 @@ let () =
     a + b + c + d
   |};
   Tester.f {|
+    let a, (b, c) = 1, (2, 3) in
+    a + b * c
+  |};
+  Tester.f {|
     let add (a, b) = a + b in
     add (1, 2)
   |}
