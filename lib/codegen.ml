@@ -70,11 +70,12 @@ let free_register reg context =
 ;;
 
 let emit_instruction buf inst =
+  Buffer.add_char buf '\t';
   Buffer.add_string buf inst;
   Buffer.add_char buf '\n'
 ;;
 
-let start_label buf label = emit_instruction buf @@ string_of_label label ^ ":"
+let start_label buf label = Buffer.add_string buf @@ string_of_label label ^ ":\n"
 
 let assign_to_register buf v reg =
   emit_instruction buf
@@ -238,8 +239,8 @@ and emit_function main_buf is_rec name params ast =
   let buf = Buffer.create 100 in
   emit_instruction buf @@ ".globl " ^ name;
   start_label buf @@ Label name;
-  emit_instruction buf "pushq\t%rbp";
-  emit_instruction buf "movq\t%rsp, %rbp";
+  emit_instruction buf "pushq %rbp";
+  emit_instruction buf "movq %rsp, %rbp";
   List.iteri
     (fun i name ->
       let arg = nth_arg_stack ctx buf i in
@@ -252,7 +253,7 @@ and emit_function main_buf is_rec name params ast =
   let value = codegen_expr ctx buf ast in
   assign_to_register buf value ret_register;
   emit_instruction buf "movq %rbp, %rsp";
-  emit_instruction buf "popq\t%rbp";
+  emit_instruction buf "popq %rbp";
   emit_instruction buf "ret";
   (* TODO: Use more effective and sufficient way to prepend to the buffer *)
   Buffer.add_buffer buf main_buf;
