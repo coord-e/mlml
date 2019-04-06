@@ -2,6 +2,7 @@ module L = Lexer
 
 type ast =
   | Int of int
+  | Tuple of ast list
   | Add of ast * ast
   | Sub of ast * ast
   | Mul of ast * ast
@@ -75,6 +76,21 @@ and parse_equal tokens =
   in
   aux lhs tokens
 
+and parse_tuple tokens =
+  let rec aux tokens =
+    let rest, curr = parse_equal tokens in
+    match rest with
+    | L.Comma :: rest ->
+      let rest, tail = aux rest in
+      rest, curr :: tail
+    | _ -> rest, [curr]
+  in
+  let rest, values = aux tokens in
+  match values with
+  | [] -> failwith "unreachable"
+  | [value] -> rest, value
+  | _ -> rest, Tuple values
+
 and parse_if = function
   | L.If :: rest ->
     let rest, cond = parse_expression rest in
@@ -87,7 +103,7 @@ and parse_if = function
         rest, IfThenElse (cond, then_, else_)
       | _ -> failwith "could not find 'else'")
     | _ -> failwith "could not find 'then'")
-  | tokens -> parse_equal tokens
+  | tokens -> parse_tuple tokens
 
 and parse_let = function
   | L.Let :: rest ->
@@ -122,6 +138,9 @@ and parse_expression tokens = parse_let tokens
 
 let rec string_of_ast = function
   | Int num -> Printf.sprintf "Int %d" num
+  | Tuple values ->
+    let p = List.map string_of_ast values |> String.concat ", " in
+    Printf.sprintf "Tuple (%s)" p
   | Add (lhs, rhs) ->
     Printf.sprintf "Add (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
   | Sub (lhs, rhs) ->
