@@ -1,4 +1,5 @@
 module L = Lexer
+module Pat = Pattern
 
 type ast =
   | Int of int
@@ -6,8 +7,8 @@ type ast =
   | Add of ast * ast
   | Sub of ast * ast
   | Mul of ast * ast
-  | LetVar of string * ast * ast
-  | LetFun of bool * string * string list * ast * ast
+  | LetVar of Pat.t * ast * ast
+  | LetFun of bool * string * Pat.t list * ast * ast
   | IfThenElse of ast * ast * ast
   | App of ast * ast
   | Var of string
@@ -106,16 +107,8 @@ and parse_if = function
   | tokens -> parse_tuple tokens
 
 and parse_let = function
-  | L.Let :: rest ->
-    let is_rec, ident, rest =
-      match rest with
-      | L.Rec :: L.LowerIdent ident :: rest -> true, ident, rest
-      | L.LowerIdent ident :: rest -> false, ident, rest
-      | c :: _ ->
-        failwith
-        @@ Printf.sprintf "unexpected token '%s' after 'let'" (L.string_of_token c)
-      | [] -> failwith "failed to parse let expression"
-    in
+  (* `let rec` -> function definition *)
+  | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
     let rec aux = function
       | L.Equal :: rest -> rest, []
       | L.LowerIdent ident :: rest ->
@@ -128,9 +121,51 @@ and parse_let = function
     (match rest with
     | L.In :: rest ->
       let rest, rhs = parse_expression rest in
+      (match params with
+      (* TODO: Support let rec without arguments *)
+      | [] -> failwith "'let rec' without arguments"
+      | _ -> rest, LetFun (true, ident, params, lhs, rhs))
+    | _ -> failwith "could not find 'in'")
+  | L.Let :: L.Rec :: c :: _ ->
+    failwith
+    @@ Printf.sprintf "unexpected token '%s' after let rec" (L.string_of_token t)
+  | L.Let :: rest ->
+    let rest, bind = parse_pattern rest in
+    let rest, params, lhs =
+      match rest with
+      | L.Equal :: rest ->
+        (* variable *)
+        let rest, lhs = parse_expression rest in
+        rest, [], lhs
+      | _ ->
+        (* function *)
+        let rec aux = function
+          | L.Equal :: rest -> rest, []
+          | tokens ->
+            let rest, pat = parse_pattern tokens in
+            let rest, acc = aux rest in
+            rest, pat :: acc
+        in
+        let rest, params = aux rest in
+        let rest, lhs = parse_expression tokens in
+        rest, params, lhs
+    in
+    (match rest with
+    | L.In :: rest ->
+      let rest, rhs = parse_expression rest in
       if List.length params == 0
-      then rest, LetVar (ident, lhs, rhs)
-      else rest, LetFun (is_rec, ident, params, lhs, rhs)
+      then rest, LetVar (bind, lhs, rhs)
+      else
+        let ident =
+          match bind with
+          | Pat.Var x -> x
+          | _ ->
+            failwith
+            @@ Printf.sprintf
+                 "cannot name function with pattern '%s'"
+                 (Pat.string_of_pattern bind)
+        in
+        rest, LetFun (is_rec, ident, params, lhs, rhs)
     | _ -> failwith "could not find 'in'")
   | tokens -> parse_if tokens
 
