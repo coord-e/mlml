@@ -143,7 +143,7 @@ let assign_to_address ctx buf src dest offset =
   @@ Printf.sprintf
        "movq %s, %d(%s)"
        (string_of_register src)
-       (-offset * 8)
+       offset
        (string_of_register dest);
   free_src ctx;
   free_dest ctx
@@ -155,7 +155,7 @@ let read_from_address ctx buf src dest offset =
   emit_instruction buf
   @@ Printf.sprintf
        "movq %d(%s), %s"
-       (-offset * 8)
+       offset
        (string_of_register src)
        (string_of_register dest);
   free_src ctx;
@@ -234,7 +234,7 @@ let rec define_variable_pattern ctx buf pat v =
     let aux i p =
       let reg = alloc_register ctx in
       let reg_value = RegisterValue reg in
-      read_from_address ctx buf v reg_value i;
+      read_from_address ctx buf v reg_value (-i * 8);
       let s = turn_into_stack ctx buf reg_value in
       free_register reg ctx;
       define_variable_pattern ctx buf p (StackValue s)
@@ -344,7 +344,7 @@ let rec codegen_expr ctx buf = function
     let reg_value = RegisterValue reg in
     alloc_heap_ptr ctx buf (ConstantValue (size * 2)) reg_value;
     let values = List.map (codegen_expr ctx buf) values in
-    List.iteri (fun i x -> assign_to_address ctx buf x reg_value i) values;
+    List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-i * 8)) values;
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
     s
