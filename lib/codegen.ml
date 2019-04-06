@@ -135,6 +135,17 @@ let rec assign_to_stack ctx buf v stack =
 
 let turn_into_stack ctx buf = function StackValue s -> s | v -> push_to_stack ctx buf v
 
+let assign_to_address ctx buf src dest offset =
+  let reg, free = turn_into_register ctx buf dest in
+  emit_instruction buf
+  @@ Printf.sprintf
+       "movq %s, %d(%s)"
+       (string_of_value src)
+       (-offset * 8)
+       (string_of_register reg);
+  free ctx
+;;
+
 let nth_arg_register context n =
   let r =
     match n with
@@ -158,6 +169,18 @@ let nth_arg_stack ctx buf n =
   let s = turn_into_stack ctx buf (RegisterValue r) in
   free ctx;
   s
+;;
+
+let alloc_heap_ptr ctx buf size dest =
+  let param, free = nth_arg_register ctx 0 in
+  assign_to_register buf size param;
+  emit_instruction buf @@ "call GC_malloc@PLT";
+  free ctx;
+  let ptr = RegisterValue ret_register in
+  match dest with
+  | RegisterValue r -> assign_to_register buf ptr r
+  | StackValue s -> assign_to_stack ctx buf ptr s
+  | ConstantValue _ -> failwith "can't assign to constant"
 ;;
 
 let define_variable ctx buf ident v =
@@ -241,7 +264,7 @@ let rec codegen_expr ctx buf = function
     assign_to_stack ctx buf else_ eval_stack;
     emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
     start_label buf then_label;
-    ctx.current_env.current_stack <- save_stack_c;
+    (ctx.current_env).current_stack <- save_stack_c;
     let then_ = codegen_expr ctx buf then_ in
     assign_to_stack ctx buf then_ eval_stack;
     start_label buf join_label;
@@ -260,6 +283,16 @@ let rec codegen_expr ctx buf = function
     let s = push_to_stack ctx buf (RegisterValue rdx) in
     free_register rdx ctx;
     StackValue s
+  | P.Tuple values ->
+    let size = List.length values in
+    let reg = alloc_register ctx in
+    let reg_value = RegisterValue reg in
+    alloc_heap_ptr ctx buf (ConstantValue size) reg_value;
+    let values = List.map (codegen_expr ctx buf) values in
+    List.iteri (fun i x -> assign_to_address ctx buf x reg_value i) values;
+    let s = StackValue (turn_into_stack ctx buf reg_value) in
+    free_register reg ctx;
+    s
 
 and emit_function ctx main_buf is_rec name params ast =
   let old_env = use_env ctx @@ new_local_env () in
