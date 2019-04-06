@@ -187,12 +187,31 @@ let nth_arg_stack ctx buf n =
   s
 ;;
 
+let call_ext_func ctx buf name args =
+  (* save registers (used but not by arguments) *)
+  (* usable - unused - args                     *)
+  let aux i v =
+    let reg, free = nth_arg_register ctx i in
+    assign_to_register buf v reg;
+    reg, free
+  in
+  let arg_regs, free_fns = List.mapi aux args |> List.split in
+  let filt x = not (List.mem x ctx.unused_registers || List.mem x arg_regs) in
+  let regs_to_save = List.filter filt usable_registers in
+  let saver x =
+    let s = push_to_stack ctx buf (RegisterValue x) in
+    x, s
+  in
+  let saved_regs = List.map saver regs_to_save in
+  emit_instruction buf @@ "call " ^ name;
+  List.iter (fun f -> f ctx) free_fns;
+  let restore (x, s) = assign_to_register buf (StackValue s) x in
+  List.iter restore saved_regs;
+  ret_register
+;;
+
 let alloc_heap_ptr ctx buf size dest =
-  let param, free = nth_arg_register ctx 0 in
-  assign_to_register buf size param;
-  emit_instruction buf @@ "call GC_malloc@PLT";
-  free ctx;
-  let ptr = RegisterValue ret_register in
+  let ptr = RegisterValue (call_ext_func ctx buf "GC_malloc@PLT" [size]) in
   match dest with
   | RegisterValue r -> assign_to_register buf ptr r
   | StackValue s -> assign_to_stack ctx buf ptr s
