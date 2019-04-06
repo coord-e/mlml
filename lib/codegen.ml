@@ -189,7 +189,7 @@ let rec codegen_expr ctx buf = function
     rhs
   | P.Var ident -> StackValue (get_variable ctx ident)
   | P.LetFun (is_rec, ident, params, lhs, rhs) ->
-    let lhs = emit_function_value ctx buf ident lhs params is_rec in
+    let lhs = emit_function_value ctx buf is_rec ident params lhs in
     define_variable ctx buf ident lhs;
     let rhs = codegen_expr ctx buf rhs in
     undef_variable ctx ident;
@@ -233,7 +233,7 @@ let rec codegen_expr ctx buf = function
     free_register rdx ctx;
     StackValue s
 
-and emit_function main_buf name ast params is_rec =
+and emit_function main_buf is_rec name params ast =
   let ctx = new_context () in
   let buf = Buffer.create 100 in
   emit_instruction buf @@ ".globl " ^ name;
@@ -259,13 +259,13 @@ and emit_function main_buf name ast params is_rec =
   Buffer.reset main_buf;
   Buffer.add_buffer main_buf buf
 
-and emit_function_value ctx buf name ast params is_rec =
-  emit_function buf name ast params is_rec;
+and emit_function_value ctx buf is_rec name params ast =
+  emit_function buf is_rec name params ast;
   function_ptr ctx buf name
 ;;
 
 let codegen ast =
   let buf = Buffer.create 100 in
-  emit_function buf "main" ast [] false;
+  emit_function buf false "main" [] ast;
   Buffer.contents buf
 ;;
