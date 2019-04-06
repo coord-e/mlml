@@ -35,7 +35,6 @@ type context =
 
 let usable_registers =
   [ Register "%rsi"
-  ; Register "%rdi"
   ; Register "%r8"
   ; Register "%r9"
   ; Register "%r10"
