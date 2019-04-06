@@ -95,6 +95,11 @@ let emit_instruction buf inst =
 
 let start_label buf label = Buffer.add_string buf @@ string_of_label label ^ ":\n"
 
+let start_global_label buf label =
+  emit_instruction buf @@ ".globl " ^ string_of_label label;
+  start_label buf label
+;;
+
 let assign_to_register buf v reg =
   emit_instruction buf
   @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_register reg)
@@ -255,8 +260,7 @@ let rec codegen_expr ctx buf = function
 and emit_function ctx main_buf is_rec name params ast =
   let old_env = use_env ctx @@ new_local_env () in
   let buf = Buffer.create 100 in
-  emit_instruction buf @@ ".globl " ^ name;
-  start_label buf @@ new_label ctx name;
+  start_global_label buf @@ new_label ctx name;
   emit_instruction buf "pushq %rbp";
   emit_instruction buf "movq %rsp, %rbp";
   List.iteri
