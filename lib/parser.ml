@@ -120,11 +120,6 @@ and parse_let = function
 
 and parse_expression tokens = parse_let tokens
 
-let parse tokens =
-  let _rest, ast = parse_expression tokens in
-  ast
-;;
-
 let rec string_of_ast = function
   | Int num -> Printf.sprintf "Int %d" num
   | Add (lhs, rhs) ->
@@ -159,4 +154,9 @@ let rec string_of_ast = function
       (string_of_ast then_)
       (string_of_ast else_)
   | Var ident -> Printf.sprintf "Var %s" ident
+;;
+
+let f tokens =
+  let _rest, ast = parse_expression tokens in
+  ast
 ;;

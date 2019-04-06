@@ -3,7 +3,7 @@ open Mlml
 let exec_with_mlml source =
   let as_file = Filename.temp_file "." ".s" in
   let oc = open_out as_file in
-  Printf.fprintf oc "%s\n" @@ Compile.compile source;
+  Printf.fprintf oc "%s\n" @@ Compile.f source;
   close_out oc;
   let exec_file = Filename.temp_file "." "" in
   let ret_code = Sys.command @@ Printf.sprintf "gcc %s -o %s" as_file exec_file in

@@ -1,1 +1,1 @@
-let compile source = Lexer.tokenize source |> Parser.parse |> Codegen.codegen
+let f source = Lexer.f source |> Parser.f |> Codegen.f

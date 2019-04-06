@@ -76,13 +76,6 @@ let rec tokenize_aux acc rest =
     | _ -> failwith @@ Printf.sprintf "unexpected character: '%c'" h)
 ;;
 
-let explode s =
-  let rec exp i l = if i < 0 then l else exp (i - 1) (s.[i] :: l) in
-  exp (String.length s - 1) []
-;;
-
-let tokenize source = tokenize_aux [] @@ explode source |> List.rev
-
 let string_of_token = function
   | IntLiteral num -> string_of_int num
   | BoolLiteral b -> string_of_bool b
@@ -105,3 +98,10 @@ let string_of_tokens tokens =
   let aux acc t = string_of_token t ^ ", " ^ acc in
   List.fold_left aux "" @@ List.rev tokens
 ;;
+
+let explode s =
+  let rec exp i l = if i < 0 then l else exp (i - 1) (s.[i] :: l) in
+  exp (String.length s - 1) []
+;;
+
+let f source = explode source |> tokenize_aux [] |> List.rev

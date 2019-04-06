@@ -264,7 +264,7 @@ and emit_function_value ctx buf is_rec name params ast =
   function_ptr ctx buf name
 ;;
 
-let codegen ast =
+let f ast =
   let buf = Buffer.create 100 in
   emit_function buf false "main" [] ast;
   Buffer.contents buf
