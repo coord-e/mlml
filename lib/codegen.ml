@@ -337,6 +337,8 @@ and emit_function ctx main_buf is_rec name params ast =
   start_global_label buf label;
   emit_instruction buf "pushq %rbp";
   emit_instruction buf "movq %rsp, %rbp";
+  (* TODO: more generic and explicit method *)
+  if name = "main" then emit_instruction buf "call GC_init@PLT";
   List.iteri
     (fun i pat ->
       let arg = nth_arg_stack ctx buf i in
