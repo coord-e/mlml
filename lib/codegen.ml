@@ -86,8 +86,9 @@ let alloc_register context =
   | [] -> failwith "Could not allocate register"
 ;;
 
-let free_register reg context =
-  context.unused_registers <- reg :: context.unused_registers
+let free_register reg ctx =
+  if not (List.mem reg ctx.unused_registers)
+  then ctx.unused_registers <- reg :: ctx.unused_registers
 ;;
 
 let emit_instruction buf inst =
