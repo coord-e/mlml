@@ -53,9 +53,9 @@ let use_env ctx env =
   old_env
 ;;
 
-let new_unnamed_label ctx =
+let new_label ctx name =
   let rec aux i =
-    let label = Label (Printf.sprintf ".L%d" i) in
+    let label = Label (Printf.sprintf "%s%d" name i) in
     if List.mem label ctx.used_labels
     then aux (i + 1)
     else (
@@ -64,6 +64,8 @@ let new_unnamed_label ctx =
   in
   aux 0
 ;;
+
+let new_unnamed_label ctx = new_label ctx ".L"
 
 let use_register ctx reg =
   if List.mem reg ctx.unused_registers
@@ -252,7 +254,7 @@ and emit_function ctx main_buf is_rec name params ast =
   let old_env = use_env ctx @@ new_local_env () in
   let buf = Buffer.create 100 in
   emit_instruction buf @@ ".globl " ^ name;
-  start_label buf @@ Label name;
+  start_label buf @@ new_label ctx name;
   emit_instruction buf "pushq %rbp";
   emit_instruction buf "movq %rsp, %rbp";
   List.iteri
