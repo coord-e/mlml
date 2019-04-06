@@ -228,11 +228,11 @@ let rec codegen_expr ctx buf = function
     StackValue (turn_into_stack ctx buf (RegisterValue ret_register))
   | P.IfThenElse (cond, then_, else_) ->
     let cond, free = codegen_expr ctx buf cond |> turn_into_register ctx buf in
+    let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
     emit_instruction buf @@ Printf.sprintf "cmpq $0, %s" (string_of_register cond);
     free ctx;
     let then_label = new_unnamed_label ctx in
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label then_label);
-    let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
     let join_label = new_unnamed_label ctx in
     let else_ = codegen_expr ctx buf else_ in
     assign_to_stack ctx buf else_ eval_stack;
