@@ -24,6 +24,7 @@ let try_parse_type = function
       | L.CapitalIdent name :: L.Vertical :: rest ->
         let rest, acc = aux rest in
         rest, (name, None) :: acc
+      | L.CapitalIdent name :: rest -> rest, [name, None]
       | _ -> rest, []
     in
     let rest, ctors = match rest with L.Vertical :: rest | rest -> aux rest in
