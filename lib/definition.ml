@@ -9,7 +9,8 @@ type t =
   | LetVar of Pat.t * Expr.t
   | LetFun of bool * string * Pat.t list * Expr.t
 
-let try_parse_let = function
+let try_parse_let tokens =
+  match tokens with
   (* function definition *)
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
     let rec aux = function
@@ -21,7 +22,10 @@ let try_parse_let = function
     in
     let rest, params = aux rest in
     let rest, lhs = Expr.parse_expression rest in
-    rest, Some (LetFun (true, ident, params, lhs))
+    (* check if let-in expression, which is not a definition *)
+    (match rest with
+    | L.In :: _ -> tokens, None
+    | _ -> rest, Some (LetFun (true, ident, params, lhs)))
   | L.Let :: rest ->
     let rest, bind = Pat.parse_pattern rest in
     let rest, params, lhs =
@@ -43,19 +47,23 @@ let try_parse_let = function
         let rest, lhs = Expr.parse_expression rest in
         rest, params, lhs
     in
-    if List.length params == 0
-    then rest, Some (LetVar (bind, lhs))
-    else
-      let ident =
-        match bind with
-        | Pat.Var x -> x
-        | _ ->
-          failwith
-          @@ Printf.sprintf
-               "cannot name function with pattern '%s'"
-               (Pat.string_of_pattern bind)
-      in
-      rest, Some (LetFun (false, ident, params, lhs))
+    (* check if let-in expression, which is not a definition *)
+    (match rest with
+    | L.In :: _ -> tokens, None
+    | _ ->
+      if List.length params == 0
+      then rest, Some (LetVar (bind, lhs))
+      else
+        let ident =
+          match bind with
+          | Pat.Var x -> x
+          | _ ->
+            failwith
+            @@ Printf.sprintf
+                 "cannot name function with pattern '%s'"
+                 (Pat.string_of_pattern bind)
+        in
+        rest, Some (LetFun (false, ident, params, lhs)))
   | tokens -> tokens, None
 ;;
 
