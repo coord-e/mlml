@@ -416,7 +416,8 @@ and emit_module ctx buf name items =
   let emit ctx buf _label =
     (* TODO: more generic and explicit method *)
     if name = "main" then emit_instruction buf "call GC_init@PLT";
-    codegen_module ctx buf items
+    codegen_module ctx buf items;
+    assign_to_register buf (ConstantValue 0) ret_register
   in
   emit_function_with ctx buf name emit
 ;;
