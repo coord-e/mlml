@@ -22,8 +22,6 @@ let string_of_value = function
 ;;
 
 (* function-local environment *)
-(* TODO: current_stack is path-local,
- * consider an alternative way to allocate stack area *)
 type local_env =
   { mutable current_stack : int
   ; mutable vars : (string, stack) Hashtbl.t }
@@ -149,13 +147,6 @@ let assign_to_register buf v reg =
   @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_register reg)
 ;;
 
-let push_to_stack ctx buf v =
-  emit_instruction buf @@ Printf.sprintf "pushq %s" (string_of_value v);
-  let c = ctx.current_env.current_stack in
-  (ctx.current_env).current_stack <- c - 8;
-  Stack c
-;;
-
 let turn_into_register ctx buf = function
   | RegisterValue r -> r, fun _ -> ()
   | v ->
@@ -173,6 +164,14 @@ let rec assign_to_stack ctx buf v stack =
     let reg, free = turn_into_register ctx buf v in
     assign_to_stack ctx buf (RegisterValue reg) stack;
     free ctx
+;;
+
+let push_to_stack ctx buf v =
+  let c = ctx.current_env.current_stack in
+  let s = Stack c in
+  assign_to_stack ctx buf v s;
+  (ctx.current_env).current_stack <- c - 8;
+  s
 ;;
 
 let turn_into_stack ctx buf = function StackValue s -> s | v -> push_to_stack ctx buf v
