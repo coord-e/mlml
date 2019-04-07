@@ -62,12 +62,10 @@ let rec codegen_expr ctx buf = function
     let then_label = new_unnamed_label ctx in
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label then_label);
     let join_label = new_unnamed_label ctx in
-    let save_stack_c = ctx.current_env.current_stack in
     let else_ = codegen_expr ctx buf else_ in
     assign_to_stack ctx buf else_ eval_stack;
     emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
     start_label buf then_label;
-    (ctx.current_env).current_stack <- save_stack_c;
     let then_ = codegen_expr ctx buf then_ in
     assign_to_stack ctx buf then_ eval_stack;
     start_label buf join_label;
@@ -135,20 +133,26 @@ and codegen_module ctx buf = List.iter (codegen_module_item ctx buf)
 
 and emit_function_with ctx main_buf name fn =
   let old_env = use_env ctx @@ new_local_env () in
+  let before_buf = Buffer.create 100 in
   let buf = Buffer.create 100 in
   let label = new_label ctx name in
-  start_global_label buf label;
-  emit_instruction buf "pushq %rbp";
-  emit_instruction buf "movq %rsp, %rbp";
+  start_global_label before_buf label;
+  emit_instruction before_buf "pushq %rbp";
+  emit_instruction before_buf "movq %rsp, %rbp";
+  (* TODO: more generic and explicit method *)
+  if name = "main" then emit_instruction before_buf "call GC_init@PLT";
   fn ctx buf label;
+  let stack_used = ctx.current_env.current_stack in
+  emit_instruction before_buf @@ Printf.sprintf "subq $%d, %%rsp" (-stack_used + 8);
   emit_instruction buf "movq %rbp, %rsp";
   emit_instruction buf "popq %rbp";
   emit_instruction buf "ret";
   let _ = use_env ctx old_env in
   (* TODO: Use more effective and sufficient way to prepend to the buffer *)
-  Buffer.add_buffer buf main_buf;
+  Buffer.add_buffer before_buf buf;
+  Buffer.add_buffer before_buf main_buf;
   Buffer.reset main_buf;
-  Buffer.add_buffer main_buf buf;
+  Buffer.add_buffer main_buf before_buf;
   label
 
 and emit_function ctx main_buf is_rec name params ast =
@@ -173,8 +177,6 @@ and emit_function_value ctx buf is_rec name params ast =
 
 and emit_module ctx buf name items =
   let emit ctx buf _label =
-    (* TODO: more generic and explicit method *)
-    if name = "main" then emit_instruction buf "call GC_init@PLT";
     codegen_module ctx buf items;
     assign_to_register buf (ConstantValue 0) ret_register
   in
