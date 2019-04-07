@@ -33,7 +33,7 @@ let string_of_module_item = function
 
 (* TODO: function composition can make this clearer *)
 let string_of_module_items items =
-  List.map string_of_module_item items |> List.concat ";; "
+  List.map string_of_module_item items |> String.concat ";; "
 ;;
 
 let f = parse_module_items
