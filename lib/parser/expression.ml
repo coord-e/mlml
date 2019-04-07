@@ -137,7 +137,7 @@ and parse_match = function
           | L.Vertical :: rest ->
             let rest, acc = aux rest in
             rest, (pat, arm) :: acc
-          | _ -> rest, [])
+          | _ -> rest, [pat, arm])
         | _ -> failwith "could not find '->'"
       in
       let rest, arms = aux rest in
