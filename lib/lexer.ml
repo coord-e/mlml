@@ -14,6 +14,8 @@ type token =
   | Then
   | Else
   | Comma
+  | Semicolon
+  | DoubleSemicolon
   | LParen
   | RParen
 
@@ -75,6 +77,10 @@ let rec tokenize_aux acc rest =
     | ',' -> tokenize_aux (Comma :: acc) t
     | '(' -> tokenize_aux (LParen :: acc) t
     | ')' -> tokenize_aux (RParen :: acc) t
+    | ';' ->
+      (match t with
+      | ';' :: t -> tokenize_aux (DoubleSemicolon :: acc) t
+      | _ -> tokenize_aux (Semicolon :: acc) t)
     | _ -> failwith @@ Printf.sprintf "unexpected character: '%c'" h)
 ;;
 
@@ -93,6 +99,8 @@ let string_of_token = function
   | Then -> "then"
   | Else -> "else"
   | Comma -> ","
+  | Semicolon -> ";"
+  | DoubleSemicolon -> ";;"
   | LParen -> "("
   | RParen -> ")"
 ;;
