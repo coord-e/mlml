@@ -5,6 +5,7 @@ type t =
   | Int of int
   | Tuple of t list
   | Ctor of string * t option
+  | Or of t * t
 
 let rec try_parse_pattern_literal tokens =
   match tokens with
@@ -28,9 +29,20 @@ and parse_pattern_literal tokens =
     failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
   | [], None -> failwith "Empty input"
 
+and parse_pattern_or tokens =
+  let tokens, lhs = parse_pattern_literal tokens in
+  let rec aux lhs tokens =
+    match tokens with
+    | L.Vertical :: rest ->
+      let rest, rhs = parse_pattern_literal rest in
+      aux (Or (lhs, rhs)) rest
+    | _ -> tokens, lhs
+  in
+  aux lhs tokens
+
 and parse_pattern_tuple tokens =
   let rec aux tokens =
-    let rest, curr = parse_pattern_literal tokens in
+    let rest, curr = parse_pattern_or tokens in
     match rest with
     | L.Comma :: rest ->
       let rest, tail = aux rest in
@@ -54,6 +66,7 @@ let rec string_of_pattern = function
     (match rhs with
     | Some rhs -> Printf.sprintf "%s (%s)" name (string_of_pattern rhs)
     | None -> name)
+  | Or (a, b) -> Printf.sprintf "(%s) | (%s)" (string_of_pattern a) (string_of_pattern b)
 ;;
 
 let rec introduced_idents = function
@@ -62,4 +75,5 @@ let rec introduced_idents = function
   | Tuple values -> List.map introduced_idents values |> List.flatten
   | Ctor (_, value) ->
     (match value with Some value -> introduced_idents value | None -> [])
+  | Or (a, b) -> introduced_idents a @ introduced_idents b
 ;;
