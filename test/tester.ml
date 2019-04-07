@@ -3,8 +3,14 @@ open Mlml
 let open_and_read_result cmd =
   let channel = Unix.open_process_in cmd in
   let result = input_line channel in
-  let _ = Unix.close_process_in channel in
-  result
+  let status = Unix.close_process_in channel in
+  match status with
+  | Unix.WEXITED code ->
+    if code = 0
+    then result
+    else failwith @@ Printf.sprintf "Execution of test code failed with code %d" code
+  | Unix.WSTOPPED s | Unix.WSIGNALED s ->
+    failwith @@ Printf.sprintf "Execution of test code failed with signal %d" s
 ;;
 
 let exec_with_mlml source =
