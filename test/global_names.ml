@@ -1,11 +1,11 @@
 let () =
   (* starting with underscore to suppress warning *)
-  Tester.f {|
+  Tester.expr {|
     let _f x = x + 3 in
     let _f x = 10 * x + 3 in
     _f 4
   |};
-  Tester.f
+  Tester.expr
     {|
     let f x = (
       if x = 0
