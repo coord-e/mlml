@@ -96,6 +96,23 @@ let rec codegen_expr ctx buf = function
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
     s
+  | Expr.Ctor (name, value) ->
+    let value =
+      match value with
+      | Some value -> codegen_expr ctx buf value
+      (* TODO: Better representation of ctor without parameters *)
+      | None -> ConstantValue 0
+    in
+    let idx = get_ctor_index ctx name in
+    let reg = alloc_register ctx in
+    let reg_value = RegisterValue reg in
+    (* two 64-bit values -> 16 *)
+    alloc_heap_ptr ctx buf (ConstantValue 16) reg_value;
+    assign_to_address ctx buf (ConstantValue idx) reg_value 0;
+    assign_to_address ctx buf value reg_value (-8);
+    let s = StackValue (turn_into_stack ctx buf reg_value) in
+    free_register reg ctx;
+    s
 
 and codegen_definition ctx buf = function
   | Def.LetVar (pat, lhs) ->

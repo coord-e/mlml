@@ -243,6 +243,7 @@ let alloc_heap_ptr ctx buf size dest =
 ;;
 
 let define_ctor ctx ctor idx = Hashtbl.add ctx.ctors ctor idx
+let get_ctor_index ctx ctor = Hashtbl.find ctx.ctors ctor
 
 let define_variable ctx buf ident v =
   let s = turn_into_stack ctx buf v in
