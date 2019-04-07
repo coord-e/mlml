@@ -3,14 +3,38 @@
 
 module Expr = Expression
 module Pat = Pattern
+module TyExpr = Type_expression
 module L = Lexer
 
 type t =
   | LetVar of Pat.t * Expr.t
   | LetFun of bool * string * Pat.t list * Expr.t
+  | Variant of string * (string * TyExpr.t option) list
+
+let try_parse_type = function
+  | L.LowerIdent ident :: L.Equal :: rest ->
+    let rec aux = function
+      | L.CapitalIdent name :: L.Of :: rest ->
+        let rest, ty_expr = TyExpr.parse_type_expression rest in
+        (match rest with
+        | L.Vertical :: rest ->
+          let rest, acc = aux rest in
+          rest, (name, Some ty_expr) :: acc
+        | _ -> rest, [name, Some ty_expr])
+      | L.CapitalIdent name :: L.Vertical :: rest ->
+        let rest, acc = aux rest in
+        rest, (name, None) :: acc
+      | L.CapitalIdent name :: rest -> rest, [name, None]
+      | _ -> rest, []
+    in
+    let rest, ctors = match rest with L.Vertical :: rest | rest -> aux rest in
+    rest, Some (Variant (ident, ctors))
+  | tokens -> tokens, None
+;;
 
 let try_parse_let tokens =
   match tokens with
+  | L.Type :: rest -> try_parse_type rest
   (* function definition *)
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
     let rest, params = Expr.parse_let_fun_params rest in
@@ -77,6 +101,14 @@ let string_of_definition = function
       ident
       p
       (Expr.string_of_expression lhs)
+  | Variant (name, variants) ->
+    let aux (ctor, param) =
+      match param with
+      | Some p -> Printf.sprintf "%s (%s)" ctor (TyExpr.string_of_type_expression p)
+      | None -> ctor
+    in
+    let variants = List.map aux variants |> String.concat " | " in
+    Printf.sprintf "type %s = %s" name variants
 ;;
 
 let f = parse_definition

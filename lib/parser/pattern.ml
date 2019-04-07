@@ -3,10 +3,15 @@ module L = Lexer
 type t =
   | Var of string
   | Tuple of t list
+  | Ctor of string * t option
 
 let rec try_parse_pattern_literal tokens =
   match tokens with
   | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
+  | L.CapitalIdent ident :: tokens ->
+    (match try_parse_pattern_literal tokens with
+    | rest, Some p -> rest, Some (Ctor (ident, Some p))
+    | _, None -> tokens, Some (Ctor (ident, None)))
   | L.LParen :: tokens ->
     let rest, v = parse_pattern tokens in
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
@@ -40,9 +45,15 @@ let rec string_of_pattern = function
   | Var x -> x
   | Tuple values ->
     List.map string_of_pattern values |> String.concat ", " |> Printf.sprintf "(%s)"
+  | Ctor (name, rhs) ->
+    (match rhs with
+    | Some rhs -> Printf.sprintf "%s (%s)" name (string_of_pattern rhs)
+    | None -> name)
 ;;
 
 let rec introduced_idents = function
   | Var x -> [x]
   | Tuple values -> List.map introduced_idents values |> List.flatten
+  | Ctor (_, value) ->
+    (match value with Some value -> introduced_idents value | None -> [])
 ;;

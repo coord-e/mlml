@@ -31,6 +31,7 @@ type local_env =
 type context =
   { mutable unused_registers : register list
   ; mutable used_labels : label list
+  ; mutable ctors : (string, int) Hashtbl.t
   ; mutable current_env : local_env }
 
 let usable_registers =
@@ -68,6 +69,7 @@ _print_int:
 let new_context () =
   { unused_registers = usable_registers
   ; used_labels = [print_int_label]
+  ; ctors = Hashtbl.create 32
   ; current_env = new_local_env () }
 ;;
 
@@ -240,6 +242,9 @@ let alloc_heap_ptr ctx buf size dest =
   | ConstantValue _ -> failwith "can't assign to constant"
 ;;
 
+let define_ctor ctx ctor idx = Hashtbl.add ctx.ctors ctor idx
+let get_ctor_index ctx ctor = Hashtbl.find ctx.ctors ctor
+
 let define_variable ctx buf ident v =
   let s = turn_into_stack ctx buf v in
   Hashtbl.add ctx.current_env.vars ident s
@@ -262,6 +267,18 @@ let rec define_variable_pattern ctx buf pat v =
       define_variable_pattern ctx buf p (StackValue s)
     in
     List.iteri aux values
+  | Pat.Ctor (_name, p) ->
+    (* assume v holds heap address *)
+    (* TODO: Check if the stored index is same *)
+    match p with
+    | Some p ->
+      let reg = alloc_register ctx in
+      let reg_value = RegisterValue reg in
+      read_from_address ctx buf v reg_value (-8);
+      let s = turn_into_stack ctx buf reg_value in
+      free_register reg ctx;
+      define_variable_pattern ctx buf p (StackValue s);
+    | None -> ()
 ;;
 
 let undef_variable_pattern ctx pat =
