@@ -140,7 +140,7 @@ and emit_function_with ctx main_buf name fn =
   emit_instruction buf "movq %rsp, %rbp";
   (* TODO: more generic and explicit method *)
   if name = "main" then emit_instruction buf "call GC_init@PLT";
-  emit_instruction buf "$replace_with_subq";
+  emit_instruction buf @@ Printf.sprintf "$replace_with_subq_%s" (string_of_label label);
   fn ctx buf label;
   let stack_used = ctx.current_env.current_stack in
   emit_instruction buf "movq %rbp, %rsp";
@@ -151,9 +151,9 @@ and emit_function_with ctx main_buf name fn =
   Buffer.add_buffer buf main_buf;
   Buffer.reset main_buf;
   (* TODO: Use more effective way to insert subq instruction *)
-  let replace = function
-    | "replace_with_subq" -> Printf.sprintf "subq $%d, %%rsp" (-stack_used + 8)
-    | x -> "$" ^ x
+  let replace x =
+    let s = Printf.sprintf "replace_with_subq_%s" (string_of_label label) in
+    if x = s then Printf.sprintf "subq $%d, %%rsp" (-stack_used + 8) else "$" ^ x
   in
   Buffer.add_substitute main_buf replace (Buffer.contents buf);
   label
