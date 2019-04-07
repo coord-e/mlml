@@ -304,6 +304,16 @@ let rec pattern_match ctx buf pat v fail_label =
     emit_instruction buf @@ Printf.sprintf "cmpq $%d, %s" x (string_of_register reg);
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
     free ctx
+  | Pat.Or (a, b) ->
+    if Pat.introduced_idents a <> Pat.introduced_idents b
+    then failwith "introduced identifiers mismatch in | pattern";
+    let right_label = new_unnamed_label ctx in
+    let join_label = new_unnamed_label ctx in
+    pattern_match ctx buf a v right_label;
+    emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
+    start_label buf right_label;
+    pattern_match ctx buf b v fail_label;
+    start_label buf join_label
 ;;
 
 let undef_variable_pattern ctx pat =
