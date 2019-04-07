@@ -14,6 +14,7 @@ type t =
   | LetFun of bool * string * Pat.t list * t * t
   | IfThenElse of t * t * t
   | App of t * t
+  | Ctor of string * t option
   | Var of string
   | Equal of t * t
 
@@ -31,6 +32,10 @@ let rec try_parse_literal tokens =
   (* TODO: Add boolean value *)
   | L.BoolLiteral b :: tokens -> tokens, Some (Int (if b then 1 else 0))
   | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
+  | L.CapitalIdent ident :: tokens ->
+    (match try_parse_literal tokens with
+    | rest, Some p -> rest, Some (Ctor (ident, Some p))
+    | _, None -> tokens, Some (Ctor (ident, None)))
   | L.LParen :: tokens ->
     let rest, v = parse_expression tokens in
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
@@ -201,6 +206,10 @@ let rec string_of_expression = function
       (string_of_expression rhs)
   | App (lhs, rhs) ->
     Printf.sprintf "App (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
+  | Ctor (name, rhs) ->
+    (match rhs with
+    | Some rhs -> Printf.sprintf "Ctor (%s) (%s)" name (string_of_expression rhs)
+    | None -> Printf.sprintf "Ctor (%s)" name)
   | IfThenElse (cond, then_, else_) ->
     Printf.sprintf
       "If (%s) then (%s) else (%s)"
