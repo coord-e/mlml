@@ -113,6 +113,28 @@ let rec codegen_expr ctx buf = function
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
     s
+  | Expr.Match (v, arms) ->
+    let v = codegen_expr ctx buf v in
+    let join_label = new_unnamed_label ctx in
+    let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
+    let save_stack_c = ctx.current_env.current_stack in
+    let rec aux = function
+      | (pat, rhs) :: t ->
+        (ctx.current_env).current_stack <- save_stack_c;
+        let next_label = new_unnamed_label ctx in
+        pattern_match ctx buf pat v next_label;
+        let rhs = codegen_expr ctx buf rhs in
+        assign_to_stack ctx buf rhs eval_stack;
+        emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
+        start_label buf next_label;
+        aux t
+      | [] ->
+        emit_instruction buf
+        @@ Printf.sprintf "jmp %s" (string_of_label match_fail_label);
+        start_label buf join_label;
+        StackValue eval_stack
+    in
+    aux arms
 
 and codegen_definition ctx buf = function
   | Def.LetVar (pat, lhs) ->
