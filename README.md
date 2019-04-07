@@ -17,9 +17,9 @@ This compiler takes a source string as input, and produces x86\_64 assembly.
   - [ ] currying
 - [x] tuples
   - [x] pattern matching
-- [ ] new type definition
-  - [ ] pattern matching
-- [ ] pattern matching with `match`
+- [x] variants
+  - [x] pattern matching
+- [x] pattern matching with `match`
 - [ ] type checker & type inference
 - [ ] ... and more ...
 - [ ] **self-hosting!**
