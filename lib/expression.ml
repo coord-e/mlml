@@ -17,6 +17,14 @@ type t =
   | Var of string
   | Equal of t * t
 
+let rec parse_let_fun_params = function
+  | L.Equal :: rest -> rest, []
+  | tokens ->
+    let rest, pat = Pat.parse_pattern tokens in
+    let rest, acc = parse_let_fun_params rest in
+    rest, pat :: acc
+;;
+
 let rec try_parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
@@ -112,14 +120,7 @@ and parse_if = function
 and parse_let = function
   (* `let rec` -> function definition *)
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
-    let rec aux = function
-      | L.Equal :: rest -> rest, []
-      | tokens ->
-        let rest, pat = Pat.parse_pattern tokens in
-        let rest, acc = aux rest in
-        rest, pat :: acc
-    in
-    let rest, params = aux rest in
+    let rest, params = parse_let_fun_params rest in
     let rest, lhs = parse_expression rest in
     (match rest with
     | L.In :: rest ->
@@ -142,14 +143,7 @@ and parse_let = function
         rest, [], lhs
       | _ ->
         (* function *)
-        let rec aux = function
-          | L.Equal :: rest -> rest, []
-          | tokens ->
-            let rest, pat = Pat.parse_pattern tokens in
-            let rest, acc = aux rest in
-            rest, pat :: acc
-        in
-        let rest, params = aux rest in
+        let rest, params = parse_let_fun_params rest in
         let rest, lhs = parse_expression rest in
         rest, params, lhs
     in

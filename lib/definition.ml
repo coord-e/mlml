@@ -13,14 +13,7 @@ let try_parse_let tokens =
   match tokens with
   (* function definition *)
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
-    let rec aux = function
-      | L.Equal :: rest -> rest, []
-      | tokens ->
-        let rest, pat = Pat.parse_pattern tokens in
-        let rest, acc = aux rest in
-        rest, pat :: acc
-    in
-    let rest, params = aux rest in
+    let rest, params = Expr.parse_let_fun_params rest in
     let rest, lhs = Expr.parse_expression rest in
     (* check if let-in expression, which is not a definition *)
     (match rest with
@@ -36,14 +29,7 @@ let try_parse_let tokens =
         rest, [], lhs
       | _ ->
         (* function *)
-        let rec aux = function
-          | L.Equal :: rest -> rest, []
-          | tokens ->
-            let rest, pat = Pat.parse_pattern tokens in
-            let rest, acc = aux rest in
-            rest, pat :: acc
-        in
-        let rest, params = aux rest in
+        let rest, params = Expr.parse_let_fun_params rest in
         let rest, lhs = Expr.parse_expression rest in
         rest, params, lhs
     in
