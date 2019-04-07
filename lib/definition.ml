@@ -9,7 +9,7 @@ type t =
   | LetVar of Pat.t * Expr.t
   | LetFun of bool * string * Pat.t list * Expr.t
 
-let parse_let = function
+let try_parse_let = function
   (* function definition *)
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
     let rec aux = function
@@ -21,10 +21,7 @@ let parse_let = function
     in
     let rest, params = aux rest in
     let rest, lhs = Expr.parse_expression rest in
-    rest, LetFun (true, ident, params, lhs)
-  | L.Let :: L.Rec :: t :: _ ->
-    failwith
-    @@ Printf.sprintf "unexpected token '%s' after let rec" (L.string_of_token t)
+    rest, Some (LetFun (true, ident, params, lhs))
   | L.Let :: rest ->
     let rest, bind = Pat.parse_pattern rest in
     let rest, params, lhs =
@@ -47,7 +44,7 @@ let parse_let = function
         rest, params, lhs
     in
     if List.length params == 0
-    then rest, LetVar (bind, lhs)
+    then rest, Some (LetVar (bind, lhs))
     else
       let ident =
         match bind with
@@ -58,12 +55,19 @@ let parse_let = function
                "cannot name function with pattern '%s'"
                (Pat.string_of_pattern bind)
       in
-      rest, LetFun (false, ident, params, lhs)
-  | h :: _ -> failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
-  | [] -> failwith "Empty input"
+      rest, Some (LetFun (false, ident, params, lhs))
+  | tokens -> tokens, None
 ;;
 
-let parse_definition = parse_let
+let try_parse_definition = try_parse_let
+
+let parse_definition tokens =
+  match try_parse_definition tokens with
+  | rest, Some def -> rest, def
+  | h :: _, None ->
+    failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
+  | [], None -> failwith "Empty input"
+;;
 
 let string_of_definition = function
   | LetVar (pat, lhs) ->
