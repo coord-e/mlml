@@ -17,6 +17,7 @@ type t =
   | Ctor of string * t option
   | Var of string
   | Equal of t * t
+  | Match of t * (Pat.t * t) list
 
 let rec parse_let_fun_params = function
   | L.Equal :: rest -> rest, []
@@ -122,6 +123,28 @@ and parse_if = function
     | _ -> failwith "could not find 'then'")
   | tokens -> parse_tuple tokens
 
+and parse_match = function
+  | L.Match :: rest ->
+    let rest, expr = parse_expression rest in
+    (match rest with
+    | L.With :: L.Vertical :: rest | L.With :: rest ->
+      let rec aux tokens =
+        let rest, pat = Pat.parse_pattern tokens in
+        match rest with
+        | L.Arrow :: rest ->
+          let rest, arm = parse_expression rest in
+          (match rest with
+          | L.Vertical :: rest ->
+            let rest, acc = aux rest in
+            rest, (pat, arm) :: acc
+          | _ -> rest, [])
+        | _ -> failwith "could not find '->'"
+      in
+      let rest, arms = aux rest in
+      rest, Match (expr, arms)
+    | _ -> failwith "could not find 'with'")
+  | tokens -> parse_if tokens
+
 and parse_let = function
   (* `let rec` -> function definition *)
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
@@ -169,7 +192,7 @@ and parse_let = function
         in
         rest, LetFun (false, ident, params, lhs, rhs)
     | _ -> failwith "could not find 'in'")
-  | tokens -> parse_if tokens
+  | tokens -> parse_match tokens
 
 and parse_expression tokens = parse_let tokens
 
@@ -217,6 +240,15 @@ let rec string_of_expression = function
       (string_of_expression then_)
       (string_of_expression else_)
   | Var ident -> Printf.sprintf "Var %s" ident
+  | Match (expr, arms) ->
+    let string_of_arm (pat, arm) =
+      Printf.sprintf
+        "(%s) -> (%s)"
+        (Pat.string_of_pattern pat)
+        (string_of_expression arm)
+    in
+    let p = List.map string_of_arm arms |> String.concat " | " in
+    Printf.sprintf "Match (%s) with %s" (string_of_expression expr) p
 ;;
 
 let f = parse_expression
