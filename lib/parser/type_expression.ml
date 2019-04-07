@@ -1,12 +1,14 @@
 (* Parse the type expression.                             *)
 (* https://caml.inria.fr/pub/docs/manual-ocaml/types.html *)
 
+module L = Lexer
+
 type t =
   | Ident of string
   | Tuple of t list
 
 let rec try_parse_primary = function
-  | L.LowerIdent ident :: rest -> rest, Ident ident
+  | L.LowerIdent ident :: rest -> rest, Some (Ident ident)
   | L.LParen :: rest ->
     let rest, v = parse_type_expression rest in
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
@@ -21,7 +23,7 @@ and parse_primary tokens =
 
 and parse_tuple tokens =
   let rec aux tokens =
-    let rest, curr = parse_equal tokens in
+    let rest, curr = parse_primary tokens in
     match rest with
     | L.Star :: rest ->
       let rest, tail = aux rest in
