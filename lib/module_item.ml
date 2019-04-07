@@ -9,8 +9,6 @@ type module_item =
   | Definition of Def.t
   | Expression of Expr.t
 
-type t = module_item list
-
 let rec parse_module_items = function
   | L.DoubleSemicolon :: rest -> parse_module_items rest
   | tokens ->
@@ -35,5 +33,3 @@ let string_of_module_item = function
 let string_of_module_items items =
   List.map string_of_module_item items |> String.concat ";; "
 ;;
-
-let f = parse_module_items

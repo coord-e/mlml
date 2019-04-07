@@ -3,11 +3,11 @@
 
 module Item = Module_item
 
-type ast = Item.t
+type ast = Item.module_item list
 type t = ast
 
 let f tokens =
-  let _rest, ast = Item.f tokens in
+  let _rest, ast = Item.parse_module_items tokens in
   ast
 ;;
 
