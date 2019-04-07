@@ -1,2 +1,3 @@
 (library
- (name mlml))
+ (name mlml)
+ (libraries parser lexer))

@@ -1,8 +1,8 @@
 module P = Parser
-module Pat = Pattern
-module Expr = Expression
-module Def = Definition
-module Item = Module_item
+module Pat = P.Pattern
+module Expr = P.Expression
+module Def = P.Definition
+module Item = P.Module_item
 
 type register = Register of string
 type stack = Stack of int
