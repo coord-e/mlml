@@ -175,6 +175,10 @@ and parse_let = function
     let rest, bind = Pat.parse_pattern rest in
     let rest, params, lhs =
       match rest with
+      | L.Equal :: L.Function :: _ ->
+        (* function *)
+        let rest, params = parse_let_fun_params rest in
+        parse_let_fun_body params rest
       | L.Equal :: rest ->
         (* variable *)
         let rest, lhs = parse_expression rest in
