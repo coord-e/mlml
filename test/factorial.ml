@@ -1,5 +1,5 @@
 let () =
-  Tester.f
+  Tester.expr
     {|
     let rec factorial n =
       if n = 0
