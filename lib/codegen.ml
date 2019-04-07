@@ -1,5 +1,6 @@
 module P = Parser
 module Pat = Pattern
+module Expr = Expression
 
 type register = Register of string
 type stack = Stack of int
@@ -260,8 +261,8 @@ let function_ptr ctx buf label =
 ;;
 
 let rec codegen_expr ctx buf = function
-  | P.Int num -> ConstantValue num
-  | P.Add (lhs, rhs) ->
+  | Expr.Int num -> ConstantValue num
+  | Expr.Add (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
     emit_instruction buf
@@ -269,7 +270,7 @@ let rec codegen_expr ctx buf = function
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free ctx;
     StackValue s
-  | P.Sub (lhs, rhs) ->
+  | Expr.Sub (lhs, rhs) ->
     let rhs = codegen_expr ctx buf rhs in
     let lhs, free = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
     emit_instruction buf
@@ -277,7 +278,7 @@ let rec codegen_expr ctx buf = function
     let s = turn_into_stack ctx buf (RegisterValue lhs) in
     free ctx;
     StackValue s
-  | P.Mul (lhs, rhs) ->
+  | Expr.Mul (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
     emit_instruction buf
@@ -285,20 +286,20 @@ let rec codegen_expr ctx buf = function
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free ctx;
     StackValue s
-  | P.LetVar (pat, lhs, rhs) ->
+  | Expr.LetVar (pat, lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     define_variable_pattern ctx buf pat lhs;
     let rhs = codegen_expr ctx buf rhs in
     undef_variable_pattern ctx pat;
     rhs
-  | P.Var ident -> StackValue (get_variable ctx ident)
-  | P.LetFun (is_rec, ident, params, lhs, rhs) ->
+  | Expr.Var ident -> StackValue (get_variable ctx ident)
+  | Expr.LetFun (is_rec, ident, params, lhs, rhs) ->
     let lhs = emit_function_value ctx buf is_rec ident params lhs in
     define_variable ctx buf ident lhs;
     let rhs = codegen_expr ctx buf rhs in
     undef_variable ctx ident;
     rhs
-  | P.App (lhs, rhs) ->
+  | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
     let param, free = nth_arg_register ctx 0 in
@@ -306,7 +307,7 @@ let rec codegen_expr ctx buf = function
     emit_instruction buf @@ Printf.sprintf "call *%s" (string_of_value lhs);
     free ctx;
     StackValue (turn_into_stack ctx buf (RegisterValue ret_register))
-  | P.IfThenElse (cond, then_, else_) ->
+  | Expr.IfThenElse (cond, then_, else_) ->
     let cond, free = codegen_expr ctx buf cond |> turn_into_register ctx buf in
     let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
     emit_instruction buf @@ Printf.sprintf "cmpq $0, %s" (string_of_register cond);
@@ -324,7 +325,7 @@ let rec codegen_expr ctx buf = function
     assign_to_stack ctx buf then_ eval_stack;
     start_label buf join_label;
     StackValue eval_stack
-  | P.Equal (lhs, rhs) ->
+  | Expr.Equal (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
     (* Use rdx temporarily (8-bit register(dl) is needed) *)
@@ -338,7 +339,7 @@ let rec codegen_expr ctx buf = function
     let s = push_to_stack ctx buf (RegisterValue rdx) in
     free_register rdx ctx;
     StackValue s
-  | P.Tuple values ->
+  | Expr.Tuple values ->
     let size = List.length values in
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
