@@ -3,6 +3,7 @@
 
 module Def = Definition
 module Expr = Expression
+module L = Lexer
 
 type module_item =
   | Definition of Def.t
