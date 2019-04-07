@@ -1,18 +1,29 @@
+(* Parse the ocaml expression.                           *)
+(* https://caml.inria.fr/pub/docs/manual-ocaml/expr.html *)
+
 module L = Lexer
 module Pat = Pattern
 
-type ast =
+type t =
   | Int of int
-  | Tuple of ast list
-  | Add of ast * ast
-  | Sub of ast * ast
-  | Mul of ast * ast
-  | LetVar of Pat.t * ast * ast
-  | LetFun of bool * string * Pat.t list * ast * ast
-  | IfThenElse of ast * ast * ast
-  | App of ast * ast
+  | Tuple of t list
+  | Add of t * t
+  | Sub of t * t
+  | Mul of t * t
+  | LetVar of Pat.t * t * t
+  | LetFun of bool * string * Pat.t list * t * t
+  | IfThenElse of t * t * t
+  | App of t * t
   | Var of string
-  | Equal of ast * ast
+  | Equal of t * t
+
+let rec parse_let_fun_params = function
+  | L.Equal :: rest -> rest, []
+  | tokens ->
+    let rest, pat = Pat.parse_pattern tokens in
+    let rest, acc = parse_let_fun_params rest in
+    rest, pat :: acc
+;;
 
 let rec try_parse_literal tokens =
   match tokens with
@@ -109,14 +120,7 @@ and parse_if = function
 and parse_let = function
   (* `let rec` -> function definition *)
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
-    let rec aux = function
-      | L.Equal :: rest -> rest, []
-      | tokens ->
-        let rest, pat = Pat.parse_pattern tokens in
-        let rest, acc = aux rest in
-        rest, pat :: acc
-    in
-    let rest, params = aux rest in
+    let rest, params = parse_let_fun_params rest in
     let rest, lhs = parse_expression rest in
     (match rest with
     | L.In :: rest ->
@@ -139,14 +143,7 @@ and parse_let = function
         rest, [], lhs
       | _ ->
         (* function *)
-        let rec aux = function
-          | L.Equal :: rest -> rest, []
-          | tokens ->
-            let rest, pat = Pat.parse_pattern tokens in
-            let rest, acc = aux rest in
-            rest, pat :: acc
-        in
-        let rest, params = aux rest in
+        let rest, params = parse_let_fun_params rest in
         let rest, lhs = parse_expression rest in
         rest, params, lhs
     in
@@ -171,25 +168,28 @@ and parse_let = function
 
 and parse_expression tokens = parse_let tokens
 
-let rec string_of_ast = function
+let rec string_of_expression = function
   | Int num -> Printf.sprintf "Int %d" num
   | Tuple values ->
-    let p = List.map string_of_ast values |> String.concat ", " in
+    let p = List.map string_of_expression values |> String.concat ", " in
     Printf.sprintf "Tuple (%s)" p
   | Add (lhs, rhs) ->
-    Printf.sprintf "Add (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
+    Printf.sprintf "Add (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | Sub (lhs, rhs) ->
-    Printf.sprintf "Sub (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
+    Printf.sprintf "Sub (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | Mul (lhs, rhs) ->
-    Printf.sprintf "Mul (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
+    Printf.sprintf "Mul (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | Equal (lhs, rhs) ->
-    Printf.sprintf "Equal (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
+    Printf.sprintf
+      "Equal (%s) (%s)"
+      (string_of_expression lhs)
+      (string_of_expression rhs)
   | LetVar (pat, lhs, rhs) ->
     Printf.sprintf
       "Let (%s) = (%s) in (%s)"
       (Pat.string_of_pattern pat)
-      (string_of_ast lhs)
-      (string_of_ast rhs)
+      (string_of_expression lhs)
+      (string_of_expression rhs)
   | LetFun (is_rec, ident, params, lhs, rhs) ->
     let p = List.map Pat.string_of_pattern params |> String.concat ", " in
     Printf.sprintf
@@ -197,20 +197,17 @@ let rec string_of_ast = function
       (if is_rec then "rec" else "")
       ident
       p
-      (string_of_ast lhs)
-      (string_of_ast rhs)
+      (string_of_expression lhs)
+      (string_of_expression rhs)
   | App (lhs, rhs) ->
-    Printf.sprintf "App (%s) (%s)" (string_of_ast lhs) (string_of_ast rhs)
+    Printf.sprintf "App (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | IfThenElse (cond, then_, else_) ->
     Printf.sprintf
       "If (%s) then (%s) else (%s)"
-      (string_of_ast cond)
-      (string_of_ast then_)
-      (string_of_ast else_)
+      (string_of_expression cond)
+      (string_of_expression then_)
+      (string_of_expression else_)
   | Var ident -> Printf.sprintf "Var %s" ident
 ;;
 
-let f tokens =
-  let _rest, ast = parse_expression tokens in
-  ast
-;;
+let f = parse_expression
