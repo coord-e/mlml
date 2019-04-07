@@ -22,8 +22,6 @@ let string_of_value = function
 ;;
 
 (* function-local environment *)
-(* TODO: current_stack is path-local,
- * consider an alternative way to allocate stack area *)
 type local_env =
   { mutable current_stack : int
   ; mutable vars : (string, stack) Hashtbl.t }
