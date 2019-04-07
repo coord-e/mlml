@@ -161,25 +161,6 @@ and emit_module ctx buf name items =
   emit_function_with ctx buf name emit
 ;;
 
-let emit_print_int_function buf =
-  Buffer.add_string
-    buf
-    {|
-.section .rodata
-.string_of_print_int:
-  .string	"%ld"
-_print_int:
-  pushq	%rbp
-  movq	%rsp, %rbp
-  movq	%rdi, %rsi
-  leaq	.string_of_print_int(%rip), %rdi
-  movl	$0, %eax
-  call	printf@PLT
-  leave
-  ret
-|}
-;;
-
 let f ast =
   let buf = Buffer.create 100 in
   let ctx = new_context () in

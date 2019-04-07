@@ -46,6 +46,25 @@ let ret_register = Register "%rax"
 let print_int_label = Label "_print_int"
 let new_local_env () = {current_stack = -8; vars = Hashtbl.create 10}
 
+let emit_print_int_function buf =
+  Buffer.add_string
+    buf
+    {|
+.section .rodata
+.string_of_print_int:
+  .string	"%ld"
+_print_int:
+  pushq	%rbp
+  movq	%rsp, %rbp
+  movq	%rdi, %rsi
+  leaq	.string_of_print_int(%rip), %rdi
+  movl	$0, %eax
+  call	printf@PLT
+  leave
+  ret
+|}
+;;
+
 let new_context () =
   { unused_registers = usable_registers
   ; used_labels = [print_int_label]
