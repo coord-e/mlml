@@ -1,25 +1,42 @@
 let () =
-  Tester.expr {|
-    match 2 with
-    | 1 -> 3
-    | 2 -> 4
-    | 3 -> 5
+  Tester.expr
+    {|
+    let f a =
+      match a with
+      | 1 -> 3
+      | 2 -> 4
+      | 3 -> 5
+      | _ -> 6
+    in (f 2) + (f 4)
   |};
   Tester.expr
     {|
-    let a = 3 in
-    match a with
-    | 1 -> 3
-    | 2 -> 4
-    | 3 -> 5
+    let f t =
+      match t with
+      | 3, 2 -> 3
+      | 4, a -> a + 1
+      | a, b -> a + b
+    in (f (4, 5)) + (f (3, 2)) + (f (9, 8))
   |};
-  Tester.expr
+  (* TODO: Rewrite using `;` *)
+  Tester.f
     {|
-    let a = 4 in
-    match a with
-    | 1 -> 3
-    | 2 -> 4
-    | 3 -> 5
-    | _ -> 6
+    type t =
+      | A of int
+      | B of int * int
+    ;;
+    let f v =
+      match v with
+      | A 1 -> 42
+      | A x -> x
+      | B (1, x) -> x
+      | B (x, 1) -> x + 5
+      | _ -> 99
+    in
+    let _ = print_int (f (A 4)) in
+    let _ = print_int (f (A 1)) in
+    let _ = print_int (f (B (1, 5))) in
+    let _ = print_int (f (B (9, 1))) in
+    print_int (f (B (10, 10)))
   |}
 ;;
