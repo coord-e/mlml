@@ -43,10 +43,13 @@ let usable_registers =
 ;;
 
 let ret_register = Register "%rax"
+let print_int_label = Label "_print_int"
 let new_local_env () = {current_stack = -8; vars = Hashtbl.create 10}
 
 let new_context () =
-  {unused_registers = usable_registers; used_labels = []; current_env = new_local_env ()}
+  { unused_registers = usable_registers
+  ; used_labels = [print_int_label]
+  ; current_env = new_local_env () }
 ;;
 
 let use_env ctx env =
@@ -291,7 +294,10 @@ let rec codegen_expr ctx buf = function
     let rhs = codegen_expr ctx buf rhs in
     undef_variable_pattern ctx pat;
     rhs
-  | P.Var ident -> StackValue (get_variable ctx ident)
+  | P.Var ident ->
+    (match ident with
+    | "print_int" -> function_ptr ctx buf print_int_label
+    | _ -> StackValue (get_variable ctx ident))
   | P.LetFun (is_rec, ident, params, lhs, rhs) ->
     let lhs = emit_function_value ctx buf is_rec ident params lhs in
     define_variable ctx buf ident lhs;
@@ -384,10 +390,30 @@ and emit_function_value ctx buf is_rec name params ast =
   function_ptr ctx buf label
 ;;
 
+let emit_print_int_function buf =
+  Buffer.add_string
+    buf
+    {|
+.section .rodata
+.string_of_print_int:
+  .string	"%ld"
+_print_int:
+  pushq	%rbp
+  movq	%rsp, %rbp
+  movq	%rdi, %rsi
+  leaq	.string_of_print_int(%rip), %rdi
+  movl	$0, %eax
+  call	printf@PLT
+  leave
+  ret
+|}
+;;
+
 let f ast =
   let buf = Buffer.create 100 in
   let ctx = new_context () in
   let label = emit_function ctx buf false "main" [] ast in
   assert (string_of_label label = "main");
+  emit_print_int_function buf;
   Buffer.contents buf
 ;;
