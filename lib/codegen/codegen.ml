@@ -133,26 +133,29 @@ and codegen_module ctx buf = List.iter (codegen_module_item ctx buf)
 
 and emit_function_with ctx main_buf name fn =
   let old_env = use_env ctx @@ new_local_env () in
-  let before_buf = Buffer.create 100 in
   let buf = Buffer.create 100 in
   let label = new_label ctx name in
-  start_global_label before_buf label;
-  emit_instruction before_buf "pushq %rbp";
-  emit_instruction before_buf "movq %rsp, %rbp";
+  start_global_label buf label;
+  emit_instruction buf "pushq %rbp";
+  emit_instruction buf "movq %rsp, %rbp";
   (* TODO: more generic and explicit method *)
-  if name = "main" then emit_instruction before_buf "call GC_init@PLT";
+  if name = "main" then emit_instruction buf "call GC_init@PLT";
+  emit_instruction buf "$replace_with_subq";
   fn ctx buf label;
   let stack_used = ctx.current_env.current_stack in
-  emit_instruction before_buf @@ Printf.sprintf "subq $%d, %%rsp" (-stack_used + 8);
   emit_instruction buf "movq %rbp, %rsp";
   emit_instruction buf "popq %rbp";
   emit_instruction buf "ret";
   let _ = use_env ctx old_env in
   (* TODO: Use more effective and sufficient way to prepend to the buffer *)
-  Buffer.add_buffer before_buf buf;
-  Buffer.add_buffer before_buf main_buf;
+  Buffer.add_buffer buf main_buf;
   Buffer.reset main_buf;
-  Buffer.add_buffer main_buf before_buf;
+  (* TODO: Use more effective way to insert subq instruction *)
+  let replace = function
+    | "replace_with_subq" -> Printf.sprintf "subq $%d, %%rsp" (-stack_used + 8)
+    | x -> "$" ^ x
+  in
+  Buffer.add_substitute main_buf replace (Buffer.contents buf);
   label
 
 and emit_function ctx main_buf is_rec name params ast =
