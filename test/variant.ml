@@ -19,8 +19,7 @@ type t =
   | Add of t * t
   | Mul of t * t
 
-let rec calc tree =
-  match tree with
+let rec calc = function
   | Int a -> a
   | Add (a, b) ->
     let a = calc a in
@@ -42,8 +41,7 @@ type ta = A | B
 type tb =
   | C of ta * int
 
-let m v =
-  match v with
+let m = function
   | C (A, i) -> i
   | C (B, i) -> i + 1
 ;;
@@ -60,8 +58,7 @@ type tb =
   | C of ta * (int * int)
   | D
 
-let complex_match v =
-  match v with
+let complex_match = function
   | C (A (a, b), t) ->
       let c, d = t in
       a + b + c + d
