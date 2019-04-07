@@ -32,7 +32,7 @@ let rec codegen_expr ctx buf = function
     StackValue s
   | Expr.LetVar (pat, lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
-    define_variable_pattern ctx buf pat lhs;
+    pattern_match ctx buf pat lhs match_fail_label;
     let rhs = codegen_expr ctx buf rhs in
     undef_variable_pattern ctx pat;
     rhs
@@ -111,11 +111,33 @@ let rec codegen_expr ctx buf = function
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
     s
+  | Expr.Match (v, arms) ->
+    let v = codegen_expr ctx buf v in
+    let join_label = new_unnamed_label ctx in
+    let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
+    let save_stack_c = ctx.current_env.current_stack in
+    let rec aux = function
+      | (pat, rhs) :: t ->
+        (ctx.current_env).current_stack <- save_stack_c;
+        let next_label = new_unnamed_label ctx in
+        pattern_match ctx buf pat v next_label;
+        let rhs = codegen_expr ctx buf rhs in
+        assign_to_stack ctx buf rhs eval_stack;
+        emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
+        start_label buf next_label;
+        aux t
+      | [] ->
+        emit_instruction buf
+        @@ Printf.sprintf "jmp %s" (string_of_label match_fail_label);
+        start_label buf join_label;
+        StackValue eval_stack
+    in
+    aux arms
 
 and codegen_definition ctx buf = function
   | Def.LetVar (pat, lhs) ->
     let lhs = codegen_expr ctx buf lhs in
-    define_variable_pattern ctx buf pat lhs
+    pattern_match ctx buf pat lhs match_fail_label
   | Def.LetFun (is_rec, ident, params, lhs) ->
     let lhs = emit_function_value ctx buf is_rec ident params lhs in
     define_variable ctx buf ident lhs
@@ -163,7 +185,7 @@ and emit_function ctx main_buf is_rec name params ast =
     List.iteri
       (fun i pat ->
         let arg = nth_arg_stack ctx buf i in
-        define_variable_pattern ctx buf pat (StackValue arg) )
+        pattern_match ctx buf pat (StackValue arg) match_fail_label )
       params;
     (if is_rec
     then
@@ -192,5 +214,6 @@ let f ast =
   let label = emit_module ctx buf "main" ast in
   assert (string_of_label label = "main");
   emit_print_int_function buf;
+  emit_match_fail buf;
   Buffer.contents buf
 ;;
