@@ -11,6 +11,7 @@ type module_item =
 
 let rec parse_module_items = function
   | L.DoubleSemicolon :: rest -> parse_module_items rest
+  | [] -> [], []
   | tokens ->
     let rest, def_opt = Def.try_parse_definition tokens in
     (match def_opt with
