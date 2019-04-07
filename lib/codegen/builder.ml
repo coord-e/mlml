@@ -270,7 +270,7 @@ let define_variable ctx buf ident v =
 let undef_variable ctx ident = Hashtbl.remove ctx.current_env.vars ident
 let get_variable ctx ident = Hashtbl.find ctx.current_env.vars ident
 
-let rec define_variable_pattern ctx buf pat v =
+let rec pattern_match ctx buf pat v fail_label =
   match pat with
   | Pat.Var x -> define_variable ctx buf x v
   | Pat.Tuple values ->
@@ -281,21 +281,25 @@ let rec define_variable_pattern ctx buf pat v =
       read_from_address ctx buf v reg_value (-i * 8);
       let s = turn_into_stack ctx buf reg_value in
       free_register reg ctx;
-      define_variable_pattern ctx buf p (StackValue s)
+      pattern_match ctx buf p (StackValue s) fail_label
     in
     List.iteri aux values
-  | Pat.Ctor (_name, p) ->
+  | Pat.Ctor (name, p) ->
     (* assume v holds heap address *)
-    (* TODO: Check if the stored index is same *)
+    let actual_idx = get_ctor_index ctx name in
+    let reg = alloc_register ctx in
+    let reg_value = RegisterValue reg in
+    read_from_address ctx buf v reg_value 0;
+    emit_instruction buf
+    @@ Printf.sprintf "cmpq $%d, %s" actual_idx (string_of_register reg);
+    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
     (match p with
     | Some p ->
-      let reg = alloc_register ctx in
-      let reg_value = RegisterValue reg in
       read_from_address ctx buf v reg_value (-8);
       let s = turn_into_stack ctx buf reg_value in
       free_register reg ctx;
-      define_variable_pattern ctx buf p (StackValue s)
-    | None -> ())
+      pattern_match ctx buf p (StackValue s) fail_label
+    | None -> free_register reg ctx)
 ;;
 
 let undef_variable_pattern ctx pat =

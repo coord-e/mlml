@@ -32,7 +32,7 @@ let rec codegen_expr ctx buf = function
     StackValue s
   | Expr.LetVar (pat, lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
-    define_variable_pattern ctx buf pat lhs;
+    pattern_match ctx buf pat lhs match_fail_label;
     let rhs = codegen_expr ctx buf rhs in
     undef_variable_pattern ctx pat;
     rhs
@@ -117,7 +117,7 @@ let rec codegen_expr ctx buf = function
 and codegen_definition ctx buf = function
   | Def.LetVar (pat, lhs) ->
     let lhs = codegen_expr ctx buf lhs in
-    define_variable_pattern ctx buf pat lhs
+    pattern_match ctx buf pat lhs match_fail_label
   | Def.LetFun (is_rec, ident, params, lhs) ->
     let lhs = emit_function_value ctx buf is_rec ident params lhs in
     define_variable ctx buf ident lhs
@@ -156,7 +156,7 @@ and emit_function ctx main_buf is_rec name params ast =
     List.iteri
       (fun i pat ->
         let arg = nth_arg_stack ctx buf i in
-        define_variable_pattern ctx buf pat (StackValue arg) )
+        pattern_match ctx buf pat (StackValue arg) match_fail_label )
       params;
     (if is_rec
     then
@@ -187,5 +187,6 @@ let f ast =
   let label = emit_module ctx buf "main" ast in
   assert (string_of_label label = "main");
   emit_print_int_function buf;
+  emit_match_fail buf;
   Buffer.contents buf
 ;;
