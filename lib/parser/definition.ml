@@ -3,11 +3,13 @@
 
 module Expr = Expression
 module Pat = Pattern
+module TyExpr = Type_expression
 module L = Lexer
 
 type t =
   | LetVar of Pat.t * Expr.t
   | LetFun of bool * string * Pat.t list * Expr.t
+  | Variant of string * (string * TyExpr.t option) list
 
 let try_parse_let tokens =
   match tokens with
@@ -77,6 +79,14 @@ let string_of_definition = function
       ident
       p
       (Expr.string_of_expression lhs)
+  | Variant (name, variants) ->
+    let aux (ctor, param) =
+      match param with
+      | Some p -> Printf.sprintf "%s (%s)" ctor (TyExpr.string_of_type_expression p)
+      | None -> ctor
+    in
+    let variants = List.map aux variants |> String.concat " | " in
+    Printf.sprintf "type %s = %s" name variants
 ;;
 
 let f = parse_definition

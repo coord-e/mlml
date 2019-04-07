@@ -36,4 +36,11 @@ and parse_tuple tokens =
   | [value] -> rest, value
   | _ -> rest, Tuple values
 
-and parse_type_expression = parse_tuple
+and parse_type_expression tokens = parse_tuple tokens
+
+let rec string_of_type_expression = function
+  | Ident ident -> Printf.sprintf "Ident %s" ident
+  | Tuple ts ->
+    let ts = List.map string_of_type_expression ts |> String.concat " * " in
+    Printf.sprintf "Tuple (%s)" ts
+;;
