@@ -1,6 +1,8 @@
 module P = Parser
 module Pat = Pattern
 module Expr = Expression
+module Def = Definition
+module Item = Module_item
 
 type register = Register of string
 type stack = Stack of int
@@ -350,26 +352,30 @@ let rec codegen_expr ctx buf = function
     free_register reg ctx;
     s
 
-and emit_function ctx main_buf is_rec name params ast =
+and codegen_definition ctx buf = function
+  | Def.LetVar (pat, lhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    define_variable_pattern ctx buf pat lhs
+  | Def.LetFun (is_rec, ident, params, lhs) ->
+    let lhs = emit_function_value ctx buf is_rec ident params lhs in
+    define_variable ctx buf ident lhs
+
+and codegen_module_item ctx buf = function
+  | Item.Definition def -> codegen_definition ctx buf def
+  | Item.Expression expr ->
+    let _ = codegen_expr ctx buf expr in
+    ()
+
+and codegen_module ctx buf = List.iter (codegen_module_item ctx buf)
+
+and emit_function_with ctx main_buf name fn =
   let old_env = use_env ctx @@ new_local_env () in
   let buf = Buffer.create 100 in
   let label = new_label ctx name in
   start_global_label buf label;
   emit_instruction buf "pushq %rbp";
   emit_instruction buf "movq %rsp, %rbp";
-  (* TODO: more generic and explicit method *)
-  if name = "main" then emit_instruction buf "call GC_init@PLT";
-  List.iteri
-    (fun i pat ->
-      let arg = nth_arg_stack ctx buf i in
-      define_variable_pattern ctx buf pat (StackValue arg) )
-    params;
-  (if is_rec
-  then
-    let ptr = function_ptr ctx buf label in
-    define_variable ctx buf name ptr);
-  let value = codegen_expr ctx buf ast in
-  assign_to_register buf value ret_register;
+  fn ctx buf label;
   emit_instruction buf "movq %rbp, %rsp";
   emit_instruction buf "popq %rbp";
   emit_instruction buf "ret";
@@ -380,15 +386,39 @@ and emit_function ctx main_buf is_rec name params ast =
   Buffer.add_buffer main_buf buf;
   label
 
+and emit_function ctx main_buf is_rec name params ast =
+  let emit ctx buf label =
+    List.iteri
+      (fun i pat ->
+        let arg = nth_arg_stack ctx buf i in
+        define_variable_pattern ctx buf pat (StackValue arg) )
+      params;
+    (if is_rec
+    then
+      let ptr = function_ptr ctx buf label in
+      define_variable ctx buf name ptr);
+    let value = codegen_expr ctx buf ast in
+    assign_to_register buf value ret_register
+  in
+  emit_function_with ctx main_buf name emit
+
 and emit_function_value ctx buf is_rec name params ast =
   let label = emit_function ctx buf is_rec name params ast in
   function_ptr ctx buf label
+
+and emit_module ctx buf name items =
+  let emit ctx buf _label =
+    (* TODO: more generic and explicit method *)
+    if name = "main" then emit_instruction buf "call GC_init@PLT";
+    codegen_module ctx buf items
+  in
+  emit_function_with ctx buf name emit
 ;;
 
 let f ast =
   let buf = Buffer.create 100 in
   let ctx = new_context () in
-  let label = emit_function ctx buf false "main" [] ast in
+  let label = emit_module ctx buf "main" ast in
   assert (string_of_label label = "main");
   Buffer.contents buf
 ;;
