@@ -47,6 +47,23 @@ let ret_register = Register "%rax"
 let print_int_label = Label "_print_int"
 let new_local_env () = {current_stack = -8; vars = Hashtbl.create 10}
 
+let emit_match_fail buf =
+  Buffer.add_string
+    buf
+    {|
+.section .rodata
+.string_of_match_fail:
+  .string	"runtime error: patten match failed. aborted."
+.match_fail:
+  leaq	.string_of_match_fail(%rip), %rdi
+  call	puts@PLT
+  movl	$1, %eax
+  call	exit@PLT
+|}
+;;
+
+let match_fail_label = Label ".match_fail"
+
 let emit_print_int_function buf =
   Buffer.add_string
     buf
