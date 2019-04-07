@@ -267,6 +267,18 @@ let rec define_variable_pattern ctx buf pat v =
       define_variable_pattern ctx buf p (StackValue s)
     in
     List.iteri aux values
+  | Pat.Ctor (_name, p) ->
+    (* assume v holds heap address *)
+    (* TODO: Check if the stored index is same *)
+    match p with
+    | Some p ->
+      let reg = alloc_register ctx in
+      let reg_value = RegisterValue reg in
+      read_from_address ctx buf v reg_value (-8);
+      let s = turn_into_stack ctx buf reg_value in
+      free_register reg ctx;
+      define_variable_pattern ctx buf p (StackValue s);
+    | None -> ()
 ;;
 
 let undef_variable_pattern ctx pat =
