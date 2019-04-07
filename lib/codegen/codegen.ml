@@ -30,6 +30,9 @@ let rec codegen_expr ctx buf = function
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free ctx;
     StackValue s
+  | Expr.Follow (lhs, rhs) ->
+    let _ = codegen_expr ctx buf lhs in
+    codegen_expr ctx buf rhs
   | Expr.LetVar (pat, lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     pattern_match ctx buf pat lhs match_fail_label;

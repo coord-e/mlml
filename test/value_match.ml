@@ -18,7 +18,6 @@ let () =
       | a, b -> a + b
     in (f (4, 5)) + (f (3, 2)) + (f (9, 8))
   |};
-  (* TODO: Rewrite using `;` *)
   Tester.f
     {|
     type t =
@@ -33,10 +32,10 @@ let () =
       | B (x, 1) -> x + 5
       | _ -> 99
     in
-    let _ = print_int (f (A 4)) in
-    let _ = print_int (f (A 1)) in
-    let _ = print_int (f (B (1, 5))) in
-    let _ = print_int (f (B (9, 1))) in
+    print_int (f (A 4));
+    print_int (f (A 1));
+    print_int (f (B (1, 5)));
+    print_int (f (B (9, 1)));
     print_int (f (B (10, 10)))
   |}
 ;;

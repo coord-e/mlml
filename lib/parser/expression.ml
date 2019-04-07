@@ -10,6 +10,7 @@ type t =
   | Add of t * t
   | Sub of t * t
   | Mul of t * t
+  | Follow of t * t
   | LetVar of Pat.t * t * t
   | LetFun of bool * string * Pat.t list * t * t
   | IfThenElse of t * t * t
@@ -194,7 +195,18 @@ and parse_let = function
     | _ -> failwith "could not find 'in'")
   | tokens -> parse_match tokens
 
-and parse_expression tokens = parse_let tokens
+and parse_follow tokens =
+  let tokens, lhs = parse_let tokens in
+  let rec aux lhs tokens =
+    match tokens with
+    | L.Semicolon :: rest ->
+      let rest, rhs = parse_let rest in
+      aux (Follow (lhs, rhs)) rest
+    | _ -> tokens, lhs
+  in
+  aux lhs tokens
+
+and parse_expression tokens = parse_follow tokens
 
 let rec string_of_expression = function
   | Int num -> Printf.sprintf "Int %d" num
@@ -207,6 +219,8 @@ let rec string_of_expression = function
     Printf.sprintf "Sub (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | Mul (lhs, rhs) ->
     Printf.sprintf "Mul (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
+  | Follow (lhs, rhs) ->
+    Printf.sprintf "(%s); (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | Equal (lhs, rhs) ->
     Printf.sprintf
       "Equal (%s) (%s)"
