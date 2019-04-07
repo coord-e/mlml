@@ -299,6 +299,11 @@ let rec pattern_match ctx buf pat v fail_label =
       free_register reg ctx;
       pattern_match ctx buf p (StackValue s) fail_label
     | None -> free_register reg ctx)
+  | Pat.Int x ->
+    let reg, free = turn_into_register ctx buf v in
+    emit_instruction buf @@ Printf.sprintf "cmpq $%d, %s" x (string_of_register reg);
+    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
+    free ctx
 ;;
 
 let undef_variable_pattern ctx pat =
