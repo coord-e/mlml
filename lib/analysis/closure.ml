@@ -56,15 +56,20 @@ let closure_conversion expr =
   let rec aux i expr =
     match expr with
     | Expr.LetFun (is_rec, ident, param, body, in_) ->
-      let fvs = free_variable_list (Expr.Lambda (param, body)) in
+      let fvs = SS.diff (free_variables expr) (free_variables in_) |> SS.elements in
       let body = aux i body in
       let in_ = aux i in_ in
       let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
       let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
+      let real_body =
+        if is_rec
+        then Expr.LetVar (Pat.Var ident, Expr.Tuple [Expr.Var ident; fv_tuple], body)
+        else body
+      in
       let real_param = Pat.Tuple [param; fv_pat] in
       let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
       let wrap = Expr.LetVar (Pat.Var ident, evalto, in_) in
-      Expr.LetFun (is_rec, ident, real_param, body, wrap)
+      Expr.LetFun (is_rec, ident, real_param, real_body, wrap)
     | Expr.Lambda (param, body) ->
       let fvs = free_variable_list expr in
       let body = aux i body in
