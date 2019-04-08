@@ -30,5 +30,22 @@ let () =
     ;;
     print_int (f (A (2, 3)));
     print_int (f (B 4))
+      |};
+  Tester.f
+    {|
+    type t =
+      | A of int * int
+      | B of int * int
+      | C of int * int
+      | D of int
+
+    let f = function
+      | A (a, b) | B (a, b) | C (a, b) -> a + b
+      | D i -> i * 100
+    ;;
+    print_int (f (A (2, 3)));
+    print_int (f (B (4, 5)));
+    print_int (f (C (6, 7)));
+    print_int (f (D 7))
       |}
 ;;
