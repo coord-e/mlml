@@ -48,3 +48,24 @@ let rec free_variables = function
     SS.diff body param
   | Expr.Var x -> SS.singleton x
 ;;
+
+let free_variable_list x = free_variables x |> SS.elements
+
+let closure_conversion = function
+  | Expr.LetFun (is_rec, ident, param, body, in_) ->
+    let fvs = free_variable_list body in
+    let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
+    let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
+    let real_param = Pat.Tuple [param; fv_pat] in
+    let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
+    let wrap = Expr.LetVar (Pat.Var ident, evalto, in_) in
+    Expr.LetFun (is_rec, ident, real_param, body, wrap)
+  | Expr.Lambda (param, body) ->
+    let fvs = free_variable_list body in
+    let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
+    let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
+    let real_param = Pat.Tuple [param; fv_pat] in
+    let real_fun = Expr.Lambda (real_param, body) in
+    Expr.Tuple [real_fun; fv_tuple]
+  | expr -> expr
+;;
