@@ -123,12 +123,12 @@ let rec codegen_expr ctx buf = function
       | (pat, when_, rhs) :: t ->
         (ctx.current_env).current_stack <- save_stack_c;
         let next_label = new_unnamed_label ctx in
+        pattern_match ctx buf pat v next_label;
         (match when_ with
         | Some cond ->
           let cond = codegen_expr ctx buf cond in
           branch_by_value ctx buf cond next_label
         | None -> ());
-        pattern_match ctx buf pat v next_label;
         let rhs = codegen_expr ctx buf rhs in
         assign_to_stack ctx buf rhs eval_stack;
         emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
