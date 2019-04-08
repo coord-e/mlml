@@ -138,5 +138,6 @@ let closure_conversion_defn defn =
     let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
     let f = Expr.LetFun (is_rec, ident, real_param, real_body, evalto) in
     Def.LetVar (Pat.Var ident, f)
-  | defn -> defn
+  | Def.LetVar (pat, expr) -> Def.LetVar (pat, closure_conversion expr)
+  | Def.Variant _ -> defn
 ;;
