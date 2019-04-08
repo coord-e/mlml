@@ -19,6 +19,7 @@ type t =
   | Var of string
   | Equal of t * t
   | Match of t * (Pat.t * t option * t) list
+  | Lambda of Pat.t list * t
 
 let rec parse_let_fun_params = function
   | L.Equal :: rest -> rest, []
@@ -162,6 +163,10 @@ and parse_match = function
   | tokens -> parse_if tokens
 
 and parse_let = function
+  | L.Fun :: rest ->
+    let rest, params = parse_let_fun_params rest in
+    let rest, params, body = parse_let_fun_body params rest in
+    rest, Lambda (params, body)
   (* `let rec` -> function definition *)
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
     let rest, params = parse_let_fun_params rest in
@@ -286,6 +291,9 @@ let rec string_of_expression = function
     in
     let p = List.map string_of_arm arms |> String.concat " | " in
     Printf.sprintf "Match (%s) with %s" (string_of_expression expr) p
+  | Lambda (params, body) ->
+    let p = List.map Pat.string_of_pattern params |> String.concat ", " in
+    Printf.sprintf "(%s) -> (%s)" p (string_of_expression body)
 ;;
 
 let f = parse_expression
