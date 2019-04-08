@@ -21,11 +21,12 @@ type t =
   | Match of t * (Pat.t * t option * t) list
   | Lambda of Pat.t list * t
 
-let rec parse_let_fun_params = function
-  | L.Equal :: rest -> rest, []
+let rec parse_let_fun_params is_let = function
+  | L.Arrow :: rest when not is_let -> rest, []
+  | L.Equal :: rest when is_let -> rest, []
   | tokens ->
     let rest, pat = Pat.parse_pattern tokens in
-    let rest, acc = parse_let_fun_params rest in
+    let rest, acc = parse_let_fun_params is_let rest in
     rest, pat :: acc
 ;;
 
@@ -164,12 +165,12 @@ and parse_match = function
 
 and parse_let = function
   | L.Fun :: rest ->
-    let rest, params = parse_let_fun_params rest in
+    let rest, params = parse_let_fun_params false rest in
     let rest, params, body = parse_let_fun_body params rest in
     rest, Lambda (params, body)
   (* `let rec` -> function definition *)
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
-    let rest, params = parse_let_fun_params rest in
+    let rest, params = parse_let_fun_params true rest in
     let rest, params, lhs = parse_let_fun_body params rest in
     (match rest with
     | L.In :: rest ->
@@ -188,7 +189,7 @@ and parse_let = function
       match rest with
       | L.Equal :: L.Function :: _ ->
         (* function *)
-        let rest, params = parse_let_fun_params rest in
+        let rest, params = parse_let_fun_params true rest in
         parse_let_fun_body params rest
       | L.Equal :: rest ->
         (* variable *)
@@ -196,7 +197,7 @@ and parse_let = function
         rest, [], lhs
       | _ ->
         (* function *)
-        let rest, params = parse_let_fun_params rest in
+        let rest, params = parse_let_fun_params true rest in
         parse_let_fun_body params rest
     in
     (match rest with
