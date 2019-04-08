@@ -53,11 +53,8 @@ let rec codegen_expr ctx buf = function
   | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let param, free = nth_arg_register ctx 0 in
-    assign_to_register buf rhs param;
-    emit_instruction buf @@ Printf.sprintf "call *%s" (string_of_value lhs);
-    free ctx;
-    StackValue (turn_into_stack ctx buf (RegisterValue ret_register))
+    let ret = call_ext_func ctx buf (Printf.sprintf "*%s" (string_of_value lhs)) [rhs] in
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.IfThenElse (cond, then_, else_) ->
     let cond = codegen_expr ctx buf cond in
     let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
