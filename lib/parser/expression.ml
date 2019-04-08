@@ -18,6 +18,9 @@ type t =
   | Ctor of string * t option
   | Var of string
   | Equal of t * t
+  | NotEqual of t * t
+  | PhysicalEqual of t * t
+  | NotPhysicalEqual of t * t
   | Match of t * (Pat.t * t option * t) list
 
 let rec parse_let_fun_params = function
@@ -118,6 +121,15 @@ and parse_equal tokens =
     | L.Equal :: rest ->
       let rest, rhs = parse_add rest in
       aux (Equal (lhs, rhs)) rest
+    | L.DoubleEqual :: rest ->
+      let rest, rhs = parse_add rest in
+      aux (PhysicalEqual (lhs, rhs)) rest
+    | L.LtGt :: rest ->
+      let rest, rhs = parse_add rest in
+      aux (NotEqual (lhs, rhs)) rest
+    | L.NotEqual :: rest ->
+      let rest, rhs = parse_add rest in
+      aux (NotPhysicalEqual (lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -242,6 +254,21 @@ let rec string_of_expression = function
   | Equal (lhs, rhs) ->
     Printf.sprintf
       "Equal (%s) (%s)"
+      (string_of_expression lhs)
+      (string_of_expression rhs)
+  | NotEqual (lhs, rhs) ->
+    Printf.sprintf
+      "NotEqual (%s) (%s)"
+      (string_of_expression lhs)
+      (string_of_expression rhs)
+  | PhysicalEqual (lhs, rhs) ->
+    Printf.sprintf
+      "PhysicalEqual (%s) (%s)"
+      (string_of_expression lhs)
+      (string_of_expression rhs)
+  | NotPhysicalEqual (lhs, rhs) ->
+    Printf.sprintf
+      "NotPhysicalEqual (%s) (%s)"
       (string_of_expression lhs)
       (string_of_expression rhs)
   | LetVar (pat, lhs, rhs) ->
