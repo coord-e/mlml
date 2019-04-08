@@ -43,13 +43,13 @@ let rec codegen_expr ctx buf = function
     (match ident with
     | "print_int" -> function_ptr ctx buf print_int_label
     | _ -> StackValue (get_variable ctx ident))
-  | Expr.LetFun (is_rec, ident, params, lhs, rhs) ->
-    let lhs = emit_function_value ctx buf is_rec ident params lhs in
+  | Expr.LetFun (is_rec, ident, param, lhs, rhs) ->
+    let lhs = emit_function_value ctx buf is_rec ident [param] lhs in
     define_variable ctx buf ident lhs;
     let rhs = codegen_expr ctx buf rhs in
     undef_variable ctx ident;
     rhs
-  | Expr.Lambda (params, body) -> emit_function_value ctx buf false "_lambda" params body
+  | Expr.Lambda (param, body) -> emit_function_value ctx buf false "_lambda" [param] body
   | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
