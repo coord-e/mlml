@@ -18,7 +18,9 @@ type token =
   | Of
   | Match
   | With
+  | When
   | Arrow
+  | Function
   | Comma
   | Semicolon
   | DoubleSemicolon
@@ -76,6 +78,8 @@ let rec tokenize_aux acc rest =
       | "of" -> tokenize_aux (Of :: acc) rest
       | "match" -> tokenize_aux (Match :: acc) rest
       | "with" -> tokenize_aux (With :: acc) rest
+      | "when" -> tokenize_aux (When :: acc) rest
+      | "function" -> tokenize_aux (Function :: acc) rest
       | _ ->
         (match ident_str.[0] with
         | 'A' .. 'Z' -> tokenize_aux (CapitalIdent ident_str :: acc) rest
@@ -117,7 +121,9 @@ let string_of_token = function
   | Of -> "of"
   | Match -> "match"
   | With -> "with"
+  | When -> "when"
   | Arrow -> "->"
+  | Function -> "function"
   | Comma -> ","
   | Semicolon -> ";"
   | DoubleSemicolon -> ";;"

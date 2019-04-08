@@ -262,6 +262,7 @@ let define_ctor ctx ctor idx = Hashtbl.add ctx.ctors ctor idx
 let get_ctor_index ctx ctor = Hashtbl.find ctx.ctors ctor
 
 let define_variable ctx buf ident v =
+  (* TODO: Print warning when ident is accidentally "_" *)
   let s = turn_into_stack ctx buf v in
   Hashtbl.add ctx.current_env.vars ident s
 ;;
@@ -271,6 +272,7 @@ let get_variable ctx ident = Hashtbl.find ctx.current_env.vars ident
 
 let rec pattern_match ctx buf pat v fail_label =
   match pat with
+  | Pat.Var "_" -> ()
   | Pat.Var x -> define_variable ctx buf x v
   | Pat.Tuple values ->
     (* assume v holds heap address *)
@@ -304,10 +306,34 @@ let rec pattern_match ctx buf pat v fail_label =
     emit_instruction buf @@ Printf.sprintf "cmpq $%d, %s" x (string_of_register reg);
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
     free ctx
+  | Pat.Or (a, b) ->
+    let idents = Pat.introduced_ident_list a in
+    if idents <> Pat.introduced_ident_list b
+    then failwith "introduced identifiers mismatch in | pattern";
+    let resulting_area =
+      List.map (fun _ -> push_to_stack ctx buf (ConstantValue 0)) idents
+    in
+    let store_result name s =
+      (* TODO: `v` can be freed here *)
+      let v = get_variable ctx name in
+      assign_to_stack ctx buf (StackValue v) s;
+      undef_variable ctx name
+    in
+    let right_label = new_unnamed_label ctx in
+    let join_label = new_unnamed_label ctx in
+    pattern_match ctx buf a v right_label;
+    List.iter2 store_result idents resulting_area;
+    emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
+    start_label buf right_label;
+    pattern_match ctx buf b v fail_label;
+    List.iter2 store_result idents resulting_area;
+    start_label buf join_label;
+    let redef_vars name s = define_variable ctx buf name (StackValue s) in
+    List.iter2 redef_vars idents resulting_area
 ;;
 
 let undef_variable_pattern ctx pat =
-  List.iter (undef_variable ctx) (Pat.introduced_idents pat)
+  List.iter (undef_variable ctx) (Pat.introduced_ident_list pat)
 ;;
 
 let function_ptr_to_register buf label reg =
@@ -321,4 +347,11 @@ let function_ptr ctx buf label =
   let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
   free_register reg ctx;
   s
+;;
+
+let branch_by_value ctx buf value false_label =
+  let value, free = turn_into_register ctx buf value in
+  emit_instruction buf @@ Printf.sprintf "cmpq $0, %s" (string_of_register value);
+  free ctx;
+  emit_instruction buf @@ Printf.sprintf "je %s" (string_of_label false_label)
 ;;

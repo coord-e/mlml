@@ -1,8 +1,7 @@
 let () =
   Tester.expr
     {|
-    let f a =
-      match a with
+    let f = function
       | 1 -> 3
       | 2 -> 4
       | 3 -> 5
@@ -11,8 +10,7 @@ let () =
   |};
   Tester.expr
     {|
-    let f t =
-      match t with
+    let f = function
       | 3, 2 -> 3
       | 4, a -> a + 1
       | a, b -> a + b
@@ -24,8 +22,7 @@ let () =
       | A of int
       | B of int * int
     ;;
-    let f v =
-      match v with
+    let f = function
       | A 1 -> 42
       | A x -> x
       | B (1, x) -> x

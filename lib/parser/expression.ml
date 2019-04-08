@@ -18,7 +18,7 @@ type t =
   | Ctor of string * t option
   | Var of string
   | Equal of t * t
-  | Match of t * (Pat.t * t) list
+  | Match of t * (Pat.t * t option * t) list
 
 let rec parse_let_fun_params = function
   | L.Equal :: rest -> rest, []
@@ -28,7 +28,34 @@ let rec parse_let_fun_params = function
     rest, pat :: acc
 ;;
 
-let rec try_parse_literal tokens =
+let rec parse_match_arm tokens =
+  let parse_from_arrow pat when_ = function
+    | L.Arrow :: rest ->
+      let rest, arm = parse_expression rest in
+      (match rest with
+      | L.Vertical :: rest ->
+        let rest, acc = parse_match_arm rest in
+        rest, (pat, when_, arm) :: acc
+      | _ -> rest, [pat, when_, arm])
+    | _ -> failwith "could not find '->'"
+  in
+  let rest, pat = Pat.parse_pattern tokens in
+  match rest with
+  | L.When :: rest ->
+    let rest, when_ = parse_expression rest in
+    parse_from_arrow pat (Some when_) rest
+  | _ -> parse_from_arrow pat None rest
+
+and parse_let_fun_body params = function
+  | L.Function :: L.Vertical :: rest | L.Function :: rest ->
+    let rest, arms = parse_match_arm rest in
+    let anon_var = ".function_match" in
+    rest, params @ [Pat.Var anon_var], Match (Var anon_var, arms)
+  | rest ->
+    let rest, body = parse_expression rest in
+    rest, params, body
+
+and try_parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
   (* TODO: Add boolean value *)
@@ -129,19 +156,7 @@ and parse_match = function
     let rest, expr = parse_expression rest in
     (match rest with
     | L.With :: L.Vertical :: rest | L.With :: rest ->
-      let rec aux tokens =
-        let rest, pat = Pat.parse_pattern tokens in
-        match rest with
-        | L.Arrow :: rest ->
-          let rest, arm = parse_expression rest in
-          (match rest with
-          | L.Vertical :: rest ->
-            let rest, acc = aux rest in
-            rest, (pat, arm) :: acc
-          | _ -> rest, [pat, arm])
-        | _ -> failwith "could not find '->'"
-      in
-      let rest, arms = aux rest in
+      let rest, arms = parse_match_arm rest in
       rest, Match (expr, arms)
     | _ -> failwith "could not find 'with'")
   | tokens -> parse_if tokens
@@ -150,7 +165,7 @@ and parse_let = function
   (* `let rec` -> function definition *)
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
     let rest, params = parse_let_fun_params rest in
-    let rest, lhs = parse_expression rest in
+    let rest, params, lhs = parse_let_fun_body params rest in
     (match rest with
     | L.In :: rest ->
       let rest, rhs = parse_expression rest in
@@ -166,6 +181,10 @@ and parse_let = function
     let rest, bind = Pat.parse_pattern rest in
     let rest, params, lhs =
       match rest with
+      | L.Equal :: L.Function :: _ ->
+        (* function *)
+        let rest, params = parse_let_fun_params rest in
+        parse_let_fun_body params rest
       | L.Equal :: rest ->
         (* variable *)
         let rest, lhs = parse_expression rest in
@@ -173,8 +192,7 @@ and parse_let = function
       | _ ->
         (* function *)
         let rest, params = parse_let_fun_params rest in
-        let rest, lhs = parse_expression rest in
-        rest, params, lhs
+        parse_let_fun_body params rest
     in
     (match rest with
     | L.In :: rest ->
@@ -255,10 +273,15 @@ let rec string_of_expression = function
       (string_of_expression else_)
   | Var ident -> Printf.sprintf "Var %s" ident
   | Match (expr, arms) ->
-    let string_of_arm (pat, arm) =
+    let string_of_when = function
+      | Some w -> Printf.sprintf "when (%s)" (string_of_expression w)
+      | None -> ""
+    in
+    let string_of_arm (pat, when_, arm) =
       Printf.sprintf
-        "(%s) -> (%s)"
+        "(%s) %s -> (%s)"
         (Pat.string_of_pattern pat)
+        (string_of_when when_)
         (string_of_expression arm)
     in
     let p = List.map string_of_arm arms |> String.concat " | " in
