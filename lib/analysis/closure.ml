@@ -51,9 +51,12 @@ let rec free_variables = function
 
 let free_variable_list x = free_variables x |> SS.elements
 
-let closure_conversion = function
+let rec closure_conversion expr =
+  match expr with
   | Expr.LetFun (is_rec, ident, param, body, in_) ->
-    let fvs = free_variable_list body in
+    let fvs = free_variable_list expr in
+    let body = closure_conversion body in
+    let in_ = closure_conversion in_ in
     let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
     let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
     let real_param = Pat.Tuple [param; fv_pat] in
@@ -61,14 +64,18 @@ let closure_conversion = function
     let wrap = Expr.LetVar (Pat.Var ident, evalto, in_) in
     Expr.LetFun (is_rec, ident, real_param, body, wrap)
   | Expr.Lambda (param, body) ->
-    let fvs = free_variable_list body in
+    let fvs = free_variable_list expr in
+    let body = closure_conversion body in
     let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
     let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
     let real_param = Pat.Tuple [param; fv_pat] in
     let real_fun = Expr.Lambda (real_param, body) in
     Expr.Tuple [real_fun; fv_tuple]
-  | Expr.App (Expr.Var "print_int", rhs) -> Expr.App (Expr.Var "print_int", rhs)
+  | Expr.App (Expr.Var "print_int", rhs) ->
+    Expr.App (Expr.Var "print_int", closure_conversion rhs)
   | Expr.App (lhs, rhs) ->
+    let lhs = closure_conversion lhs in
+    let rhs = closure_conversion rhs in
     let destruct = Pat.Tuple [Pat.Var "_f"; Pat.Var "_fv"] in
     let real_app = Expr.App (Expr.Var "_f", Expr.Tuple [rhs; Expr.Var "_fv"]) in
     Expr.LetVar (destruct, lhs, real_app)
