@@ -52,53 +52,56 @@ let rec free_variables = function
 let free_variable_list x = free_variables x |> SS.elements
 
 (* TODO: simplify application to subexpr *)
-let rec closure_conversion expr =
-  match expr with
-  | Expr.LetFun (is_rec, ident, param, body, in_) ->
-    let fvs = free_variable_list expr in
-    let body = closure_conversion body in
-    let in_ = closure_conversion in_ in
-    let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
-    let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
-    let real_param = Pat.Tuple [param; fv_pat] in
-    let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
-    let wrap = Expr.LetVar (Pat.Var ident, evalto, in_) in
-    Expr.LetFun (is_rec, ident, real_param, body, wrap)
-  | Expr.Lambda (param, body) ->
-    let fvs = free_variable_list expr in
-    let body = closure_conversion body in
-    let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
-    let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
-    let real_param = Pat.Tuple [param; fv_pat] in
-    let real_fun = Expr.Lambda (real_param, body) in
-    Expr.Tuple [real_fun; fv_tuple]
-  | Expr.App (Expr.Var "print_int", rhs) ->
-    Expr.App (Expr.Var "print_int", closure_conversion rhs)
-  | Expr.App (lhs, rhs) ->
-    let lhs = closure_conversion lhs in
-    let rhs = closure_conversion rhs in
-    let destruct = Pat.Tuple [Pat.Var "_f"; Pat.Var "_fv"] in
-    let real_app = Expr.App (Expr.Var "_f", Expr.Tuple [rhs; Expr.Var "_fv"]) in
-    Expr.LetVar (destruct, lhs, real_app)
-  | Expr.Int _ | Expr.Var _ -> expr
-  | Expr.Add (r, l) -> Expr.Add (closure_conversion r, closure_conversion l)
-  | Expr.Sub (r, l) -> Expr.Sub (closure_conversion r, closure_conversion l)
-  | Expr.Mul (r, l) -> Expr.Mul (closure_conversion r, closure_conversion l)
-  | Expr.Follow (r, l) -> Expr.Follow (closure_conversion r, closure_conversion l)
-  | Expr.Equal (r, l) -> Expr.Equal (closure_conversion r, closure_conversion l)
-  | Expr.IfThenElse (c, t, e) -> Expr.IfThenElse (closure_conversion c, closure_conversion t, closure_conversion e)
-  | Expr.LetVar (pat, lhs, rhs) -> Expr.LetVar (pat, closure_conversion lhs, closure_conversion rhs)
-  | Expr.Ctor (name, param) -> (match param with
-    | Some param -> Expr.Ctor (name, Some (closure_conversion param))
-    | None -> expr
-  )
-  | Expr.Tuple values -> Expr.Tuple (List.map closure_conversion values)
-  | Expr.Match (expr, arms) ->
-      let expr = closure_conversion expr in
-      let aux (pat, when_, v) =
-        let when_ = (match when_ with
-          | Some when_ -> Some (closure_conversion when_)
-          | None -> None
-        ) in (pat, when_, closure_conversion v)
-      in Expr.Match (expr, (List.map aux arms))
+let closure_conversion expr =
+  let rec aux i expr =
+    match expr with
+    | Expr.LetFun (is_rec, ident, param, body, in_) ->
+      let fvs = free_variable_list (Expr.Lambda (param, body)) in
+      let body = aux i body in
+      let in_ = aux i in_ in
+      let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
+      let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
+      let real_param = Pat.Tuple [param; fv_pat] in
+      let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
+      let wrap = Expr.LetVar (Pat.Var ident, evalto, in_) in
+      Expr.LetFun (is_rec, ident, real_param, body, wrap)
+    | Expr.Lambda (param, body) ->
+      let fvs = free_variable_list expr in
+      let body = aux i body in
+      let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
+      let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
+      let real_param = Pat.Tuple [param; fv_pat] in
+      let real_fun = Expr.Lambda (real_param, body) in
+      Expr.Tuple [real_fun; fv_tuple]
+    | Expr.App (Expr.Var "print_int", rhs) -> Expr.App (Expr.Var "print_int", aux i rhs)
+    | Expr.App (lhs, rhs) ->
+      let lhs = aux i lhs in
+      let rhs = aux (i + 1) rhs in
+      let f_name = Printf.sprintf "_f%d" i in
+      let fv_name = Printf.sprintf "_fv%d" i in
+      let destruct = Pat.Tuple [Pat.Var f_name; Pat.Var fv_name] in
+      let real_app = Expr.App (Expr.Var f_name, Expr.Tuple [rhs; Expr.Var fv_name]) in
+      Expr.LetVar (destruct, lhs, real_app)
+    | Expr.Int _ | Expr.Var _ -> expr
+    | Expr.Add (r, l) -> Expr.Add (aux i r, aux i l)
+    | Expr.Sub (r, l) -> Expr.Sub (aux i r, aux i l)
+    | Expr.Mul (r, l) -> Expr.Mul (aux i r, aux i l)
+    | Expr.Follow (r, l) -> Expr.Follow (aux i r, aux i l)
+    | Expr.Equal (r, l) -> Expr.Equal (aux i r, aux i l)
+    | Expr.IfThenElse (c, t, e) -> Expr.IfThenElse (aux i c, aux i t, aux i e)
+    | Expr.LetVar (pat, lhs, rhs) -> Expr.LetVar (pat, aux i lhs, aux i rhs)
+    | Expr.Ctor (name, param) ->
+      (match param with
+      | Some param -> Expr.Ctor (name, Some (aux i param))
+      | None -> expr)
+    | Expr.Tuple values -> Expr.Tuple (List.map (aux i) values)
+    | Expr.Match (expr, arms) ->
+      let expr = aux i expr in
+      let aux' (pat, when_, v) =
+        let when_ = match when_ with Some when_ -> Some (aux i when_) | None -> None in
+        pat, when_, aux i v
+      in
+      Expr.Match (expr, List.map aux' arms)
+  in
+  aux 0 expr
 ;;
