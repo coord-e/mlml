@@ -70,6 +70,7 @@ let rec string_of_pattern = function
 ;;
 
 let rec introduced_idents = function
+  | Var "_" -> []
   | Var x -> [x]
   | Int _ -> []
   | Tuple values -> List.map introduced_idents values |> List.flatten

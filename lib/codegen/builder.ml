@@ -262,6 +262,7 @@ let define_ctor ctx ctor idx = Hashtbl.add ctx.ctors ctor idx
 let get_ctor_index ctx ctor = Hashtbl.find ctx.ctors ctor
 
 let define_variable ctx buf ident v =
+  (* TODO: Print warning when ident is accidentally "_" *)
   let s = turn_into_stack ctx buf v in
   Hashtbl.add ctx.current_env.vars ident s
 ;;
@@ -271,6 +272,7 @@ let get_variable ctx ident = Hashtbl.find ctx.current_env.vars ident
 
 let rec pattern_match ctx buf pat v fail_label =
   match pat with
+  | Pat.Var "_" -> ()
   | Pat.Var x -> define_variable ctx buf x v
   | Pat.Tuple values ->
     (* assume v holds heap address *)
