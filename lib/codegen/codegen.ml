@@ -73,20 +73,22 @@ let rec codegen_expr ctx buf = function
     assign_to_stack ctx buf else_ eval_stack;
     start_label buf join_label;
     StackValue eval_stack
+  | Expr.PhysicalEqual (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    comparison_to_value ctx buf Eq lhs rhs
+  | Expr.NotPhysicalEqual (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    comparison_to_value ctx buf Ne lhs rhs
   | Expr.Equal (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
-    let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
-    (* Use rdx temporarily (8-bit register(dl) is needed) *)
-    let rdx = Register "%rdx" in
-    use_register ctx rdx;
-    emit_instruction buf
-    @@ Printf.sprintf "cmpq %s, %s" (string_of_value lhs) (string_of_register rhs);
-    free ctx;
-    emit_instruction buf "sete %dl";
-    emit_instruction buf "movzbq %dl, %rdx";
-    let s = push_to_stack ctx buf (RegisterValue rdx) in
-    free_register rdx ctx;
-    StackValue s
+    let rhs = codegen_expr ctx buf rhs in
+    comparison_to_value ctx buf Eq lhs rhs
+  | Expr.NotEqual (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    comparison_to_value ctx buf Ne lhs rhs
   | Expr.Tuple values ->
     let size = List.length values in
     let reg = alloc_register ctx in

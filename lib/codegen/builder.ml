@@ -355,3 +355,35 @@ let branch_by_value ctx buf value false_label =
   free ctx;
   emit_instruction buf @@ Printf.sprintf "je %s" (string_of_label false_label)
 ;;
+
+type comparison =
+  | Eq
+  | Ne
+  | Gt
+  | Ge
+  | Lt
+  | Le
+
+let string_of_comparison = function
+  | Eq -> "e"
+  | Ne -> "ne"
+  | Gt -> "g"
+  | Ge -> "ge"
+  | Lt -> "l"
+  | Le -> "le"
+;;
+
+let comparison_to_value ctx buf cmp v1 v2 =
+  let v2, free = turn_into_register ctx buf v2 in
+  (* Use rdx temporarily (8-bit register(dl) is needed) *)
+  let rdx = Register "%rdx" in
+  use_register ctx rdx;
+  emit_instruction buf
+  @@ Printf.sprintf "cmpq %s, %s" (string_of_value v1) (string_of_register v2);
+  free ctx;
+  emit_instruction buf @@ Printf.sprintf "set%s %%dl" (string_of_comparison cmp);
+  emit_instruction buf "movzbq %dl, %rdx";
+  let s = push_to_stack ctx buf (RegisterValue rdx) in
+  free_register rdx ctx;
+  StackValue s
+;;
