@@ -58,19 +58,19 @@ let rec codegen_expr ctx buf = function
     free ctx;
     StackValue (turn_into_stack ctx buf (RegisterValue ret_register))
   | Expr.IfThenElse (cond, then_, else_) ->
-    let cond, free = codegen_expr ctx buf cond |> turn_into_register ctx buf in
+    let cond = codegen_expr ctx buf cond in
     let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
-    emit_instruction buf @@ Printf.sprintf "cmpq $0, %s" (string_of_register cond);
-    free ctx;
-    let then_label = new_unnamed_label ctx in
-    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label then_label);
+    let else_label = new_unnamed_label ctx in
     let join_label = new_unnamed_label ctx in
-    let else_ = codegen_expr ctx buf else_ in
-    assign_to_stack ctx buf else_ eval_stack;
-    emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
-    start_label buf then_label;
+    branch_by_value ctx buf cond else_label;
+    (* then block *)
     let then_ = codegen_expr ctx buf then_ in
     assign_to_stack ctx buf then_ eval_stack;
+    emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
+    (* else block *)
+    start_label buf else_label;
+    let else_ = codegen_expr ctx buf else_ in
+    assign_to_stack ctx buf else_ eval_stack;
     start_label buf join_label;
     StackValue eval_stack
   | Expr.Equal (lhs, rhs) ->
