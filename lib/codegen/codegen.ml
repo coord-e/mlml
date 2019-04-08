@@ -49,6 +49,7 @@ let rec codegen_expr ctx buf = function
     let rhs = codegen_expr ctx buf rhs in
     undef_variable ctx ident;
     rhs
+  | Expr.Lambda (params, body) -> emit_function_value ctx buf false "_lambda" params body
   | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
