@@ -18,15 +18,13 @@ let rec free_variables = function
     let lhs = free_variables lhs in
     let rhs = free_variables rhs in
     SS.union lhs (SS.diff rhs intros)
-  | Expr.LetFun (is_rec, ident, params, body, in_) ->
+  | Expr.LetFun (is_rec, ident, param, body, in_) ->
     let intros = SS.singleton ident in
-    let intros_body =
-      List.map Pat.introduced_idents params |> List.fold_left SS.union SS.empty
-    in
-    let intros_body = if is_rec then SS.add ident intros_body else intros_body in
+    let param = Pat.introduced_idents param in
+    let param = if is_rec then SS.add ident param else param in
     let body = free_variables body in
     let in_ = free_variables in_ in
-    SS.union (SS.diff body intros_body) (SS.diff in_ intros)
+    SS.union (SS.diff body param) (SS.diff in_ intros)
   | Expr.IfThenElse (c, t, e) ->
     SS.union (free_variables c) @@ SS.union (free_variables t) (free_variables e)
   | Expr.Ctor (_, expr) ->
@@ -44,11 +42,9 @@ let rec free_variables = function
     in
     let arms = List.map aux arms |> List.fold_left SS.union SS.empty in
     SS.union expr arms
-  | Expr.Lambda (params, body) ->
-    let intros_body =
-      List.map Pat.introduced_idents params |> List.fold_left SS.union SS.empty
-    in
+  | Expr.Lambda (param, body) ->
+    let param = Pat.introduced_idents param in
     let body = free_variables body in
-    SS.diff body intros_body
+    SS.diff body param
   | Expr.Var x -> SS.singleton x
 ;;
