@@ -37,7 +37,7 @@ let try_parse_let tokens =
   | L.Type :: rest -> try_parse_type rest
   (* function definition *)
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
-    let rest, params = Expr.parse_let_fun_params true rest in
+    let rest, params = Expr.parse_let_fun_params rest in
     let rest, params, lhs = Expr.parse_let_fun_body params rest in
     (* check if let-in expression, which is not a definition *)
     (match rest with
@@ -49,7 +49,7 @@ let try_parse_let tokens =
       match rest with
       | L.Equal :: L.Function :: _ ->
         (* function *)
-        let rest, params = Expr.parse_let_fun_params true rest in
+        let rest, params = Expr.parse_let_fun_params rest in
         Expr.parse_let_fun_body params rest
       | L.Equal :: rest ->
         (* variable *)
@@ -57,7 +57,7 @@ let try_parse_let tokens =
         rest, [], lhs
       | _ ->
         (* function *)
-        let rest, params = Expr.parse_let_fun_params true rest in
+        let rest, params = Expr.parse_let_fun_params rest in
         Expr.parse_let_fun_body params rest
     in
     (* check if let-in expression, which is not a definition *)
