@@ -348,3 +348,10 @@ let function_ptr ctx buf label =
   free_register reg ctx;
   s
 ;;
+
+let branch_by_value ctx buf value false_label =
+  let value, free = turn_into_register ctx buf value in
+  emit_instruction buf @@ Printf.sprintf "cmpq $0, %s" (string_of_register value);
+  free ctx;
+  emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label false_label)
+;;
