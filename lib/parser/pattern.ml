@@ -69,12 +69,16 @@ let rec string_of_pattern = function
   | Or (a, b) -> Printf.sprintf "(%s) | (%s)" (string_of_pattern a) (string_of_pattern b)
 ;;
 
+module SS = Set.Make (String)
+
 let rec introduced_idents = function
-  | Var "_" -> []
-  | Var x -> [x]
-  | Int _ -> []
-  | Tuple values -> List.map introduced_idents values |> List.flatten
+  | Var "_" -> SS.empty
+  | Var x -> SS.singleton x
+  | Int _ -> SS.empty
+  | Tuple values -> List.map introduced_idents values |> List.fold_left SS.union SS.empty
   | Ctor (_, value) ->
-    (match value with Some value -> introduced_idents value | None -> [])
-  | Or (a, b) -> introduced_idents a @ introduced_idents b
+    (match value with Some value -> introduced_idents value | None -> SS.empty)
+  | Or (a, b) -> SS.union (introduced_idents a) (introduced_idents b)
 ;;
+
+let introduced_ident_list p = introduced_idents p |> SS.elements

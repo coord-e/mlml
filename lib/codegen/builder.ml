@@ -307,8 +307,8 @@ let rec pattern_match ctx buf pat v fail_label =
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
     free ctx
   | Pat.Or (a, b) ->
-    let idents = Pat.introduced_idents a in
-    if idents <> Pat.introduced_idents b
+    let idents = Pat.introduced_ident_list a in
+    if idents <> Pat.introduced_ident_list b
     then failwith "introduced identifiers mismatch in | pattern";
     let resulting_area =
       List.map (fun _ -> push_to_stack ctx buf (ConstantValue 0)) idents
@@ -333,7 +333,7 @@ let rec pattern_match ctx buf pat v fail_label =
 ;;
 
 let undef_variable_pattern ctx pat =
-  List.iter (undef_variable ctx) (Pat.introduced_idents pat)
+  List.iter (undef_variable ctx) (Pat.introduced_ident_list pat)
 ;;
 
 let function_ptr_to_register buf label reg =
