@@ -51,6 +51,7 @@ let rec free_variables = function
 
 let free_variable_list x = free_variables x |> SS.elements
 
+(* TODO: simplify application to subexpr *)
 let rec closure_conversion expr =
   match expr with
   | Expr.LetFun (is_rec, ident, param, body, in_) ->
@@ -79,5 +80,25 @@ let rec closure_conversion expr =
     let destruct = Pat.Tuple [Pat.Var "_f"; Pat.Var "_fv"] in
     let real_app = Expr.App (Expr.Var "_f", Expr.Tuple [rhs; Expr.Var "_fv"]) in
     Expr.LetVar (destruct, lhs, real_app)
-  | expr -> expr
+  | Expr.Int _ | Expr.Var _ -> expr
+  | Expr.Add (r, l) -> Expr.Add (closure_conversion r, closure_conversion l)
+  | Expr.Sub (r, l) -> Expr.Sub (closure_conversion r, closure_conversion l)
+  | Expr.Mul (r, l) -> Expr.Mul (closure_conversion r, closure_conversion l)
+  | Expr.Follow (r, l) -> Expr.Follow (closure_conversion r, closure_conversion l)
+  | Expr.Equal (r, l) -> Expr.Equal (closure_conversion r, closure_conversion l)
+  | Expr.IfThenElse (c, t, e) -> Expr.IfThenElse (closure_conversion c, closure_conversion t, closure_conversion e)
+  | Expr.LetVar (pat, lhs, rhs) -> Expr.LetVar (pat, closure_conversion lhs, closure_conversion rhs)
+  | Expr.Ctor (name, param) -> (match param with
+    | Some param -> Expr.Ctor (name, Some (closure_conversion param))
+    | None -> expr
+  )
+  | Expr.Tuple values -> Expr.Tuple (List.map closure_conversion values)
+  | Expr.Match (expr, arms) ->
+      let expr = closure_conversion expr in
+      let aux (pat, when_, v) =
+        let when_ = (match when_ with
+          | Some when_ -> Some (closure_conversion when_)
+          | None -> None
+        ) in (pat, when_, closure_conversion v)
+      in Expr.Match (expr, (List.map aux arms))
 ;;
