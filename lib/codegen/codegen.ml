@@ -43,20 +43,18 @@ let rec codegen_expr ctx buf = function
     (match ident with
     | "print_int" -> function_ptr ctx buf print_int_label
     | _ -> StackValue (get_variable ctx ident))
-  | Expr.LetFun (is_rec, ident, params, lhs, rhs) ->
-    let lhs = emit_function_value ctx buf is_rec ident params lhs in
+  | Expr.LetFun (is_rec, ident, param, lhs, rhs) ->
+    let lhs = emit_function_value ctx buf is_rec ident [param] lhs in
     define_variable ctx buf ident lhs;
     let rhs = codegen_expr ctx buf rhs in
     undef_variable ctx ident;
     rhs
+  | Expr.Lambda (param, body) -> emit_function_value ctx buf false "_lambda" [param] body
   | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let param, free = nth_arg_register ctx 0 in
-    assign_to_register buf rhs param;
-    emit_instruction buf @@ Printf.sprintf "call *%s" (string_of_value lhs);
-    free ctx;
-    StackValue (turn_into_stack ctx buf (RegisterValue ret_register))
+    let ret = call_ext_func ctx buf (Printf.sprintf "*%s" (string_of_value lhs)) [rhs] in
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.IfThenElse (cond, then_, else_) ->
     let cond = codegen_expr ctx buf cond in
     let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
@@ -146,8 +144,8 @@ and codegen_definition ctx buf = function
   | Def.LetVar (pat, lhs) ->
     let lhs = codegen_expr ctx buf lhs in
     pattern_match ctx buf pat lhs match_fail_label
-  | Def.LetFun (is_rec, ident, params, lhs) ->
-    let lhs = emit_function_value ctx buf is_rec ident params lhs in
+  | Def.LetFun (is_rec, ident, param, lhs) ->
+    let lhs = emit_function_value ctx buf is_rec ident [param] lhs in
     define_variable ctx buf ident lhs
   | Def.Variant (_, variants) ->
     let aux i (ctor, _) = define_ctor ctx ctor i in

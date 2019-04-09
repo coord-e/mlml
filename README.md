@@ -12,9 +12,9 @@ This compiler takes a source string as input, and produces x86\_64 assembly.
 - [x] if-then-else
 - [x] functions
   - [x] recursion
-  - [ ] lambda
-  - [ ] closure
-  - [ ] currying
+  - [x] lambda
+  - [x] closure
+  - [x] currying
 - [x] tuples
   - [x] pattern matching
 - [x] variants

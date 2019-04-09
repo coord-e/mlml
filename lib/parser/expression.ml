@@ -12,21 +12,33 @@ type t =
   | Mul of t * t
   | Follow of t * t
   | LetVar of Pat.t * t * t
-  | LetFun of bool * string * Pat.t list * t * t
+  | LetFun of bool * string * Pat.t * t * t
   | IfThenElse of t * t * t
   | App of t * t
   | Ctor of string * t option
   | Var of string
   | Equal of t * t
   | Match of t * (Pat.t * t option * t) list
+  | Lambda of Pat.t * t
 
-let rec parse_let_fun_params = function
-  | L.Equal :: rest -> rest, []
+(* fun x y z -> expr                      *)
+(* => fun x -> (fun y -> (fun z -> expr)) *)
+let rec params_to_lambdas expr = function
+  | h :: t -> Lambda (h, params_to_lambdas expr t)
+  | [] -> expr
+;;
+
+let rec parse_fun_params is_let = function
+  | L.Arrow :: rest when not is_let -> rest, []
+  | L.Equal :: rest when is_let -> rest, []
   | tokens ->
     let rest, pat = Pat.parse_pattern tokens in
-    let rest, acc = parse_let_fun_params rest in
+    let rest, acc = parse_fun_params is_let rest in
     rest, pat :: acc
 ;;
+
+let parse_let_fun_params = parse_fun_params true
+let parse_lambda_fun_params = parse_fun_params false
 
 let rec parse_match_arm tokens =
   let parse_from_arrow pat when_ = function
@@ -162,6 +174,10 @@ and parse_match = function
   | tokens -> parse_if tokens
 
 and parse_let = function
+  | L.Fun :: rest ->
+    let rest, params = parse_lambda_fun_params rest in
+    let rest, params, body = parse_let_fun_body params rest in
+    rest, params_to_lambdas body params
   (* `let rec` -> function definition *)
   | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
     let rest, params = parse_let_fun_params rest in
@@ -172,7 +188,7 @@ and parse_let = function
       (match params with
       (* TODO: Support let rec without arguments *)
       | [] -> failwith "'let rec' without arguments"
-      | _ -> rest, LetFun (true, ident, params, lhs, rhs))
+      | h :: t -> rest, LetFun (true, ident, h, params_to_lambdas lhs t, rhs))
     | _ -> failwith "could not find 'in'")
   | L.Let :: L.Rec :: t :: _ ->
     failwith
@@ -197,9 +213,9 @@ and parse_let = function
     (match rest with
     | L.In :: rest ->
       let rest, rhs = parse_expression rest in
-      if List.length params == 0
-      then rest, LetVar (bind, lhs, rhs)
-      else
+      (match params with
+      | [] -> rest, LetVar (bind, lhs, rhs)
+      | h :: t ->
         let ident =
           match bind with
           | Pat.Var x -> x
@@ -209,7 +225,7 @@ and parse_let = function
                  "cannot name function with pattern '%s'"
                  (Pat.string_of_pattern bind)
         in
-        rest, LetFun (false, ident, params, lhs, rhs)
+        rest, LetFun (false, ident, h, params_to_lambdas lhs t, rhs))
     | _ -> failwith "could not find 'in'")
   | tokens -> parse_match tokens
 
@@ -250,8 +266,8 @@ let rec string_of_expression = function
       (Pat.string_of_pattern pat)
       (string_of_expression lhs)
       (string_of_expression rhs)
-  | LetFun (is_rec, ident, params, lhs, rhs) ->
-    let p = List.map Pat.string_of_pattern params |> String.concat ", " in
+  | LetFun (is_rec, ident, param, lhs, rhs) ->
+    let p = Pat.string_of_pattern param in
     Printf.sprintf
       "Let %s (%s) (%s) = (%s) in (%s)"
       (if is_rec then "rec" else "")
@@ -286,6 +302,9 @@ let rec string_of_expression = function
     in
     let p = List.map string_of_arm arms |> String.concat " | " in
     Printf.sprintf "Match (%s) with %s" (string_of_expression expr) p
+  | Lambda (param, body) ->
+    let p = Pat.string_of_pattern param in
+    Printf.sprintf "(%s) -> (%s)" p (string_of_expression body)
 ;;
 
 let f = parse_expression

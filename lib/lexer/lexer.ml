@@ -19,6 +19,7 @@ type token =
   | Match
   | With
   | When
+  | Fun
   | Arrow
   | Function
   | Comma
@@ -79,6 +80,7 @@ let rec tokenize_aux acc rest =
       | "match" -> tokenize_aux (Match :: acc) rest
       | "with" -> tokenize_aux (With :: acc) rest
       | "when" -> tokenize_aux (When :: acc) rest
+      | "fun" -> tokenize_aux (Fun :: acc) rest
       | "function" -> tokenize_aux (Function :: acc) rest
       | _ ->
         (match ident_str.[0] with
@@ -122,6 +124,7 @@ let string_of_token = function
   | Match -> "match"
   | With -> "with"
   | When -> "when"
+  | Fun -> "fun"
   | Arrow -> "->"
   | Function -> "function"
   | Comma -> ","
