@@ -57,6 +57,13 @@ let rec read_ident acc rest =
 let rec tokenize_aux acc rest =
   match rest with
   | [] -> acc
+  | '(' :: '*' :: rest ->
+    let rec consume_comment = function
+      | '*' :: ')' :: rest -> rest
+      | _ :: t -> consume_comment t
+      | [] -> failwith "comment does not end"
+    in
+    consume_comment rest |> tokenize_aux acc
   | h :: t ->
     (match h with
     | ' ' | '\t' | '\n' -> tokenize_aux acc t
