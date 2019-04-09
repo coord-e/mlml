@@ -10,5 +10,12 @@ let () =
   (* comment *)
 let f (* comment *) x = x + 1 (* comment *) ;;
 print_int (f 2)
+|};
+  Tester.f
+    {|
+  (* com (* comment *) ent *)
+  (* (* comment *) *)
+let f (* comment (*comment*) *) x = x + 1 (*(*comment*) comment *) ;;
+print_int (f (** comment **) 2)
 |}
 ;;

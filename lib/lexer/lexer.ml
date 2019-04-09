@@ -58,12 +58,14 @@ let rec tokenize_aux acc rest =
   match rest with
   | [] -> acc
   | '(' :: '*' :: rest ->
-    let rec consume_comment = function
-      | '*' :: ')' :: rest -> rest
-      | _ :: t -> consume_comment t
+    let rec consume_comment level = function
+      | '(' :: '*' :: rest -> consume_comment (level + 1) rest
+      | '*' :: ')' :: rest when level = 0 -> rest
+      | '*' :: ')' :: rest -> consume_comment (level - 1) rest
+      | _ :: t -> consume_comment level t
       | [] -> failwith "comment does not end"
     in
-    consume_comment rest |> tokenize_aux acc
+    consume_comment 0 rest |> tokenize_aux acc
   | h :: t ->
     (match h with
     | ' ' | '\t' | '\n' -> tokenize_aux acc t
