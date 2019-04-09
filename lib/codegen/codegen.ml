@@ -53,7 +53,7 @@ let rec codegen_expr ctx buf = function
   | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let ret = call_ext_func ctx buf (Printf.sprintf "*%s" (string_of_value lhs)) [rhs] in
+    let ret = safe_call ctx buf (Printf.sprintf "*%s" (string_of_value lhs)) [rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.IfThenElse (cond, then_, else_) ->
     let cond = codegen_expr ctx buf cond in

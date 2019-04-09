@@ -227,7 +227,7 @@ let nth_arg_stack ctx buf n =
   s
 ;;
 
-let call_ext_func ctx buf name args =
+let safe_call ctx buf name args =
   (* save registers (used but not by arguments) *)
   (* usable - unused - args                     *)
   let aux i v =
@@ -251,7 +251,7 @@ let call_ext_func ctx buf name args =
 ;;
 
 let alloc_heap_ptr ctx buf size dest =
-  let ptr = RegisterValue (call_ext_func ctx buf "GC_malloc@PLT" [size]) in
+  let ptr = RegisterValue (safe_call ctx buf "GC_malloc@PLT" [size]) in
   match dest with
   | RegisterValue r -> assign_to_register buf ptr r
   | StackValue s -> assign_to_stack ctx buf ptr s
