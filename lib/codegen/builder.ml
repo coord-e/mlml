@@ -41,6 +41,29 @@ let usable_registers =
   ; Register "%rdx" ]
 ;;
 
+(* https://wiki.osdev.org/System_V_ABI#x86-64 *)
+let volatile_registers =
+  [ Register "%rax"
+  ; Register "%rdi"
+  ; Register "%rsi"
+  ; Register "%rdx"
+  ; Register "%rcx"
+  ; Register "%r8"
+  ; Register "%r9"
+  ; Register "%r10"
+  ; Register "%r11" ]
+;;
+
+let non_volatile_registers =
+  [ Register "%rbx"
+  ; Register "%rsp"
+  ; Register "%rbp"
+  ; Register "%r12"
+  ; Register "%r13"
+  ; Register "%r14"
+  ; Register "%r15" ]
+;;
+
 let ret_register = Register "%rax"
 let print_int_label = Label "_print_int"
 let new_local_env () = {current_stack = -8; vars = Hashtbl.create 10}
