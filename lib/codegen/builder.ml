@@ -23,12 +23,12 @@ let string_of_value = function
 
 (* function-local environment *)
 type local_env =
-  { mutable current_stack : int
+  { mutable unused_registers : register list
+  ; mutable current_stack : int
   ; mutable vars : (string, stack) Hashtbl.t }
 
 type context =
-  { mutable unused_registers : register list
-  ; mutable used_labels : label list
+  { mutable used_labels : label list
   ; mutable ctors : (string, int) Hashtbl.t
   ; mutable current_env : local_env }
 
@@ -66,7 +66,10 @@ let non_volatile_registers =
 
 let ret_register = Register "%rax"
 let print_int_label = Label "_print_int"
-let new_local_env () = {current_stack = -8; vars = Hashtbl.create 10}
+
+let new_local_env () =
+  {unused_registers = usable_registers; current_stack = -8; vars = Hashtbl.create 10}
+;;
 
 let emit_match_fail buf =
   Buffer.add_string
@@ -105,8 +108,7 @@ _print_int:
 ;;
 
 let new_context () =
-  { unused_registers = usable_registers
-  ; used_labels = [print_int_label]
+  { used_labels = [print_int_label]
   ; ctors = Hashtbl.create 32
   ; current_env = new_local_env () }
 ;;
@@ -134,22 +136,24 @@ let new_label ctx name =
 let new_unnamed_label ctx = new_label ctx ".L"
 
 let use_register ctx reg =
-  if List.mem reg ctx.unused_registers
-  then ctx.unused_registers <- List.filter (fun x -> x != reg) ctx.unused_registers
+  if List.mem reg ctx.current_env.unused_registers
+  then
+    (ctx.current_env).unused_registers
+    <- List.filter (fun x -> x != reg) ctx.current_env.unused_registers
   else failwith @@ Printf.sprintf "Register '%s' is unavailable" (string_of_register reg)
 ;;
 
 let alloc_register context =
-  match context.unused_registers with
+  match context.current_env.unused_registers with
   | h :: t ->
-    context.unused_registers <- t;
+    (context.current_env).unused_registers <- t;
     h
   | [] -> failwith "Could not allocate register"
 ;;
 
 let free_register reg ctx =
-  if not (List.mem reg ctx.unused_registers)
-  then ctx.unused_registers <- reg :: ctx.unused_registers
+  if not (List.mem reg ctx.current_env.unused_registers)
+  then (ctx.current_env).unused_registers <- reg :: ctx.current_env.unused_registers
 ;;
 
 let emit_instruction buf inst =
@@ -260,7 +264,10 @@ let safe_call ctx buf name args =
   in
   let arg_regs, free_fns = List.mapi aux args |> List.split in
   let filt x =
-    not (List.mem x ctx.unused_registers || List.mem x arg_regs || x = ret_register)
+    not
+      ( List.mem x ctx.current_env.unused_registers
+      || List.mem x arg_regs
+      || x = ret_register )
   in
   let regs_to_save = List.filter filt volatile_registers in
   let saver x =
