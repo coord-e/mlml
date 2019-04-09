@@ -176,7 +176,7 @@ and emit_function_with ctx main_buf name fn =
   in
   let saver r = r, turn_into_stack ctx buf (RegisterValue r) in
   let saved_stacks =
-    non_volatile_registers |> List.filter exclude_rbp_rsp |> List.map saver
+    non_volatile_registers |> RS.filter exclude_rbp_rsp |> RS.elements |> List.map saver
   in
   fn ctx buf label;
   let stack_used = ctx.current_env.current_stack in

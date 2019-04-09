@@ -21,47 +21,62 @@ let string_of_value = function
   | ConstantValue num -> string_of_constant num
 ;;
 
+module RS = Set.Make (struct
+  type t = register
+
+  let compare = compare
+end)
+
+module LS = Set.Make (struct
+  type t = label
+
+  let compare = compare
+end)
+
 (* function-local environment *)
 type local_env =
-  { mutable unused_registers : register list
+  { mutable unused_registers : RS.t
   ; mutable current_stack : int
   ; mutable vars : (string, stack) Hashtbl.t }
 
 type context =
-  { mutable used_labels : label list
+  { mutable used_labels : LS.t
   ; mutable ctors : (string, int) Hashtbl.t
   ; mutable current_env : local_env }
 
 let usable_registers =
-  [ Register "%rsi"
-  ; Register "%r8"
-  ; Register "%r9"
-  ; Register "%r10"
-  ; Register "%r11"
-  ; Register "%rdx" ]
+  RS.of_list
+    [ Register "%rsi"
+    ; Register "%r8"
+    ; Register "%r9"
+    ; Register "%r10"
+    ; Register "%r11"
+    ; Register "%rdx" ]
 ;;
 
 (* https://wiki.osdev.org/System_V_ABI#x86-64 *)
 let volatile_registers =
-  [ Register "%rax"
-  ; Register "%rdi"
-  ; Register "%rsi"
-  ; Register "%rdx"
-  ; Register "%rcx"
-  ; Register "%r8"
-  ; Register "%r9"
-  ; Register "%r10"
-  ; Register "%r11" ]
+  RS.of_list
+    [ Register "%rax"
+    ; Register "%rdi"
+    ; Register "%rsi"
+    ; Register "%rdx"
+    ; Register "%rcx"
+    ; Register "%r8"
+    ; Register "%r9"
+    ; Register "%r10"
+    ; Register "%r11" ]
 ;;
 
 let non_volatile_registers =
-  [ Register "%rbx"
-  ; Register "%rsp"
-  ; Register "%rbp"
-  ; Register "%r12"
-  ; Register "%r13"
-  ; Register "%r14"
-  ; Register "%r15" ]
+  RS.of_list
+    [ Register "%rbx"
+    ; Register "%rsp"
+    ; Register "%rbp"
+    ; Register "%r12"
+    ; Register "%r13"
+    ; Register "%r14"
+    ; Register "%r15" ]
 ;;
 
 let ret_register = Register "%rax"
@@ -108,7 +123,7 @@ _print_int:
 ;;
 
 let new_context () =
-  { used_labels = [print_int_label]
+  { used_labels = LS.of_list [print_int_label; match_fail_label]
   ; ctors = Hashtbl.create 32
   ; current_env = new_local_env () }
 ;;
@@ -120,9 +135,9 @@ let use_env ctx env =
 ;;
 
 let new_label ctx name =
-  let is_used label = List.mem label ctx.used_labels in
+  let is_used label = LS.mem label ctx.used_labels in
   let use_label label =
-    ctx.used_labels <- label :: ctx.used_labels;
+    ctx.used_labels <- LS.add label ctx.used_labels;
     label
   in
   let rec aux i =
@@ -136,24 +151,25 @@ let new_label ctx name =
 let new_unnamed_label ctx = new_label ctx ".L"
 
 let use_register ctx reg =
-  if List.mem reg ctx.current_env.unused_registers
+  if RS.mem reg ctx.current_env.unused_registers
   then
     (ctx.current_env).unused_registers
-    <- List.filter (fun x -> x != reg) ctx.current_env.unused_registers
+    <- RS.filter (fun x -> x != reg) ctx.current_env.unused_registers
   else failwith @@ Printf.sprintf "Register '%s' is unavailable" (string_of_register reg)
 ;;
 
 let alloc_register context =
-  match context.current_env.unused_registers with
-  | h :: t ->
-    (context.current_env).unused_registers <- t;
+  match RS.choose_opt context.current_env.unused_registers with
+  | Some h ->
+    (context.current_env).unused_registers
+    <- RS.remove h context.current_env.unused_registers;
     h
-  | [] -> failwith "Could not allocate register"
+  | None -> failwith "Could not allocate register"
 ;;
 
 let free_register reg ctx =
-  if not (List.mem reg ctx.current_env.unused_registers)
-  then (ctx.current_env).unused_registers <- reg :: ctx.current_env.unused_registers
+  if not (RS.mem reg ctx.current_env.unused_registers)
+  then (ctx.current_env).unused_registers <- RS.add reg ctx.current_env.unused_registers
 ;;
 
 let emit_instruction buf inst =
@@ -240,7 +256,7 @@ let nth_arg_register context n =
     | 5 -> Register "%r9"
     | _ -> failwith "Too many arguments"
   in
-  if List.mem r usable_registers
+  if RS.mem r usable_registers
   then (
     use_register context r;
     r, free_register r )
@@ -265,16 +281,16 @@ let safe_call ctx buf name args =
   let arg_regs, free_fns = List.mapi aux args |> List.split in
   let filt x =
     not
-      ( List.mem x ctx.current_env.unused_registers
+      ( RS.mem x ctx.current_env.unused_registers
       || List.mem x arg_regs
       || x = ret_register )
   in
-  let regs_to_save = List.filter filt volatile_registers in
+  let regs_to_save = RS.filter filt volatile_registers in
   let saver x =
     let s = push_to_stack ctx buf (RegisterValue x) in
     x, s
   in
-  let saved_regs = List.map saver regs_to_save in
+  let saved_regs = RS.elements regs_to_save |> List.map saver in
   emit_instruction buf @@ "call " ^ name;
   List.iter (fun f -> f ctx) free_fns;
   let restore (x, s) = assign_to_register buf (StackValue s) x in
