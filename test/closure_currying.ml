@@ -62,5 +62,9 @@ let rec fact = function
 ;;
 
 print_int (fact 5)
+  |};
+  Tester.f {|
+let printer = print_int in
+printer 12
   |}
 ;;

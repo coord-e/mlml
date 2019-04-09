@@ -79,7 +79,6 @@ let closure_conversion expr =
       let real_param = Pat.Tuple [param; fv_pat] in
       let real_fun = Expr.Lambda (real_param, body) in
       Expr.Tuple [real_fun; fv_tuple]
-    | Expr.App (Expr.Var "print_int", rhs) -> Expr.App (Expr.Var "print_int", aux i rhs)
     | Expr.App (lhs, rhs) ->
       let lhs = aux i lhs in
       let rhs = aux (i + 1) rhs in
@@ -88,6 +87,7 @@ let closure_conversion expr =
       let destruct = Pat.Tuple [Pat.Var f_name; Pat.Var fv_name] in
       let real_app = Expr.App (Expr.Var f_name, Expr.Tuple [rhs; Expr.Var fv_name]) in
       Expr.LetVar (destruct, lhs, real_app)
+    | Expr.Var "print_int" -> Expr.Tuple [Expr.Var "print_int"; Expr.Tuple []]
     | Expr.Int _ | Expr.Var _ -> expr
     | Expr.Add (r, l) -> Expr.Add (aux i r, aux i l)
     | Expr.Sub (r, l) -> Expr.Sub (aux i r, aux i l)

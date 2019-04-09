@@ -72,7 +72,7 @@ let emit_print_int_function buf =
 _print_int:
   pushq	%rbp
   movq	%rsp, %rbp
-  movq	%rdi, %rsi
+  movq	0(%rdi), %rsi
   leaq	.string_of_print_int(%rip), %rdi
   movl	$0, %eax
   call	printf@PLT
