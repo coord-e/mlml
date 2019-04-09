@@ -252,15 +252,17 @@ let nth_arg_stack ctx buf n =
 
 let safe_call ctx buf name args =
   (* save registers (used but not by arguments) *)
-  (* usable - unused - args                     *)
+  (* volatile - unused - args - %rax            *)
   let aux i v =
     let reg, free = nth_arg_register ctx i in
     assign_to_register buf v reg;
     reg, free
   in
   let arg_regs, free_fns = List.mapi aux args |> List.split in
-  let filt x = not (List.mem x ctx.unused_registers || List.mem x arg_regs) in
-  let regs_to_save = List.filter filt usable_registers in
+  let filt x =
+    not (List.mem x ctx.unused_registers || List.mem x arg_regs || x = ret_register)
+  in
+  let regs_to_save = List.filter filt volatile_registers in
   let saver x =
     let s = push_to_stack ctx buf (RegisterValue x) in
     x, s
