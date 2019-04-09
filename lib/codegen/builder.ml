@@ -114,6 +114,7 @@ _print_int:
   pushq	%rbp
   movq	%rsp, %rbp
   movq	0(%rdi), %rsi
+  shrq $1, %rsi
   leaq	.string_of_print_int(%rip), %rdi
   movl	$0, %eax
   call	printf@PLT
@@ -402,4 +403,16 @@ let branch_by_value ctx buf value false_label =
   emit_instruction buf @@ Printf.sprintf "cmpq $0, %s" (string_of_register value);
   free ctx;
   emit_instruction buf @@ Printf.sprintf "je %s" (string_of_label false_label)
+;;
+
+let make_marked_int buf reg =
+  (* TODO: Use imul or add? *)
+  emit_instruction buf @@ Printf.sprintf "shlq $1, %s" (string_of_register reg);
+  emit_instruction buf @@ Printf.sprintf "incq %s" (string_of_register reg)
+;;
+
+let make_marked_const i = ConstantValue ((i * 2) + 1)
+
+let restore_marked_int buf reg =
+  emit_instruction buf @@ Printf.sprintf "shrq $1, %s" (string_of_register reg)
 ;;
