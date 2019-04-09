@@ -179,6 +179,18 @@ let emit_instruction buf inst =
   Buffer.add_char buf '\n'
 ;;
 
+let make_marked_int buf reg =
+  (* TODO: Use imul or add? *)
+  emit_instruction buf @@ Printf.sprintf "shlq $1, %s" (string_of_register reg);
+  emit_instruction buf @@ Printf.sprintf "incq %s" (string_of_register reg)
+;;
+
+let make_marked_const i = ConstantValue ((i * 2) + 1)
+
+let restore_marked_int buf reg =
+  emit_instruction buf @@ Printf.sprintf "shrq $1, %s" (string_of_register reg)
+;;
+
 let start_label buf label = Buffer.add_string buf @@ string_of_label label ^ ":\n"
 
 let start_global_label buf label =
@@ -299,14 +311,6 @@ let safe_call ctx buf name args =
   ret_register
 ;;
 
-let alloc_heap_ptr ctx buf size dest =
-  let ptr = RegisterValue (safe_call ctx buf "GC_malloc@PLT" [size]) in
-  match dest with
-  | RegisterValue r -> assign_to_register buf ptr r
-  | StackValue s -> assign_to_stack ctx buf ptr s
-  | ConstantValue _ -> failwith "can't assign to constant"
-;;
-
 let define_ctor ctx ctor idx = Hashtbl.add ctx.ctors ctor idx
 let get_ctor_index ctx ctor = Hashtbl.find ctx.ctors ctor
 
@@ -352,6 +356,7 @@ let rec pattern_match ctx buf pat v fail_label =
     | None -> free_register reg ctx)
   | Pat.Int x ->
     let reg, free = turn_into_register ctx buf v in
+    restore_marked_int buf reg;
     emit_instruction buf @@ Printf.sprintf "cmpq $%d, %s" x (string_of_register reg);
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
     free ctx
@@ -400,19 +405,20 @@ let function_ptr ctx buf label =
 
 let branch_by_value ctx buf value false_label =
   let value, free = turn_into_register ctx buf value in
+  restore_marked_int buf value;
   emit_instruction buf @@ Printf.sprintf "cmpq $0, %s" (string_of_register value);
   free ctx;
   emit_instruction buf @@ Printf.sprintf "je %s" (string_of_label false_label)
 ;;
 
-let make_marked_int buf reg =
-  (* TODO: Use imul or add? *)
-  emit_instruction buf @@ Printf.sprintf "shlq $1, %s" (string_of_register reg);
-  emit_instruction buf @@ Printf.sprintf "incq %s" (string_of_register reg)
-;;
-
-let make_marked_const i = ConstantValue ((i * 2) + 1)
-
-let restore_marked_int buf reg =
-  emit_instruction buf @@ Printf.sprintf "shrq $1, %s" (string_of_register reg)
+let alloc_heap_ptr ctx buf size dest =
+  let reg = alloc_register ctx in
+  assign_to_register buf size reg;
+  restore_marked_int buf reg;
+  let ptr = RegisterValue (safe_call ctx buf "GC_malloc@PLT" [RegisterValue reg]) in
+  free_register reg ctx;
+  match dest with
+  | RegisterValue r -> assign_to_register buf ptr r
+  | StackValue s -> assign_to_stack ctx buf ptr s
+  | ConstantValue _ -> failwith "can't assign to constant"
 ;;
