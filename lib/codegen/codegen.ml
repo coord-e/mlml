@@ -53,7 +53,7 @@ let rec codegen_expr ctx buf = function
   | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let ret = call_ext_func ctx buf (Printf.sprintf "*%s" (string_of_value lhs)) [rhs] in
+    let ret = safe_call ctx buf (Printf.sprintf "*%s" (string_of_value lhs)) [rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.IfThenElse (cond, then_, else_) ->
     let cond = codegen_expr ctx buf cond in
@@ -169,8 +169,19 @@ and emit_function_with ctx main_buf name fn =
   (* TODO: more generic and explicit method *)
   if name = "main" then emit_instruction buf "call GC_init@PLT";
   emit_instruction buf @@ Printf.sprintf "$replace_with_subq_%s" (string_of_label label);
+  (* save registers (non-volatile registers) *)
+  let exclude_rbp_rsp = function
+    | Register "%rbp" | Register "%rsp" -> false
+    | _ -> true
+  in
+  let saver r = r, turn_into_stack ctx buf (RegisterValue r) in
+  let saved_stacks =
+    non_volatile_registers |> RS.filter exclude_rbp_rsp |> RS.elements |> List.map saver
+  in
   fn ctx buf label;
   let stack_used = ctx.current_env.current_stack in
+  let restore (r, s) = assign_to_register buf (StackValue s) r in
+  List.iter restore saved_stacks;
   emit_instruction buf "movq %rbp, %rsp";
   emit_instruction buf "popq %rbp";
   emit_instruction buf "ret";
