@@ -411,14 +411,21 @@ let branch_by_value ctx buf value false_label =
   emit_instruction buf @@ Printf.sprintf "je %s" (string_of_label false_label)
 ;;
 
-let alloc_heap_ptr ctx buf size dest =
-  let reg = alloc_register ctx in
-  assign_to_register buf size reg;
-  restore_marked_int buf reg;
-  let ptr = RegisterValue (safe_call ctx buf "GC_malloc@PLT" [RegisterValue reg]) in
-  free_register reg ctx;
+let alloc_heap_ptr_raw ctx buf size dest =
+  let ptr = RegisterValue (safe_call ctx buf "GC_malloc@PLT" [size]) in
   match dest with
   | RegisterValue r -> assign_to_register buf ptr r
   | StackValue s -> assign_to_stack ctx buf ptr s
   | ConstantValue _ -> failwith "can't assign to constant"
+;;
+
+let alloc_heap_ptr ctx buf size dest =
+  let reg = alloc_register ctx in
+  assign_to_register buf size reg;
+  restore_marked_int buf reg;
+  alloc_heap_ptr_raw ctx buf (RegisterValue reg) dest
+;;
+
+let alloc_heap_ptr_constsize ctx buf size dest =
+  alloc_heap_ptr_raw ctx buf (ConstantValue size) dest
 ;;
