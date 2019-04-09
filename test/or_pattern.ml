@@ -14,7 +14,7 @@ let () =
       | B of int * int
 
     let f = function
-      | A (a, b) | B (a, b) -> a + b
+      | A (v1, v2) | B (v1, v2) -> v1 + v2
     ;;
     print_int (f (A (2, 3)));
     print_int (f (B (4, 5)))

@@ -37,9 +37,9 @@ print_int (calc tree)
   |};
   Tester.f
     {|
-type ta = A | B
-type tb =
-  | C of ta * int
+type t1 = A | B
+type t2 =
+  | C of t1 * int
 
 let m = function
   | C (A, i) -> i
@@ -50,12 +50,12 @@ print_int (m (C (B, 10)))
   |};
   Tester.f
     {|
-type ta =
+type t1 =
   | A of int * int
   | B of int
 
-type tb =
-  | C of ta * (int * int)
+type t2 =
+  | C of t1 * (int * int)
   | D
 
 let complex_match = function

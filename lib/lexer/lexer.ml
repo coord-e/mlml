@@ -24,6 +24,7 @@ type token =
   | Match
   | With
   | When
+  | Fun
   | Arrow
   | Function
   | Comma
@@ -51,7 +52,7 @@ let rec read_ident acc rest =
   match rest with
   | h :: t ->
     (match h with
-    | 'a' .. 'z' | 'A' .. 'Z' | '_' ->
+    | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' ->
       let rest, ident = read_ident acc t in
       rest, h :: ident
     | _ -> rest, acc)
@@ -61,6 +62,15 @@ let rec read_ident acc rest =
 let rec tokenize_aux acc rest =
   match rest with
   | [] -> acc
+  | '(' :: '*' :: rest ->
+    let rec consume_comment level = function
+      | '(' :: '*' :: rest -> consume_comment (level + 1) rest
+      | '*' :: ')' :: rest when level = 0 -> rest
+      | '*' :: ')' :: rest -> consume_comment (level - 1) rest
+      | _ :: t -> consume_comment level t
+      | [] -> failwith "comment does not end"
+    in
+    consume_comment 0 rest |> tokenize_aux acc
   | h :: t ->
     (match h with
     | ' ' | '\t' | '\n' -> tokenize_aux acc t
@@ -84,6 +94,7 @@ let rec tokenize_aux acc rest =
       | "match" -> tokenize_aux (Match :: acc) rest
       | "with" -> tokenize_aux (With :: acc) rest
       | "when" -> tokenize_aux (When :: acc) rest
+      | "fun" -> tokenize_aux (Fun :: acc) rest
       | "function" -> tokenize_aux (Function :: acc) rest
       | _ ->
         (match ident_str.[0] with
@@ -143,6 +154,7 @@ let string_of_token = function
   | Match -> "match"
   | With -> "with"
   | When -> "when"
+  | Fun -> "fun"
   | Arrow -> "->"
   | Function -> "function"
   | Comma -> ","

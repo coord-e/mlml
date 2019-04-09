@@ -1,3 +1,3 @@
 (tests
-  (names arith let_bind simple_func conditional factorial global_names tuple definition variant value_match or_pattern when_match)
+  (names arith let_bind simple_func conditional factorial global_names tuple definition variant value_match or_pattern when_match anon_function closure_currying comment)
   (libraries mlml unix))

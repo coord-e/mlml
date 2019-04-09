@@ -43,20 +43,18 @@ let rec codegen_expr ctx buf = function
     (match ident with
     | "print_int" -> function_ptr ctx buf print_int_label
     | _ -> StackValue (get_variable ctx ident))
-  | Expr.LetFun (is_rec, ident, params, lhs, rhs) ->
-    let lhs = emit_function_value ctx buf is_rec ident params lhs in
+  | Expr.LetFun (is_rec, ident, param, lhs, rhs) ->
+    let lhs = emit_function_value ctx buf is_rec ident [param] lhs in
     define_variable ctx buf ident lhs;
     let rhs = codegen_expr ctx buf rhs in
     undef_variable ctx ident;
     rhs
+  | Expr.Lambda (param, body) -> emit_function_value ctx buf false "_lambda" [param] body
   | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let param, free = nth_arg_register ctx 0 in
-    assign_to_register buf rhs param;
-    emit_instruction buf @@ Printf.sprintf "call *%s" (string_of_value lhs);
-    free ctx;
-    StackValue (turn_into_stack ctx buf (RegisterValue ret_register))
+    let ret = safe_call ctx buf (Printf.sprintf "*%s" (string_of_value lhs)) [rhs] in
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.IfThenElse (cond, then_, else_) ->
     let cond = codegen_expr ctx buf cond in
     let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
@@ -148,8 +146,8 @@ and codegen_definition ctx buf = function
   | Def.LetVar (pat, lhs) ->
     let lhs = codegen_expr ctx buf lhs in
     pattern_match ctx buf pat lhs match_fail_label
-  | Def.LetFun (is_rec, ident, params, lhs) ->
-    let lhs = emit_function_value ctx buf is_rec ident params lhs in
+  | Def.LetFun (is_rec, ident, param, lhs) ->
+    let lhs = emit_function_value ctx buf is_rec ident [param] lhs in
     define_variable ctx buf ident lhs
   | Def.Variant (_, variants) ->
     let aux i (ctor, _) = define_ctor ctx ctor i in
@@ -173,8 +171,19 @@ and emit_function_with ctx main_buf name fn =
   (* TODO: more generic and explicit method *)
   if name = "main" then emit_instruction buf "call GC_init@PLT";
   emit_instruction buf @@ Printf.sprintf "$replace_with_subq_%s" (string_of_label label);
+  (* save registers (non-volatile registers) *)
+  let exclude_rbp_rsp = function
+    | Register "%rbp" | Register "%rsp" -> false
+    | _ -> true
+  in
+  let saver r = r, turn_into_stack ctx buf (RegisterValue r) in
+  let saved_stacks =
+    non_volatile_registers |> RS.filter exclude_rbp_rsp |> RS.elements |> List.map saver
+  in
   fn ctx buf label;
   let stack_used = ctx.current_env.current_stack in
+  let restore (r, s) = assign_to_register buf (StackValue s) r in
+  List.iter restore saved_stacks;
   emit_instruction buf "movq %rbp, %rsp";
   emit_instruction buf "popq %rbp";
   emit_instruction buf "ret";
