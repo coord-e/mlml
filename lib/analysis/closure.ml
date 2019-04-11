@@ -11,7 +11,10 @@ let rec free_variables = function
   | Expr.Mul (l, r)
   | Expr.Follow (l, r)
   | Expr.App (l, r)
-  | Expr.Equal (l, r) -> SS.union (free_variables l) (free_variables r)
+  | Expr.Equal (l, r)
+  | Expr.NotEqual (l, r)
+  | Expr.PhysicalEqual (l, r)
+  | Expr.NotPhysicalEqual (l, r)  -> SS.union (free_variables l) (free_variables r)
   | Expr.Tuple values ->
     List.map free_variables values |> List.fold_left SS.union SS.empty
   | Expr.LetVar (pat, lhs, rhs) ->
@@ -94,6 +97,9 @@ let closure_conversion expr =
     | Expr.Mul (r, l) -> Expr.Mul (aux i r, aux i l)
     | Expr.Follow (r, l) -> Expr.Follow (aux i r, aux i l)
     | Expr.Equal (r, l) -> Expr.Equal (aux i r, aux i l)
+    | Expr.NotEqual (r, l) -> Expr.NotEqual (aux i r, aux i l)
+    | Expr.PhysicalEqual (r, l) -> Expr.PhysicalEqual (aux i r, aux i l)
+    | Expr.NotPhysicalEqual (r, l) -> Expr.NotPhysicalEqual (aux i r, aux i l)
     | Expr.IfThenElse (c, t, e) -> Expr.IfThenElse (aux i c, aux i t, aux i e)
     | Expr.LetVar (pat, lhs, rhs) -> Expr.LetVar (pat, aux i lhs, aux i rhs)
     | Expr.Ctor (name, param) ->
