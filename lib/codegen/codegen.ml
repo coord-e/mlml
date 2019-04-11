@@ -5,28 +5,51 @@ module Def = P.Definition
 module Item = P.Module_item
 
 let rec codegen_expr ctx buf = function
-  | Expr.Int num -> ConstantValue num
+  | Expr.Int num -> make_marked_const num
   | Expr.Add (lhs, rhs) ->
+    (* make(a) + make(b)     *)
+    (* = (2a + 1) + (2b + 1) *)
+    (* = 2(a + b) + 2        *)
+    (* = make(a + b) + 1     *)
     let lhs = codegen_expr ctx buf lhs in
     let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
     emit_instruction buf
     @@ Printf.sprintf "addq %s, %s" (string_of_value lhs) (string_of_register rhs);
+    emit_instruction buf @@ Printf.sprintf "decq %s" (string_of_register rhs);
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free ctx;
     StackValue s
   | Expr.Sub (lhs, rhs) ->
+    (* make(a) - make(b)     *)
+    (* = (2a + 1) - (2b + 1) *)
+    (* = 2(a - b) *)
+    (* = make(a - b) - 1 *)
     let rhs = codegen_expr ctx buf rhs in
     let lhs, free = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
     emit_instruction buf
     @@ Printf.sprintf "subq %s, %s" (string_of_value rhs) (string_of_register lhs);
+    emit_instruction buf @@ Printf.sprintf "incq %s" (string_of_register lhs);
     let s = turn_into_stack ctx buf (RegisterValue lhs) in
     free ctx;
     StackValue s
   | Expr.Mul (lhs, rhs) ->
+    (* make(a*b)                                           *)
+    (* = 1/2 * (make(a) * make(b) - make(a) - make(b) + 3) *)
+    (* TODO: Simplify instructions *)
     let lhs = codegen_expr ctx buf lhs in
     let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
+    let reg = alloc_register ctx in
+    emit_instruction buf
+    @@ Printf.sprintf "movq %s, %s" (string_of_register rhs) (string_of_register reg);
     emit_instruction buf
     @@ Printf.sprintf "imulq %s, %s" (string_of_value lhs) (string_of_register rhs);
+    emit_instruction buf
+    @@ Printf.sprintf "subq %s, %s" (string_of_value lhs) (string_of_register rhs);
+    emit_instruction buf
+    @@ Printf.sprintf "subq %s, %s" (string_of_register reg) (string_of_register rhs);
+    free_register reg ctx;
+    emit_instruction buf @@ Printf.sprintf "addq $3, %s" (string_of_register rhs);
+    emit_instruction buf @@ Printf.sprintf "shrq $1, %s" (string_of_register rhs);
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free ctx;
     StackValue s
@@ -82,6 +105,7 @@ let rec codegen_expr ctx buf = function
     free ctx;
     emit_instruction buf "sete %dl";
     emit_instruction buf "movzbq %dl, %rdx";
+    make_marked_int buf rdx;
     let s = push_to_stack ctx buf (RegisterValue rdx) in
     free_register rdx ctx;
     StackValue s
@@ -89,9 +113,10 @@ let rec codegen_expr ctx buf = function
     let size = List.length values in
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
-    alloc_heap_ptr ctx buf (ConstantValue (size * 2)) reg_value;
+    alloc_heap_ptr_constsize ctx buf ((size + 1) * 8) reg_value;
     let values = List.map (codegen_expr ctx buf) values in
-    List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-i * 8)) values;
+    assign_to_address ctx buf (ConstantValue size) reg_value 0;
+    List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-(i + 1) * 8)) values;
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
     s
@@ -105,10 +130,14 @@ let rec codegen_expr ctx buf = function
     let idx = get_ctor_index ctx name in
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
-    (* two 64-bit values -> 16 *)
-    alloc_heap_ptr ctx buf (ConstantValue 16) reg_value;
-    assign_to_address ctx buf (ConstantValue idx) reg_value 0;
-    assign_to_address ctx buf value reg_value (-8);
+    (* three 64-bit values -> 24 *)
+    alloc_heap_ptr_constsize ctx buf 24 reg_value;
+    (* number of data *)
+    assign_to_address ctx buf (ConstantValue 2) reg_value 0;
+    (* ctor index *)
+    assign_to_address ctx buf (ConstantValue idx) reg_value (-8);
+    (* the value *)
+    assign_to_address ctx buf value reg_value (-16);
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
     s

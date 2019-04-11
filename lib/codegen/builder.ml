@@ -113,7 +113,8 @@ let emit_print_int_function buf =
 _print_int:
   pushq	%rbp
   movq	%rsp, %rbp
-  movq	0(%rdi), %rsi
+  movq	-8(%rdi), %rsi
+  shrq $1, %rsi
   leaq	.string_of_print_int(%rip), %rdi
   movl	$0, %eax
   call	printf@PLT
@@ -176,6 +177,18 @@ let emit_instruction buf inst =
   Buffer.add_char buf '\t';
   Buffer.add_string buf inst;
   Buffer.add_char buf '\n'
+;;
+
+let make_marked_int buf reg =
+  (* TODO: Use imul or add? *)
+  emit_instruction buf @@ Printf.sprintf "shlq $1, %s" (string_of_register reg);
+  emit_instruction buf @@ Printf.sprintf "incq %s" (string_of_register reg)
+;;
+
+let make_marked_const i = ConstantValue ((i * 2) + 1)
+
+let restore_marked_int buf reg =
+  emit_instruction buf @@ Printf.sprintf "shrq $1, %s" (string_of_register reg)
 ;;
 
 let start_label buf label = Buffer.add_string buf @@ string_of_label label ^ ":\n"
@@ -298,14 +311,6 @@ let safe_call ctx buf name args =
   ret_register
 ;;
 
-let alloc_heap_ptr ctx buf size dest =
-  let ptr = RegisterValue (safe_call ctx buf "GC_malloc@PLT" [size]) in
-  match dest with
-  | RegisterValue r -> assign_to_register buf ptr r
-  | StackValue s -> assign_to_stack ctx buf ptr s
-  | ConstantValue _ -> failwith "can't assign to constant"
-;;
-
 let define_ctor ctx ctor idx = Hashtbl.add ctx.ctors ctor idx
 let get_ctor_index ctx ctor = Hashtbl.find ctx.ctors ctor
 
@@ -327,7 +332,7 @@ let rec pattern_match ctx buf pat v fail_label =
     let aux i p =
       let reg = alloc_register ctx in
       let reg_value = RegisterValue reg in
-      read_from_address ctx buf v reg_value (-i * 8);
+      read_from_address ctx buf v reg_value (-(i + 1) * 8);
       let s = turn_into_stack ctx buf reg_value in
       free_register reg ctx;
       pattern_match ctx buf p (StackValue s) fail_label
@@ -338,19 +343,20 @@ let rec pattern_match ctx buf pat v fail_label =
     let actual_idx = get_ctor_index ctx name in
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
-    read_from_address ctx buf v reg_value 0;
+    read_from_address ctx buf v reg_value (-8);
     emit_instruction buf
     @@ Printf.sprintf "cmpq $%d, %s" actual_idx (string_of_register reg);
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
     (match p with
     | Some p ->
-      read_from_address ctx buf v reg_value (-8);
+      read_from_address ctx buf v reg_value (-16);
       let s = turn_into_stack ctx buf reg_value in
       free_register reg ctx;
       pattern_match ctx buf p (StackValue s) fail_label
     | None -> free_register reg ctx)
   | Pat.Int x ->
     let reg, free = turn_into_register ctx buf v in
+    restore_marked_int buf reg;
     emit_instruction buf @@ Printf.sprintf "cmpq $%d, %s" x (string_of_register reg);
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
     free ctx
@@ -399,7 +405,27 @@ let function_ptr ctx buf label =
 
 let branch_by_value ctx buf value false_label =
   let value, free = turn_into_register ctx buf value in
+  restore_marked_int buf value;
   emit_instruction buf @@ Printf.sprintf "cmpq $0, %s" (string_of_register value);
   free ctx;
   emit_instruction buf @@ Printf.sprintf "je %s" (string_of_label false_label)
+;;
+
+let alloc_heap_ptr_raw ctx buf size dest =
+  let ptr = RegisterValue (safe_call ctx buf "GC_malloc@PLT" [size]) in
+  match dest with
+  | RegisterValue r -> assign_to_register buf ptr r
+  | StackValue s -> assign_to_stack ctx buf ptr s
+  | ConstantValue _ -> failwith "can't assign to constant"
+;;
+
+let alloc_heap_ptr ctx buf size dest =
+  let reg = alloc_register ctx in
+  assign_to_register buf size reg;
+  restore_marked_int buf reg;
+  alloc_heap_ptr_raw ctx buf (RegisterValue reg) dest
+;;
+
+let alloc_heap_ptr_constsize ctx buf size dest =
+  alloc_heap_ptr_raw ctx buf (ConstantValue size) dest
 ;;
