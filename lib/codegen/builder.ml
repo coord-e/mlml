@@ -412,7 +412,7 @@ let branch_by_value ctx buf value false_label =
 ;;
 
 let alloc_heap_ptr_raw ctx buf size dest =
-  let ptr = RegisterValue (safe_call ctx buf "GC_malloc@PLT" [size]) in
+  let ptr = RegisterValue (safe_call ctx buf "malloc@PLT" [size]) in
   match dest with
   | RegisterValue r -> assign_to_register buf ptr r
   | StackValue s -> assign_to_stack ctx buf ptr s

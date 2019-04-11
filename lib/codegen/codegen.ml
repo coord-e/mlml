@@ -195,8 +195,6 @@ and emit_function_with ctx main_buf name fn =
   start_global_label buf label;
   emit_instruction buf "pushq %rbp";
   emit_instruction buf "movq %rsp, %rbp";
-  (* TODO: more generic and explicit method *)
-  if name = "main" then emit_instruction buf "call GC_init@PLT";
   emit_instruction buf @@ Printf.sprintf "$replace_with_subq_%s" (string_of_label label);
   (* save registers (non-volatile registers) *)
   let exclude_rbp_rsp = function
