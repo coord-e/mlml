@@ -113,9 +113,10 @@ let rec codegen_expr ctx buf = function
     let size = List.length values in
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
-    alloc_heap_ptr_constsize ctx buf (size * 2) reg_value;
+    alloc_heap_ptr_constsize ctx buf ((size + 1) * 8) reg_value;
     let values = List.map (codegen_expr ctx buf) values in
-    List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-i * 8)) values;
+    assign_to_address ctx buf (ConstantValue size) reg_value 0;
+    List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-(i + 1) * 8)) values;
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
     s
@@ -129,10 +130,14 @@ let rec codegen_expr ctx buf = function
     let idx = get_ctor_index ctx name in
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
-    (* two 64-bit values -> 16 *)
-    alloc_heap_ptr_constsize ctx buf 16 reg_value;
-    assign_to_address ctx buf (ConstantValue idx) reg_value 0;
-    assign_to_address ctx buf value reg_value (-8);
+    (* three 64-bit values -> 24 *)
+    alloc_heap_ptr_constsize ctx buf 24 reg_value;
+    (* number of data *)
+    assign_to_address ctx buf (ConstantValue 2) reg_value 0;
+    (* ctor index *)
+    assign_to_address ctx buf (ConstantValue idx) reg_value (-8);
+    (* the value *)
+    assign_to_address ctx buf value reg_value (-16);
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
     s

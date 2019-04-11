@@ -113,7 +113,7 @@ let emit_print_int_function buf =
 _print_int:
   pushq	%rbp
   movq	%rsp, %rbp
-  movq	0(%rdi), %rsi
+  movq	-8(%rdi), %rsi
   shrq $1, %rsi
   leaq	.string_of_print_int(%rip), %rdi
   movl	$0, %eax
@@ -332,7 +332,7 @@ let rec pattern_match ctx buf pat v fail_label =
     let aux i p =
       let reg = alloc_register ctx in
       let reg_value = RegisterValue reg in
-      read_from_address ctx buf v reg_value (-i * 8);
+      read_from_address ctx buf v reg_value (-(i + 1) * 8);
       let s = turn_into_stack ctx buf reg_value in
       free_register reg ctx;
       pattern_match ctx buf p (StackValue s) fail_label
@@ -343,13 +343,13 @@ let rec pattern_match ctx buf pat v fail_label =
     let actual_idx = get_ctor_index ctx name in
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
-    read_from_address ctx buf v reg_value 0;
+    read_from_address ctx buf v reg_value (-8);
     emit_instruction buf
     @@ Printf.sprintf "cmpq $%d, %s" actual_idx (string_of_register reg);
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
     (match p with
     | Some p ->
-      read_from_address ctx buf v reg_value (-8);
+      read_from_address ctx buf v reg_value (-16);
       let s = turn_into_stack ctx buf reg_value in
       free_register reg ctx;
       pattern_match ctx buf p (StackValue s) fail_label
