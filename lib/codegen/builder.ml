@@ -428,6 +428,19 @@ let string_of_comparison = function
   | Le -> "le"
 ;;
 
+let branch_by_value_type ctx buf cmp value label =
+  let value, free = turn_into_register ctx buf value in
+  (* If the value is pointer, ZF is set to 1 *)
+  (* otherwise, ZF is set to 0               *)
+  emit_instruction buf @@ Printf.sprintf "test $1, %s" (string_of_register value);
+  free ctx;
+  emit_instruction buf
+  @@ Printf.sprintf "j%s %s" (string_of_comparison cmp) (string_of_label label)
+;;
+
+let branch_if_pointer ctx buf = branch_by_value_type ctx buf Eq
+let branch_if_not_pointer ctx buf = branch_by_value_type ctx buf Ne
+
 let comparison_to_value ctx buf cmp v1 v2 =
   let v2, free = turn_into_register ctx buf v2 in
   (* Use rdx temporarily (8-bit register(dl) is needed) *)
