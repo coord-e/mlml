@@ -10,11 +10,16 @@ type token =
   | Rec
   | In
   | Equal
+  | DoubleEqual
+  | NotEqual
+  | LtGt
+  | Lt
   | If
   | Then
   | Else
   | Type
   | Vertical
+  | Excl
   | Of
   | Match
   | With
@@ -101,7 +106,18 @@ let rec tokenize_aux acc rest =
       | '>' :: t -> tokenize_aux (Arrow :: acc) t
       | _ -> tokenize_aux (Minus :: acc) t)
     | '*' -> tokenize_aux (Star :: acc) t
-    | '=' -> tokenize_aux (Equal :: acc) t
+    | '=' ->
+      (match t with
+      | '=' :: t -> tokenize_aux (DoubleEqual :: acc) t
+      | _ -> tokenize_aux (Equal :: acc) t)
+    | '<' ->
+      (match t with
+      | '>' :: t -> tokenize_aux (LtGt :: acc) t
+      | _ -> tokenize_aux (Lt :: acc) t)
+    | '!' ->
+      (match t with
+      | '=' :: t -> tokenize_aux (NotEqual :: acc) t
+      | _ -> tokenize_aux (Excl :: acc) t)
     | '|' -> tokenize_aux (Vertical :: acc) t
     | ',' -> tokenize_aux (Comma :: acc) t
     | '(' -> tokenize_aux (LParen :: acc) t
@@ -124,11 +140,16 @@ let string_of_token = function
   | Rec -> "rec"
   | In -> "in"
   | Equal -> "="
+  | DoubleEqual -> "=="
+  | NotEqual -> "!="
+  | LtGt -> "<>"
+  | Lt -> "<"
   | If -> "if"
   | Then -> "then"
   | Else -> "else"
   | Type -> "type"
   | Vertical -> "|"
+  | Excl -> "!"
   | Of -> "of"
   | Match -> "match"
   | With -> "with"

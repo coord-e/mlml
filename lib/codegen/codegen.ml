@@ -83,7 +83,7 @@ let rec codegen_expr ctx buf = function
     let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
     let else_label = new_unnamed_label ctx in
     let join_label = new_unnamed_label ctx in
-    branch_by_value ctx buf cond else_label;
+    branch_if_falsy ctx buf cond else_label;
     (* then block *)
     let then_ = codegen_expr ctx buf then_ in
     assign_to_stack ctx buf then_ eval_stack;
@@ -94,28 +94,35 @@ let rec codegen_expr ctx buf = function
     assign_to_stack ctx buf else_ eval_stack;
     start_label buf join_label;
     StackValue eval_stack
+  | Expr.PhysicalEqual (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    comparison_to_value ctx buf Eq lhs rhs
+  | Expr.NotPhysicalEqual (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    comparison_to_value ctx buf Ne lhs rhs
   | Expr.Equal (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
-    let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
-    (* Use rdx temporarily (8-bit register(dl) is needed) *)
-    let rdx = Register "%rdx" in
-    use_register ctx rdx;
-    emit_instruction buf
-    @@ Printf.sprintf "cmpq %s, %s" (string_of_value lhs) (string_of_register rhs);
-    free ctx;
-    emit_instruction buf "sete %dl";
-    emit_instruction buf "movzbq %dl, %rdx";
-    make_marked_int buf rdx;
-    let s = push_to_stack ctx buf (RegisterValue rdx) in
-    free_register rdx ctx;
-    StackValue s
+    let rhs = codegen_expr ctx buf rhs in
+    let ret = safe_call ctx buf "_mlml_equal" [lhs; rhs] in
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
+  | Expr.NotEqual (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    let ret = safe_call ctx buf "_mlml_equal" [lhs; rhs] in
+    (* marked bool inversion *)
+    (* 11 -> 01              *)
+    (* 01 -> 11              *)
+    emit_instruction buf @@ Printf.sprintf "xorq $2, %s" (string_of_register ret);
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.Tuple values ->
     let size = List.length values in
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
     alloc_heap_ptr_constsize ctx buf ((size + 1) * 8) reg_value;
     let values = List.map (codegen_expr ctx buf) values in
-    assign_to_address ctx buf (ConstantValue size) reg_value 0;
+    assign_to_address ctx buf (ConstantValue (size * 8)) reg_value 0;
     List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-(i + 1) * 8)) values;
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
@@ -125,17 +132,17 @@ let rec codegen_expr ctx buf = function
       match value with
       | Some value -> codegen_expr ctx buf value
       (* TODO: Better representation of ctor without parameters *)
-      | None -> ConstantValue 0
+      | None -> make_marked_const 0
     in
     let idx = get_ctor_index ctx name in
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
     (* three 64-bit values -> 24 *)
     alloc_heap_ptr_constsize ctx buf 24 reg_value;
-    (* number of data *)
-    assign_to_address ctx buf (ConstantValue 2) reg_value 0;
+    (* size of data (2 * 8) *)
+    assign_to_address ctx buf (ConstantValue 16) reg_value 0;
     (* ctor index *)
-    assign_to_address ctx buf (ConstantValue idx) reg_value (-8);
+    assign_to_address ctx buf (make_marked_const idx) reg_value (-8);
     (* the value *)
     assign_to_address ctx buf value reg_value (-16);
     let s = StackValue (turn_into_stack ctx buf reg_value) in
@@ -154,7 +161,7 @@ let rec codegen_expr ctx buf = function
         (match when_ with
         | Some cond ->
           let cond = codegen_expr ctx buf cond in
-          branch_by_value ctx buf cond next_label
+          branch_if_falsy ctx buf cond next_label
         | None -> ());
         let rhs = codegen_expr ctx buf rhs in
         assign_to_stack ctx buf rhs eval_stack;
@@ -192,6 +199,7 @@ and emit_function_with ctx main_buf name fn =
   let old_env = use_env ctx @@ new_local_env () in
   let buf = Buffer.create 100 in
   let label = new_label ctx name in
+  let ret_label = new_unnamed_label ctx in
   start_global_label buf label;
   emit_instruction buf "pushq %rbp";
   emit_instruction buf "movq %rsp, %rbp";
@@ -205,7 +213,8 @@ and emit_function_with ctx main_buf name fn =
   let saved_stacks =
     non_volatile_registers |> RS.filter exclude_rbp_rsp |> RS.elements |> List.map saver
   in
-  fn ctx buf label;
+  fn ctx buf label ret_label;
+  start_label buf ret_label;
   let stack_used = ctx.current_env.current_stack in
   let restore (r, s) = assign_to_register buf (StackValue s) r in
   List.iter restore saved_stacks;
@@ -225,7 +234,7 @@ and emit_function_with ctx main_buf name fn =
   label
 
 and emit_function ctx main_buf is_rec name params ast =
-  let emit ctx buf label =
+  let emit ctx buf label _ =
     List.iteri
       (fun i pat ->
         let arg = nth_arg_stack ctx buf i in
@@ -245,7 +254,7 @@ and emit_function_value ctx buf is_rec name params ast =
   function_ptr ctx buf label
 
 and emit_module ctx buf name items =
-  let emit ctx buf _label =
+  let emit ctx buf _label _ =
     codegen_module ctx buf items;
     assign_to_register buf (ConstantValue 0) ret_register
   in
@@ -259,5 +268,6 @@ let f ast =
   assert (string_of_label label = "main");
   emit_print_int_function buf;
   emit_match_fail buf;
+  let _ = emit_function_with ctx buf "_mlml_equal" emit_equal_function in
   Buffer.contents buf
 ;;

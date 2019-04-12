@@ -245,9 +245,9 @@ let assign_to_address ctx buf src dest offset =
   free_dest ctx
 ;;
 
-let read_from_address ctx buf src dest offset =
+let read_from_address ctx buf src dest_raw offset =
   let src, free_src = turn_into_register ctx buf src in
-  let dest, free_dest = turn_into_register ctx buf dest in
+  let dest, free_dest = turn_into_register ctx buf dest_raw in
   emit_instruction buf
   @@ Printf.sprintf
        "movq %d(%s), %s"
@@ -255,6 +255,8 @@ let read_from_address ctx buf src dest offset =
        (string_of_register src)
        (string_of_register dest);
   free_src ctx;
+  emit_instruction buf
+  @@ Printf.sprintf "movq %s, %s" (string_of_register dest) (string_of_value dest_raw);
   free_dest ctx
 ;;
 
@@ -344,6 +346,7 @@ let rec pattern_match ctx buf pat v fail_label =
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
     read_from_address ctx buf v reg_value (-8);
+    restore_marked_int buf reg;
     emit_instruction buf
     @@ Printf.sprintf "cmpq $%d, %s" actual_idx (string_of_register reg);
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
@@ -403,12 +406,63 @@ let function_ptr ctx buf label =
   s
 ;;
 
-let branch_by_value ctx buf value false_label =
-  let value, free = turn_into_register ctx buf value in
-  restore_marked_int buf value;
-  emit_instruction buf @@ Printf.sprintf "cmpq $0, %s" (string_of_register value);
+type comparison =
+  | Eq
+  | Ne
+  | Gt
+  | Ge
+  | Lt
+  | Le
+
+let string_of_comparison = function
+  | Eq -> "e"
+  | Ne -> "ne"
+  | Gt -> "g"
+  | Ge -> "ge"
+  | Lt -> "l"
+  | Le -> "le"
+;;
+
+let branch_by_comparison ctx buf cmp v1 v2 label =
+  let value, free = turn_into_register ctx buf v2 in
+  emit_instruction buf
+  @@ Printf.sprintf "cmpq %s, %s" (string_of_value v1) (string_of_register value);
   free ctx;
-  emit_instruction buf @@ Printf.sprintf "je %s" (string_of_label false_label)
+  emit_instruction buf
+  @@ Printf.sprintf "j%s %s" (string_of_comparison cmp) (string_of_label label)
+;;
+
+let branch_by_value ctx buf cmp = branch_by_comparison ctx buf cmp (make_marked_const 0)
+let branch_if_falsy ctx buf = branch_by_value ctx buf Eq
+let branch_if_truthy ctx buf = branch_by_value ctx buf Ne
+
+let branch_by_value_type ctx buf cmp value label =
+  let value, free = turn_into_register ctx buf value in
+  (* If the value is pointer, ZF is set to 1 *)
+  (* otherwise, ZF is set to 0               *)
+  emit_instruction buf @@ Printf.sprintf "test $1, %s" (string_of_register value);
+  free ctx;
+  emit_instruction buf
+  @@ Printf.sprintf "j%s %s" (string_of_comparison cmp) (string_of_label label)
+;;
+
+let branch_if_pointer ctx buf = branch_by_value_type ctx buf Eq
+let branch_if_not_pointer ctx buf = branch_by_value_type ctx buf Ne
+
+let comparison_to_value ctx buf cmp v1 v2 =
+  let v2, free = turn_into_register ctx buf v2 in
+  (* Use rdx temporarily (8-bit register(dl) is needed) *)
+  let rdx = Register "%rdx" in
+  use_register ctx rdx;
+  emit_instruction buf
+  @@ Printf.sprintf "cmpq %s, %s" (string_of_value v1) (string_of_register v2);
+  free ctx;
+  emit_instruction buf @@ Printf.sprintf "set%s %%dl" (string_of_comparison cmp);
+  emit_instruction buf "movzbq %dl, %rdx";
+  make_marked_int buf rdx;
+  let s = push_to_stack ctx buf (RegisterValue rdx) in
+  free_register rdx ctx;
+  StackValue s
 ;;
 
 let alloc_heap_ptr_raw ctx buf size dest =
@@ -428,4 +482,46 @@ let alloc_heap_ptr ctx buf size dest =
 
 let alloc_heap_ptr_constsize ctx buf size dest =
   alloc_heap_ptr_raw ctx buf (ConstantValue size) dest
+;;
+
+let emit_equal_function ctx buf label ret_label =
+  (* TODO: Enable to take expected result and return earlier *)
+  let arg1, free1 = nth_arg_register ctx 0 in
+  let arg2, free2 = nth_arg_register ctx 1 in
+  (* assume arg1 and arg2 are values of the same type *)
+  (* TODO: Check the value type of two values *)
+  let direct_label = new_unnamed_label ctx in
+  branch_if_not_pointer ctx buf (RegisterValue arg1) direct_label;
+  (* pointer comparison branch (recursion) *)
+  let num = StackValue (push_to_stack ctx buf (ConstantValue 0)) in
+  let count = alloc_register ctx in
+  assign_to_register buf (ConstantValue 0) count;
+  (* assume arg1 and arg2 has the same number of values *)
+  read_from_address ctx buf (RegisterValue arg1) num 0;
+  let loop_label = new_unnamed_label ctx in
+  let v1 = alloc_register ctx in
+  assign_to_register buf (RegisterValue arg1) v1;
+  let v2 = alloc_register ctx in
+  assign_to_register buf (RegisterValue arg2) v2;
+  start_label buf loop_label;
+  branch_by_comparison ctx buf Eq num (RegisterValue count) ret_label;
+  emit_instruction buf @@ Printf.sprintf "addq $8, %s" (string_of_register count);
+  emit_instruction buf @@ Printf.sprintf "subq $8, %s" (string_of_register v1);
+  emit_instruction buf @@ Printf.sprintf "subq $8, %s" (string_of_register v2);
+  read_from_address ctx buf (RegisterValue v1) (RegisterValue arg1) 0;
+  read_from_address ctx buf (RegisterValue v2) (RegisterValue arg2) 0;
+  let res =
+    safe_call ctx buf (string_of_label label) [RegisterValue arg1; RegisterValue arg2]
+  in
+  free_register count ctx;
+  free_register v1 ctx;
+  free_register v2 ctx;
+  branch_if_falsy ctx buf (RegisterValue res) ret_label;
+  emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label loop_label);
+  (* direct comparison branch *)
+  start_label buf direct_label;
+  let s = comparison_to_value ctx buf Eq (RegisterValue arg1) (RegisterValue arg2) in
+  assign_to_register buf s ret_register;
+  free1 ctx;
+  free2 ctx
 ;;

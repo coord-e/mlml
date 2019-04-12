@@ -38,9 +38,12 @@ let f source =
   assert (mlml_result = ocaml_result)
 ;;
 
-let expr expr_source =
-  let source = Printf.sprintf "print_int (%s)" expr_source in
-  let mlml_result = exec_with_mlml source in
-  let ocaml_result = exec_with_ocaml source in
-  assert (mlml_result = ocaml_result)
+let expr source =
+  let source = Printf.sprintf "print_int (%s)" source in
+  f source
+;;
+
+let bool_expr source =
+  let source = Printf.sprintf "if (%s) then 1 else 0" source in
+  expr source
 ;;
