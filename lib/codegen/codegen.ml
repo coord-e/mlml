@@ -116,7 +116,7 @@ let rec codegen_expr ctx buf = function
     let reg_value = RegisterValue reg in
     alloc_heap_ptr_constsize ctx buf ((size + 1) * 8) reg_value;
     let values = List.map (codegen_expr ctx buf) values in
-    assign_to_address ctx buf (ConstantValue size) reg_value 0;
+    assign_to_address ctx buf (ConstantValue (size * 8)) reg_value 0;
     List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-(i + 1) * 8)) values;
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
@@ -133,8 +133,8 @@ let rec codegen_expr ctx buf = function
     let reg_value = RegisterValue reg in
     (* three 64-bit values -> 24 *)
     alloc_heap_ptr_constsize ctx buf 24 reg_value;
-    (* number of data *)
-    assign_to_address ctx buf (ConstantValue 2) reg_value 0;
+    (* size of data (2 * 8) *)
+    assign_to_address ctx buf (ConstantValue 16) reg_value 0;
     (* ctor index *)
     assign_to_address ctx buf (ConstantValue idx) reg_value (-8);
     (* the value *)
