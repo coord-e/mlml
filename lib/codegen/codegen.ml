@@ -105,11 +105,17 @@ let rec codegen_expr ctx buf = function
   | Expr.Equal (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    comparison_to_value ctx buf Eq lhs rhs
+    let ret = safe_call ctx buf "_mlml_equal" [lhs; rhs] in
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.NotEqual (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    comparison_to_value ctx buf Ne lhs rhs
+    let ret = safe_call ctx buf "_mlml_equal" [lhs; rhs] in
+    (* marked bool inversion *)
+    (* 11 -> 01              *)
+    (* 01 -> 11              *)
+    emit_instruction buf @@ Printf.sprintf "xorq $2, %s" (string_of_register ret);
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.Tuple values ->
     let size = List.length values in
     let reg = alloc_register ctx in
