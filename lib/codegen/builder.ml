@@ -245,9 +245,9 @@ let assign_to_address ctx buf src dest offset =
   free_dest ctx
 ;;
 
-let read_from_address ctx buf src dest offset =
+let read_from_address ctx buf src dest_raw offset =
   let src, free_src = turn_into_register ctx buf src in
-  let dest, free_dest = turn_into_register ctx buf dest in
+  let dest, free_dest = turn_into_register ctx buf dest_raw in
   emit_instruction buf
   @@ Printf.sprintf
        "movq %d(%s), %s"
@@ -255,6 +255,8 @@ let read_from_address ctx buf src dest offset =
        (string_of_register src)
        (string_of_register dest);
   free_src ctx;
+  emit_instruction buf
+  @@ Printf.sprintf "movq %s, %s" (string_of_register dest) (string_of_value dest_raw);
   free_dest ctx
 ;;
 
