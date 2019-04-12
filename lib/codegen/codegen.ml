@@ -33,25 +33,18 @@ let rec codegen_expr ctx buf = function
     free ctx;
     StackValue s
   | Expr.Mul (lhs, rhs) ->
-    (* make(a*b)                                           *)
-    (* = 1/2 * (make(a) * make(b) - make(a) - make(b) + 3) *)
-    (* TODO: Simplify instructions *)
-    let lhs = codegen_expr ctx buf lhs in
-    let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
-    let reg = alloc_register ctx in
+    (* make(a*b)                           *)
+    (* = 1/2 * (make(a) - 1) * make(b) + 1 *)
+    let lhs, free_l = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
+    let rhs, free_r = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
+    emit_instruction buf @@ Printf.sprintf "sarq $1, %s" (string_of_register lhs);
+    emit_instruction buf @@ Printf.sprintf "decq %s" (string_of_register rhs);
     emit_instruction buf
-    @@ Printf.sprintf "movq %s, %s" (string_of_register rhs) (string_of_register reg);
-    emit_instruction buf
-    @@ Printf.sprintf "imulq %s, %s" (string_of_value lhs) (string_of_register rhs);
-    emit_instruction buf
-    @@ Printf.sprintf "subq %s, %s" (string_of_value lhs) (string_of_register rhs);
-    emit_instruction buf
-    @@ Printf.sprintf "subq %s, %s" (string_of_register reg) (string_of_register rhs);
-    free_register reg ctx;
-    emit_instruction buf @@ Printf.sprintf "addq $3, %s" (string_of_register rhs);
-    emit_instruction buf @@ Printf.sprintf "shrq $1, %s" (string_of_register rhs);
+    @@ Printf.sprintf "imulq %s, %s" (string_of_register lhs) (string_of_register rhs);
+    free_l ctx;
+    emit_instruction buf @@ Printf.sprintf "incq %s" (string_of_register rhs);
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
-    free ctx;
+    free_r ctx;
     StackValue s
   | Expr.Follow (lhs, rhs) ->
     let _ = codegen_expr ctx buf lhs in
