@@ -14,7 +14,7 @@ let rec free_variables = function
   | Expr.Equal (l, r)
   | Expr.NotEqual (l, r)
   | Expr.PhysicalEqual (l, r)
-  | Expr.NotPhysicalEqual (l, r)  -> SS.union (free_variables l) (free_variables r)
+  | Expr.NotPhysicalEqual (l, r) -> SS.union (free_variables l) (free_variables r)
   | Expr.Tuple values ->
     List.map free_variables values |> List.fold_left SS.union SS.empty
   | Expr.LetVar (pat, lhs, rhs) ->
