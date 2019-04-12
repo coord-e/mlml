@@ -485,6 +485,7 @@ let alloc_heap_ptr_constsize ctx buf size dest =
 ;;
 
 let emit_equal_function ctx buf label ret_label =
+  (* TODO: Enable to take expected result and return earlier *)
   let arg1, free1 = nth_arg_register ctx 0 in
   let arg2, free2 = nth_arg_register ctx 1 in
   (* assume arg1 and arg2 are values of the same type *)
