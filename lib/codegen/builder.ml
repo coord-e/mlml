@@ -346,6 +346,7 @@ let rec pattern_match ctx buf pat v fail_label =
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
     read_from_address ctx buf v reg_value (-8);
+    restore_marked_int buf reg;
     emit_instruction buf
     @@ Printf.sprintf "cmpq $%d, %s" actual_idx (string_of_register reg);
     emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);

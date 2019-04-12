@@ -132,7 +132,7 @@ let rec codegen_expr ctx buf = function
       match value with
       | Some value -> codegen_expr ctx buf value
       (* TODO: Better representation of ctor without parameters *)
-      | None -> ConstantValue 0
+      | None -> make_marked_const 0
     in
     let idx = get_ctor_index ctx name in
     let reg = alloc_register ctx in
@@ -142,7 +142,7 @@ let rec codegen_expr ctx buf = function
     (* size of data (2 * 8) *)
     assign_to_address ctx buf (ConstantValue 16) reg_value 0;
     (* ctor index *)
-    assign_to_address ctx buf (ConstantValue idx) reg_value (-8);
+    assign_to_address ctx buf (make_marked_const idx) reg_value (-8);
     (* the value *)
     assign_to_address ctx buf value reg_value (-16);
     let s = StackValue (turn_into_stack ctx buf reg_value) in
