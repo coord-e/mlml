@@ -193,6 +193,7 @@ and emit_function_with ctx main_buf name fn =
   let old_env = use_env ctx @@ new_local_env () in
   let buf = Buffer.create 100 in
   let label = new_label ctx name in
+  let ret_label = new_unnamed_label ctx in
   start_global_label buf label;
   emit_instruction buf "pushq %rbp";
   emit_instruction buf "movq %rsp, %rbp";
@@ -206,7 +207,8 @@ and emit_function_with ctx main_buf name fn =
   let saved_stacks =
     non_volatile_registers |> RS.filter exclude_rbp_rsp |> RS.elements |> List.map saver
   in
-  fn ctx buf label;
+  fn ctx buf label ret_label;
+  start_label buf ret_label;
   let stack_used = ctx.current_env.current_stack in
   let restore (r, s) = assign_to_register buf (StackValue s) r in
   List.iter restore saved_stacks;
@@ -226,7 +228,7 @@ and emit_function_with ctx main_buf name fn =
   label
 
 and emit_function ctx main_buf is_rec name params ast =
-  let emit ctx buf label =
+  let emit ctx buf label _ =
     List.iteri
       (fun i pat ->
         let arg = nth_arg_stack ctx buf i in
@@ -246,7 +248,7 @@ and emit_function_value ctx buf is_rec name params ast =
   function_ptr ctx buf label
 
 and emit_module ctx buf name items =
-  let emit ctx buf _label =
+  let emit ctx buf _label _ =
     codegen_module ctx buf items;
     assign_to_register buf (ConstantValue 0) ret_register
   in
