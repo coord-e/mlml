@@ -405,14 +405,6 @@ let function_ptr ctx buf label =
   s
 ;;
 
-let branch_by_value ctx buf value false_label =
-  let value, free = turn_into_register ctx buf value in
-  restore_marked_int buf value;
-  emit_instruction buf @@ Printf.sprintf "cmpq $0, %s" (string_of_register value);
-  free ctx;
-  emit_instruction buf @@ Printf.sprintf "je %s" (string_of_label false_label)
-;;
-
 type comparison =
   | Eq
   | Ne
@@ -429,6 +421,19 @@ let string_of_comparison = function
   | Lt -> "l"
   | Le -> "le"
 ;;
+
+let branch_by_comparison ctx buf cmp v1 v2 label =
+  let value, free = turn_into_register ctx buf v2 in
+  emit_instruction buf
+  @@ Printf.sprintf "cmpq %s, %s" (string_of_value v1) (string_of_register value);
+  free ctx;
+  emit_instruction buf
+  @@ Printf.sprintf "j%s %s" (string_of_comparison cmp) (string_of_label label)
+;;
+
+let branch_by_value ctx buf cmp = branch_by_comparison ctx buf cmp (make_marked_const 0)
+let branch_if_falsy ctx buf = branch_by_value ctx buf Eq
+let branch_if_truthy ctx buf = branch_by_value ctx buf Ne
 
 let branch_by_value_type ctx buf cmp value label =
   let value, free = turn_into_register ctx buf value in

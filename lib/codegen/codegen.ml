@@ -83,7 +83,7 @@ let rec codegen_expr ctx buf = function
     let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
     let else_label = new_unnamed_label ctx in
     let join_label = new_unnamed_label ctx in
-    branch_by_value ctx buf cond else_label;
+    branch_if_falsy ctx buf cond else_label;
     (* then block *)
     let then_ = codegen_expr ctx buf then_ in
     assign_to_stack ctx buf then_ eval_stack;
@@ -155,7 +155,7 @@ let rec codegen_expr ctx buf = function
         (match when_ with
         | Some cond ->
           let cond = codegen_expr ctx buf cond in
-          branch_by_value ctx buf cond next_label
+          branch_if_falsy ctx buf cond next_label
         | None -> ());
         let rhs = codegen_expr ctx buf rhs in
         assign_to_stack ctx buf rhs eval_stack;
