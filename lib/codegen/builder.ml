@@ -482,3 +482,38 @@ let alloc_heap_ptr ctx buf size dest =
 let alloc_heap_ptr_constsize ctx buf size dest =
   alloc_heap_ptr_raw ctx buf (ConstantValue size) dest
 ;;
+
+let emit_equal_function ctx buf label ret_label =
+  let v1, free1 = nth_arg_register ctx 0 in
+  let v2, free2 = nth_arg_register ctx 1 in
+  (* assume v1 and v2 are values of the same type *)
+  (* TODO: Check the value type of two values *)
+  let direct_label = new_unnamed_label ctx in
+  branch_if_not_pointer ctx buf (RegisterValue v1) direct_label;
+  (* pointer comparison branch (recursion) *)
+  let num = StackValue (push_to_stack ctx buf (ConstantValue 0)) in
+  let count = alloc_register ctx in
+  assign_to_register buf (ConstantValue 0) count;
+  (* assume v1 and v2 has the same number of values *)
+  read_from_address ctx buf (RegisterValue v1) num 0;
+  let loop_label = new_unnamed_label ctx in
+  start_label buf loop_label;
+  branch_by_comparison ctx buf Eq num (RegisterValue count) ret_label;
+  emit_instruction buf @@ Printf.sprintf "addq 8, %s" (string_of_register count);
+  emit_instruction buf
+  @@ Printf.sprintf "subq %s, %s" (string_of_register count) (string_of_register v1);
+  emit_instruction buf
+  @@ Printf.sprintf "subq %s, %s" (string_of_register count) (string_of_register v2);
+  let res =
+    safe_call ctx buf (string_of_label label) [RegisterValue v1; RegisterValue v2]
+  in
+  free_register count ctx;
+  branch_if_falsy ctx buf (RegisterValue res) ret_label;
+  emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label loop_label);
+  (* direct comparison branch *)
+  start_label buf direct_label;
+  let s = comparison_to_value ctx buf Eq (RegisterValue v1) (RegisterValue v2) in
+  assign_to_register buf s ret_register;
+  free1 ctx;
+  free2 ctx
+;;

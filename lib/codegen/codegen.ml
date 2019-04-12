@@ -262,5 +262,6 @@ let f ast =
   assert (string_of_label label = "main");
   emit_print_int_function buf;
   emit_match_fail buf;
+  let _ = emit_function_with ctx buf "_mlml_equal" emit_equal_function in
   Buffer.contents buf
 ;;
