@@ -1,5 +1,11 @@
 # mlml
 
+[![Build Status](https://travis-ci.com/coord-e/mlml.svg?branch=develop)](https://travis-ci.com/coord-e/mlml)
+[![Coverage Status](https://coveralls.io/repos/github/coord-e/mlml/badge.svg?branch=feature%2Fci)](https://coveralls.io/github/coord-e/mlml?branch=feature%2Fci)
+![Docker Cloud Automated build](https://img.shields.io/docker/cloud/automated/coorde/mlml.svg)
+![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/coorde/mlml.svg)
+[![MicroBadger Image](https://images.microbadger.com/badges/image/coorde/mlml.svg)](https://microbadger.com/images/coorde/mlml)
+
 mlml is a tiny ML subset written in OCaml.
 
 This compiler takes a source string as input, and produces x86\_64 assembly.
