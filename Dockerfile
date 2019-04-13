@@ -1,6 +1,6 @@
 FROM ocaml/opam2:alpine
 
-RUN opam install dune bisect_ppx
+RUN opam install dune
 
 COPY . /src
 WORKDIR /src
