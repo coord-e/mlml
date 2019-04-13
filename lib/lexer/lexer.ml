@@ -1,6 +1,7 @@
 type token =
   | IntLiteral of int
   | BoolLiteral of bool
+  | StringLiteral of string
   | CapitalIdent of string
   | LowerIdent of string
   | Plus
@@ -48,6 +49,15 @@ let rec read_int acc rest =
   | _ -> [], acc
 ;;
 
+let rec read_string acc rest =
+  match rest with
+  | '"' :: t -> t, acc
+  | h :: t ->
+    let rest, acc = read_string acc t in
+    rest, h :: acc
+  | _ -> failwith "string literal is not terminated"
+;;
+
 let rec read_ident acc rest =
   match rest with
   | h :: t ->
@@ -77,6 +87,10 @@ let rec tokenize_aux acc rest =
     | '0' .. '9' ->
       let rest, num = read_int 0 rest in
       tokenize_aux (IntLiteral num :: acc) rest
+    | '"' ->
+      let rest, str = read_string [] t in
+      let str_str = string_of_chars str in
+      tokenize_aux (StringLiteral str_str :: acc) rest
     | 'a' .. 'z' | 'A' .. 'Z' | '_' ->
       let rest, ident = read_ident [] rest in
       let ident_str = string_of_chars ident in
@@ -132,6 +146,7 @@ let rec tokenize_aux acc rest =
 let string_of_token = function
   | IntLiteral num -> string_of_int num
   | BoolLiteral b -> string_of_bool b
+  | StringLiteral str -> Printf.sprintf "\"%s\"" str
   | CapitalIdent ident | LowerIdent ident -> ident
   | Plus -> "+"
   | Minus -> "-"
