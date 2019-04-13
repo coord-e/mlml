@@ -75,6 +75,8 @@ and try_parse_literal tokens =
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
   (* TODO: Add boolean value *)
   | L.BoolLiteral b :: tokens -> tokens, Some (Int (if b then 1 else 0))
+  (* TODO: Add char value *)
+  | L.CharLiteral c :: tokens -> tokens, Some (Int (Char.code c))
   | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
   | L.CapitalIdent ident :: tokens ->
     (match try_parse_literal tokens with
