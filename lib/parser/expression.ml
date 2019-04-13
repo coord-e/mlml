@@ -13,6 +13,7 @@ type t =
   | Follow of t * t
   | LetVar of Pat.t * t * t
   | LetFun of bool * string * Pat.t * t * t
+  | LetAnd of bool * (string * Pat.t * t) list * t
   | IfThenElse of t * t * t
   | App of t * t
   | Ctor of string * t option
@@ -191,20 +192,35 @@ and parse_let = function
     let rest, params, body = parse_let_fun_body params rest in
     rest, params_to_lambdas body params
   (* `let rec` -> function definition *)
-  | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
-    let rest, params = parse_let_fun_params rest in
-    let rest, params, lhs = parse_let_fun_body params rest in
-    (match rest with
-    | L.In :: rest ->
-      let rest, rhs = parse_expression rest in
-      (match params with
-      (* TODO: Support let rec without arguments *)
-      | [] -> failwith "'let rec' without arguments"
-      | h :: t -> rest, LetFun (true, ident, h, params_to_lambdas lhs t, rhs))
-    | _ -> failwith "could not find 'in'")
-  | L.Let :: L.Rec :: t :: _ ->
-    failwith
-    @@ Printf.sprintf "unexpected token '%s' after let rec" (L.string_of_token t)
+  | L.Let :: L.Rec :: rest ->
+    let rec parse_function_name = function
+      | L.LowerIdent ident :: rest -> rest, ident
+      | _ -> failwith "could not find function name"
+    and parse_until_in rest =
+      let rest, ident = parse_function_name rest in
+      let rest, params = parse_let_fun_params rest in
+      let rest, params, lhs = parse_let_fun_body params rest in
+      match rest with
+      | L.And :: rest ->
+        let rest, acc = parse_until_in rest in
+        rest, (ident, params, lhs) :: acc
+      | rest -> rest, [ident, params, lhs]
+    and parse_in = function
+      | L.In :: rest -> parse_expression rest
+      | _ -> failwith "could not find `in`"
+    and conv_params (ident, params, lhs) =
+      match params with
+      | h :: t -> ident, h, params_to_lambdas lhs t
+      | [] -> failwith "let rec without parameters"
+    and single_and ident lhs rhs = function
+      | h :: t -> LetFun (true, ident, h, params_to_lambdas lhs t, rhs)
+      | [] -> LetVar (Pat.Var ident, lhs, rhs)
+    in
+    let rest, acc = parse_until_in rest in
+    let rest, rhs = parse_in rest in
+    (match acc with
+    | [(ident, params, lhs)] -> rest, single_and ident lhs rhs params
+    | l -> rest, LetAnd (true, List.map conv_params l, rhs))
   | L.Let :: rest ->
     let rest, bind = Pat.parse_pattern rest in
     let rest, params, lhs =
@@ -301,6 +317,20 @@ let rec string_of_expression = function
       ident
       p
       (string_of_expression lhs)
+      (string_of_expression rhs)
+  | LetAnd (is_rec, l, rhs) ->
+    let aux (ident, p, lhs) =
+      Printf.sprintf
+        "(%s) (%s) = (%s)"
+        ident
+        (Pat.string_of_pattern p)
+        (string_of_expression lhs)
+    in
+    let l = List.map aux l |> String.concat " and " in
+    Printf.sprintf
+      "Let %s %s in (%s)"
+      (if is_rec then "rec" else "")
+      l
       (string_of_expression rhs)
   | App (lhs, rhs) ->
     Printf.sprintf "App (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
