@@ -6,5 +6,4 @@ RUN sudo apk --update --no-cache add inotify-tools
 VOLUME /src
 WORKDIR /src
 
-ENTRYPOINT ["dune"]
-CMD ["runtest", "-w"]
+CMD ["dune", "runtest", "-w"]
