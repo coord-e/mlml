@@ -224,8 +224,13 @@ and emit_function_with ctx main_buf label fn =
   in
   Buffer.add_substitute main_buf replace (Buffer.contents buf)
 
-and emit_function ctx main_buf is_rec name params ast =
-  let emit ctx buf label _ =
+and emit_functions ctx buf is_rec l =
+  let make_convenient_data (name, params, body) =
+    let label = new_label ctx name in
+    (name, label), (label, params, body)
+  in
+  let labels, l = List.map make_convenient_data l |> List.split in
+  let emit params ast ctx buf _label _ =
     List.iteri
       (fun i pat ->
         let arg = nth_arg_stack ctx buf i in
@@ -233,14 +238,21 @@ and emit_function ctx main_buf is_rec name params ast =
       params;
     (if is_rec
     then
-      let ptr = function_ptr ctx buf label in
-      define_variable ctx buf name ptr);
+      let aux (name, label) =
+        let ptr = function_ptr ctx buf label in
+        define_variable ctx buf name ptr
+      in
+      List.iter aux labels);
     let value = codegen_expr ctx buf ast in
     assign_to_register buf value ret_register
   in
-  let label = new_label ctx name in
-  emit_function_with ctx main_buf label emit;
-  label
+  let aux (label, params, body) = emit_function_with ctx buf label (emit params body) in
+  List.iter aux l;
+  let _names, labels = List.split labels in
+  labels
+
+and emit_function ctx main_buf is_rec name params ast =
+  emit_functions ctx main_buf is_rec [name, params, ast] |> List.hd
 
 and emit_function_value ctx buf is_rec name params ast =
   let label = emit_function ctx buf is_rec name params ast in
