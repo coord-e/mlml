@@ -188,10 +188,9 @@ and codegen_module_item ctx buf = function
 
 and codegen_module ctx buf = List.iter (codegen_module_item ctx buf)
 
-and emit_function_with ctx main_buf name fn =
+and emit_function_with ctx main_buf label fn =
   let old_env = use_env ctx @@ new_local_env () in
   let buf = Buffer.create 100 in
-  let label = new_label ctx name in
   let ret_label = new_unnamed_label ctx in
   start_global_label buf label;
   emit_instruction buf "pushq %rbp";
@@ -223,8 +222,7 @@ and emit_function_with ctx main_buf name fn =
     let s = Printf.sprintf "replace_with_subq_%s" (string_of_label label) in
     if x = s then Printf.sprintf "subq $%d, %%rsp" (-stack_used + 8) else "$" ^ x
   in
-  Buffer.add_substitute main_buf replace (Buffer.contents buf);
-  label
+  Buffer.add_substitute main_buf replace (Buffer.contents buf)
 
 and emit_function ctx main_buf is_rec name params ast =
   let emit ctx buf label _ =
@@ -240,27 +238,28 @@ and emit_function ctx main_buf is_rec name params ast =
     let value = codegen_expr ctx buf ast in
     assign_to_register buf value ret_register
   in
-  emit_function_with ctx main_buf name emit
+  let label = new_label ctx name in
+  emit_function_with ctx main_buf label emit;
+  label
 
 and emit_function_value ctx buf is_rec name params ast =
   let label = emit_function ctx buf is_rec name params ast in
   function_ptr ctx buf label
 
-and emit_module ctx buf name items =
+and emit_module ctx buf label items =
   let emit ctx buf _label _ =
     codegen_module ctx buf items;
     assign_to_register buf (ConstantValue 0) ret_register
   in
-  emit_function_with ctx buf name emit
+  emit_function_with ctx buf label emit
 ;;
 
 let f ast =
   let buf = Buffer.create 100 in
   let ctx = new_context () in
-  let label = emit_module ctx buf "main" ast in
-  assert (string_of_label label = "main");
+  emit_module ctx buf (Label "main") ast;
   emit_print_int_function buf;
   emit_match_fail buf;
-  let _ = emit_function_with ctx buf "_mlml_equal" emit_equal_function in
+  let _ = emit_function_with ctx buf (Label "_mlml_equal") emit_equal_function in
   Buffer.contents buf
 ;;
