@@ -29,6 +29,17 @@ let rec free_variables = function
     let body = free_variables body in
     let in_ = free_variables in_ in
     SS.union (SS.diff body param) (SS.diff in_ intros)
+  | Expr.LetAnd (is_rec, l, in_) ->
+    let in_ = free_variables in_ in
+    let aux (ident, param, body) =
+      let param = Pat.introduced_idents param in
+      let param = if is_rec then SS.add ident param else param in
+      let body = free_variables body in
+      ident, SS.diff body param
+    in
+    let idents, l = List.map aux l |> List.split in
+    let intros = SS.of_list idents in
+    List.fold_left SS.union (SS.diff in_ intros) l
   | Expr.IfThenElse (c, t, e) ->
     SS.union (free_variables c) @@ SS.union (free_variables t) (free_variables e)
   | Expr.Ctor (_, expr) ->
