@@ -65,6 +65,16 @@ let rec codegen_expr ctx buf = function
     let rhs = codegen_expr ctx buf rhs in
     undef_variable ctx ident;
     rhs
+  | Expr.LetAnd (is_rec, l, rhs) ->
+    let aux (ident, p, body) = ident, [p], body in
+    let l = List.map aux l in
+    let values = emit_function_values ctx buf is_rec l in
+    let def (name, ptr) = define_variable ctx buf name ptr in
+    let undef (name, _) = undef_variable ctx name in
+    List.iter def values;
+    let rhs = codegen_expr ctx buf rhs in
+    List.iter undef values;
+    rhs
   | Expr.Lambda (param, body) -> emit_function_value ctx buf false "_lambda" [param] body
   | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
@@ -248,11 +258,15 @@ and emit_functions ctx buf is_rec l =
   in
   let aux (label, params, body) = emit_function_with ctx buf label (emit params body) in
   List.iter aux l;
-  let _names, labels = List.split labels in
   labels
 
 and emit_function ctx main_buf is_rec name params ast =
-  emit_functions ctx main_buf is_rec [name, params, ast] |> List.hd
+  emit_functions ctx main_buf is_rec [name, params, ast] |> List.hd |> snd
+
+and emit_function_values ctx buf is_rec l =
+  let labels = emit_functions ctx buf is_rec l in
+  let conv (name, label) = name, function_ptr ctx buf label in
+  List.map conv labels
 
 and emit_function_value ctx buf is_rec name params ast =
   let label = emit_function ctx buf is_rec name params ast in
