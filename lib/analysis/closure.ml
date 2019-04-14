@@ -85,6 +85,24 @@ let closure_conversion expr =
       let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
       let wrap = Expr.LetVar (Pat.Var ident, evalto, in_) in
       Expr.LetFun (is_rec, ident, real_param, real_body, wrap)
+    | Expr.LetAnd (is_rec, l, in_) ->
+      let in_ = aux i in_ in
+      let fvs = SS.diff (free_variables expr) (free_variables in_) |> SS.elements in
+      let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
+      let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
+      let folder_body_rec acc (ident, _, _) =
+        Expr.LetVar (Pat.Var ident, Expr.Tuple [Expr.Var ident; fv_tuple], acc)
+      in
+      let aux (ident, param, body) =
+        let real_body = if is_rec then List.fold_left folder_body_rec body l else body in
+        let real_param = Pat.Tuple [param; fv_pat] in
+        let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
+        (ident, evalto), (ident, real_param, real_body)
+      in
+      let folder_wrap acc (ident, evalto) = Expr.LetVar (Pat.Var ident, evalto, acc) in
+      let evals, l = List.map aux l |> List.split in
+      let wrap = List.fold_left folder_wrap in_ evals in
+      Expr.LetAnd (is_rec, l, wrap)
     | Expr.Lambda (param, body) ->
       let fvs = free_variable_list expr in
       let body = aux i body in
