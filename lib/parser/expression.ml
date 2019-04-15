@@ -27,6 +27,8 @@ and t =
   | Match of t * (Pat.t * t option * t) list
   | Lambda of Pat.t * t
 
+let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
+
 (* fun x y z -> expr                      *)
 (* => fun x -> (fun y -> (fun z -> expr)) *)
 let rec params_to_lambdas expr = function

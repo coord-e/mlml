@@ -227,8 +227,7 @@ and emit_function_with ctx main_buf label fn =
 
 and emit_let_bindings ctx buf is_rec l =
   (* TODO: remove `failwith "unreachable"` *)
-  let part = function Expr.FunBind _ -> true | Expr.VarBind _ -> false in
-  let funs, vars = List.partition part l in
+  let funs, vars = List.partition Expr.is_fun_bind l in
   let make_convenient_data = function
     | Expr.FunBind (name, param, body) ->
       let label = new_label ctx name in
