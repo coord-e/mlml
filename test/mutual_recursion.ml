@@ -23,5 +23,11 @@ let rec f x = x + a
 and a = 10
 and g x = f x
 in g 10
+  |};
+  Tester.expr {|
+let f x = x + 1
+and a, b = 1, 2
+and g x = x * 10
+in f a + g b
   |}
 ;;
