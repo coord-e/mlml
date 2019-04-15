@@ -216,19 +216,11 @@ and parse_let = function
         | Pat.Var ident -> FunBind (ident, h, params_to_lambdas lhs t)
         | _ -> failwith "only variables are allowed to bind functions")
       | [] -> VarBind (bind, lhs)
-    and single_and is_rec bind lhs rhs = function
-      | h :: t ->
-        (match bind with
-        | Pat.Var ident -> LetFun (is_rec, ident, h, params_to_lambdas lhs t, rhs)
-        | _ -> failwith "only variables are allowed to bind functions")
-      | [] -> LetVar (bind, lhs, rhs)
     in
     let rest, is_rec = parse_rec rest in
     let rest, acc = parse_until_in rest in
     let rest, rhs = parse_in rest in
-    (match acc with
-    | [(bind, params, lhs)] -> rest, single_and is_rec bind lhs rhs params
-    | l -> rest, LetAnd (is_rec, List.map conv_params l, rhs))
+    rest, LetAnd (is_rec, List.map conv_params acc, rhs)
   | tokens -> parse_match tokens
 
 and parse_follow tokens =
