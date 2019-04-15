@@ -94,6 +94,7 @@ let closure_conversion expr =
         Expr.LetVar (Pat.Var ident, Expr.Tuple [Expr.Var ident; fv_tuple], acc)
       in
       let aux (ident, param, body) =
+        let body = aux i body in
         let real_body = if is_rec then List.fold_left folder_body_rec body l else body in
         let real_param = Pat.Tuple [param; fv_pat] in
         let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
