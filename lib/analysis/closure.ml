@@ -31,14 +31,19 @@ let rec free_variables = function
     SS.union (SS.diff body param) (SS.diff in_ intros)
   | Expr.LetAnd (is_rec, l, in_) ->
     let in_ = free_variables in_ in
-    let aux (ident, param, body) =
-      let param = Pat.introduced_idents param in
-      let param = if is_rec then SS.add ident param else param in
-      let body = free_variables body in
-      ident, SS.diff body param
+    let aux = function
+      | Expr.FunBind (ident, param, body) ->
+        let param = Pat.introduced_idents param in
+        let param = if is_rec then SS.add ident param else param in
+        let body = free_variables body in
+        [ident], SS.diff body param
+      | Expr.VarBind (pat, body) ->
+        let intros = Pat.introduced_ident_list pat in
+        let body = free_variables body in
+        intros, body
     in
     let idents, l = List.map aux l |> List.split in
-    let intros = SS.of_list idents in
+    let intros = List.flatten idents |> SS.of_list in
     List.fold_left SS.union (SS.diff in_ intros) l
   | Expr.IfThenElse (c, t, e) ->
     SS.union (free_variables c) @@ SS.union (free_variables t) (free_variables e)
@@ -90,17 +95,28 @@ let closure_conversion expr =
       let fvs = SS.diff (free_variables expr) (free_variables in_) |> SS.elements in
       let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
       let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
-      let folder_body_rec acc (ident, _, _) =
-        Expr.LetVar (Pat.Var ident, Expr.Tuple [Expr.Var ident; fv_tuple], acc)
+      let folder_body_rec acc = function
+        | Expr.FunBind (ident, _, _) ->
+          Expr.LetVar (Pat.Var ident, Expr.Tuple [Expr.Var ident; fv_tuple], acc)
+        | Expr.VarBind _ -> acc
       in
-      let aux (ident, param, body) =
-        let body = aux i body in
-        let real_body = if is_rec then List.fold_left folder_body_rec body l else body in
-        let real_param = Pat.Tuple [param; fv_pat] in
-        let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
-        (ident, evalto), (ident, real_param, real_body)
+      let aux = function
+        | Expr.FunBind (ident, param, body) ->
+          let body = aux i body in
+          let real_body =
+            if is_rec then List.fold_left folder_body_rec body l else body
+          in
+          let real_param = Pat.Tuple [param; fv_pat] in
+          let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
+          Some (ident, evalto), Expr.FunBind (ident, real_param, real_body)
+        | Expr.VarBind (pat, body) ->
+          let body = aux i body in
+          None, Expr.VarBind (pat, body)
       in
-      let folder_wrap acc (ident, evalto) = Expr.LetVar (Pat.Var ident, evalto, acc) in
+      let folder_wrap acc = function
+        | Some (ident, evalto) -> Expr.LetVar (Pat.Var ident, evalto, acc)
+        | None -> acc
+      in
       let evals, l = List.map aux l |> List.split in
       let wrap = List.fold_left folder_wrap in_ evals in
       Expr.LetAnd (is_rec, l, wrap)

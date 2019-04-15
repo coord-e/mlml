@@ -4,7 +4,11 @@
 module L = Lexer
 module Pat = Pattern
 
-type t =
+type let_binding =
+  | VarBind of Pat.t * t
+  | FunBind of string * Pat.t * t
+
+and t =
   | Int of int
   | Tuple of t list
   | Add of t * t
@@ -13,7 +17,7 @@ type t =
   | Follow of t * t
   | LetVar of Pat.t * t * t
   | LetFun of bool * string * Pat.t * t * t
-  | LetAnd of bool * (string * Pat.t * t) list * t
+  | LetAnd of bool * let_binding list * t
   | IfThenElse of t * t * t
   | App of t * t
   | Ctor of string * t option
@@ -210,8 +214,8 @@ and parse_let = function
       | _ -> failwith "could not find `in`"
     and conv_params (ident, params, lhs) =
       match params with
-      | h :: t -> ident, h, params_to_lambdas lhs t
-      | [] -> failwith "let rec without parameters"
+      | h :: t -> FunBind (ident, h, params_to_lambdas lhs t)
+      | [] -> VarBind (Pat.Var ident, lhs)
     and single_and ident lhs rhs = function
       | h :: t -> LetFun (true, ident, h, params_to_lambdas lhs t, rhs)
       | [] -> LetVar (Pat.Var ident, lhs, rhs)
@@ -270,7 +274,17 @@ and parse_follow tokens =
 
 and parse_expression tokens = parse_follow tokens
 
-let rec string_of_expression = function
+let rec string_of_let_binding = function
+  | VarBind (pat, expr) ->
+    Printf.sprintf "(%s) = (%s)" (Pat.string_of_pattern pat) (string_of_expression expr)
+  | FunBind (ident, param, expr) ->
+    Printf.sprintf
+      "%s (%s) = (%s)"
+      ident
+      (Pat.string_of_pattern param)
+      (string_of_expression expr)
+
+and string_of_expression = function
   | Int num -> Printf.sprintf "Int %d" num
   | Tuple values ->
     let p = List.map string_of_expression values |> String.concat ", " in
@@ -319,14 +333,7 @@ let rec string_of_expression = function
       (string_of_expression lhs)
       (string_of_expression rhs)
   | LetAnd (is_rec, l, rhs) ->
-    let aux (ident, p, lhs) =
-      Printf.sprintf
-        "(%s) (%s) = (%s)"
-        ident
-        (Pat.string_of_pattern p)
-        (string_of_expression lhs)
-    in
-    let l = List.map aux l |> String.concat " and " in
+    let l = List.map string_of_let_binding l |> String.concat " and " in
     Printf.sprintf
       "Let %s %s in (%s)"
       (if is_rec then "rec" else "")

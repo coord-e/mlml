@@ -60,22 +60,21 @@ let rec codegen_expr ctx buf = function
     | "print_int" -> function_ptr ctx buf print_int_label
     | _ -> StackValue (get_variable ctx ident))
   | Expr.LetFun (is_rec, ident, param, lhs, rhs) ->
-    let lhs = emit_function_value ctx buf is_rec ident [param] lhs in
+    let lhs = emit_function_value ctx buf is_rec ident param lhs in
     define_variable ctx buf ident lhs;
     let rhs = codegen_expr ctx buf rhs in
     undef_variable ctx ident;
     rhs
   | Expr.LetAnd (is_rec, l, rhs) ->
-    let aux (ident, p, body) = ident, [p], body in
-    let l = List.map aux l in
-    let values = emit_function_values ctx buf is_rec l in
+    let pats, values = emit_let_binding_values ctx buf is_rec l in
     let def (name, ptr) = define_variable ctx buf name ptr in
     let undef (name, _) = undef_variable ctx name in
     List.iter def values;
     let rhs = codegen_expr ctx buf rhs in
     List.iter undef values;
+    List.iter (undef_variable_pattern ctx) pats;
     rhs
-  | Expr.Lambda (param, body) -> emit_function_value ctx buf false "_lambda" [param] body
+  | Expr.Lambda (param, body) -> emit_function_value ctx buf false "_lambda" param body
   | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
@@ -184,7 +183,7 @@ and codegen_definition ctx buf = function
     let lhs = codegen_expr ctx buf lhs in
     pattern_match ctx buf pat lhs match_fail_label
   | Def.LetFun (is_rec, ident, param, lhs) ->
-    let lhs = emit_function_value ctx buf is_rec ident [param] lhs in
+    let lhs = emit_function_value ctx buf is_rec ident param lhs in
     define_variable ctx buf ident lhs
   | Def.Variant (_, variants) ->
     let aux i (ctor, _) = define_ctor ctx ctor i in
@@ -234,20 +233,23 @@ and emit_function_with ctx main_buf label fn =
   in
   Buffer.add_substitute main_buf replace (Buffer.contents buf)
 
-and emit_functions ctx buf is_rec l =
-  let make_convenient_data (name, params, body) =
-    let label = new_label ctx name in
-    (name, label), (label, params, body)
+and emit_let_bindings ctx buf is_rec l =
+  (* TODO: remove `failwith "unreachable"` *)
+  let part = function Expr.FunBind _ -> true | Expr.VarBind _ -> false in
+  let funs, vars = List.partition part l in
+  let make_convenient_data = function
+    | Expr.FunBind (name, param, body) ->
+      let label = new_label ctx name in
+      (name, label), (label, param, body)
+    | _ -> failwith "unreachable"
   in
-  let labels, l = List.map make_convenient_data l |> List.split in
-  let emit params ast ctx buf _label _ =
-    List.iteri
-      (fun i pat ->
-        let arg = nth_arg_stack ctx buf i in
-        pattern_match ctx buf pat (StackValue arg) match_fail_label )
-      params;
+  let labels, funs = List.map make_convenient_data funs |> List.split in
+  let emit param ast ctx buf _label _ =
+    let arg = nth_arg_stack ctx buf 0 in
+    pattern_match ctx buf param (StackValue arg) match_fail_label;
     (if is_rec
     then
+      (* forward definition of functions *)
       let aux (name, label) =
         let ptr = function_ptr ctx buf label in
         define_variable ctx buf name ptr
@@ -256,20 +258,35 @@ and emit_functions ctx buf is_rec l =
     let value = codegen_expr ctx buf ast in
     assign_to_register buf value ret_register
   in
-  let aux (label, params, body) = emit_function_with ctx buf label (emit params body) in
-  List.iter aux l;
-  labels
+  let aux_vars = function
+    | Expr.VarBind (pat, body) ->
+      let body = codegen_expr ctx buf body in
+      pattern_match ctx buf pat body match_fail_label;
+      pat
+    | _ -> failwith "unreachable"
+  in
+  let aux_funs (label, param, body) =
+    emit_function_with ctx buf label (emit param body)
+  in
+  (* emit variables first. *)
+  (* functions can be forward reference, whereas variables can't. *)
+  let pats = List.map aux_vars vars in
+  List.iter aux_funs funs;
+  pats, labels
 
-and emit_function ctx main_buf is_rec name params ast =
-  emit_functions ctx main_buf is_rec [name, params, ast] |> List.hd |> snd
+and emit_function ctx main_buf is_rec name param ast =
+  emit_let_bindings ctx main_buf is_rec [Expr.FunBind (name, param, ast)]
+  |> snd
+  |> List.hd
+  |> snd
 
-and emit_function_values ctx buf is_rec l =
-  let labels = emit_functions ctx buf is_rec l in
+and emit_let_binding_values ctx buf is_rec l =
+  let pats, labels = emit_let_bindings ctx buf is_rec l in
   let conv (name, label) = name, function_ptr ctx buf label in
-  List.map conv labels
+  pats, List.map conv labels
 
-and emit_function_value ctx buf is_rec name params ast =
-  let label = emit_function ctx buf is_rec name params ast in
+and emit_function_value ctx buf is_rec name param ast =
+  let label = emit_function ctx buf is_rec name param ast in
   function_ptr ctx buf label
 
 and emit_module ctx buf label items =
