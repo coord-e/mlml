@@ -6,4 +6,6 @@ RUN sudo apk --update --no-cache add inotify-tools
 VOLUME /src
 WORKDIR /src
 
+ENV DUNE_BUILD_DIR /_build
+
 CMD ["sudo", "dune", "runtest", "-w"]
