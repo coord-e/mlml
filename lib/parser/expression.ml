@@ -94,6 +94,12 @@ and parse_let_bindings rest =
   let rest, acc = parse_until_in rest in
   rest, List.map conv_params acc
 
+and parse_rec = function L.Rec :: rest -> rest, true | tokens -> tokens, false
+
+and parse_in = function
+  | L.In :: rest -> parse_expression rest
+  | _ -> failwith "could not find `in`"
+
 and try_parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
@@ -215,11 +221,6 @@ and parse_let = function
     let rest, params, body = parse_let_fun_body params rest in
     rest, params_to_lambdas body params
   | L.Let :: rest ->
-    let parse_rec = function L.Rec :: rest -> rest, true | tokens -> tokens, false
-    and parse_in = function
-      | L.In :: rest -> parse_expression rest
-      | _ -> failwith "could not find `in`"
-    in
     let rest, is_rec = parse_rec rest in
     let rest, binds = parse_let_bindings rest in
     let rest, rhs = parse_in rest in

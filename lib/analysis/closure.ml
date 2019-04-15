@@ -4,7 +4,19 @@ module Def = P.Definition
 module Pat = P.Pattern
 module SS = Set.Make (String)
 
-let rec free_variables = function
+(* TODO: Improve this function's name *)
+let rec intros_and_free_of_binding is_rec = function
+  | Expr.FunBind (ident, param, body) ->
+    let param = Pat.introduced_idents param in
+    let param = if is_rec then SS.add ident param else param in
+    let body = free_variables body in
+    [ident], SS.diff body param
+  | Expr.VarBind (pat, body) ->
+    let intros = Pat.introduced_ident_list pat in
+    let body = free_variables body in
+    intros, body
+
+and free_variables = function
   | Expr.Int _ -> SS.empty
   | Expr.Add (l, r)
   | Expr.Sub (l, r)
@@ -19,18 +31,7 @@ let rec free_variables = function
     List.map free_variables values |> List.fold_left SS.union SS.empty
   | Expr.LetAnd (is_rec, l, in_) ->
     let in_ = free_variables in_ in
-    let aux = function
-      | Expr.FunBind (ident, param, body) ->
-        let param = Pat.introduced_idents param in
-        let param = if is_rec then SS.add ident param else param in
-        let body = free_variables body in
-        [ident], SS.diff body param
-      | Expr.VarBind (pat, body) ->
-        let intros = Pat.introduced_ident_list pat in
-        let body = free_variables body in
-        intros, body
-    in
-    let idents, l = List.map aux l |> List.split in
+    let idents, l = List.map (intros_and_free_of_binding is_rec) l |> List.split in
     let intros = List.flatten idents |> SS.of_list in
     List.fold_left SS.union (SS.diff in_ intros) l
   | Expr.IfThenElse (c, t, e) ->
@@ -148,6 +149,9 @@ let free_variables_defn = function
     let body = free_variables body in
     SS.diff body param
   | Def.LetVar (_pat, lhs) -> free_variables lhs
+  | Def.LetAnd (is_rec, l) ->
+    let _, l = List.map (intros_and_free_of_binding is_rec) l |> List.split in
+    List.fold_left SS.union SS.empty l
   | _ -> SS.empty
 ;;
 
@@ -168,5 +172,6 @@ let closure_conversion_defn defn =
     let f = make_let_fun is_rec ident real_param real_body evalto in
     Def.LetVar (Pat.Var ident, f)
   | Def.LetVar (pat, expr) -> Def.LetVar (pat, closure_conversion expr)
+  | Def.LetAnd _ -> failwith "WIP"
   | Def.Variant _ -> defn
 ;;

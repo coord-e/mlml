@@ -173,6 +173,10 @@ and codegen_definition ctx buf = function
   | Def.LetFun (is_rec, ident, param, lhs) ->
     let lhs = emit_function_value ctx buf is_rec ident param lhs in
     define_variable ctx buf ident lhs
+  | Def.LetAnd (is_rec, l) ->
+    let _, values = emit_let_binding_values ctx buf is_rec l in
+    let def (name, ptr) = define_variable ctx buf name ptr in
+    List.iter def values
   | Def.Variant (_, variants) ->
     let aux i (ctor, _) = define_ctor ctx ctor i in
     List.iteri aux variants
