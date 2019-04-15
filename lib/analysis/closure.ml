@@ -144,11 +144,6 @@ and closure_conversion' i expr =
 and closure_conversion expr = closure_conversion' 0 expr
 
 let free_variables_defn = function
-  | Def.LetFun (is_rec, ident, param, body) ->
-    let param = Pat.introduced_idents param in
-    let param = if is_rec then SS.add ident param else param in
-    let body = free_variables body in
-    SS.diff body param
   | Def.LetVar (_pat, lhs) -> free_variables lhs
   | Def.LetAnd (is_rec, l) ->
     let _, l = List.map (intros_and_free_of_binding is_rec) l |> List.split in
@@ -158,20 +153,6 @@ let free_variables_defn = function
 
 let closure_conversion_defn defn =
   match defn with
-  | Def.LetFun (is_rec, ident, param, body) ->
-    let fvs = free_variables_defn defn |> SS.elements in
-    let body = closure_conversion body in
-    let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
-    let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
-    let real_body =
-      if is_rec
-      then make_let_var (Pat.Var ident) (Expr.Tuple [Expr.Var ident; fv_tuple]) body
-      else body
-    in
-    let real_param = Pat.Tuple [param; fv_pat] in
-    let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
-    let f = make_let_fun is_rec ident real_param real_body evalto in
-    Def.LetVar (Pat.Var ident, f)
   | Def.LetVar (pat, expr) -> Def.LetVar (pat, closure_conversion expr)
   | Def.LetAnd (is_rec, l) ->
     let fvs = free_variables_defn defn |> SS.elements in

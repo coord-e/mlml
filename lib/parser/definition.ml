@@ -8,7 +8,6 @@ module L = Lexer
 
 type t =
   | LetVar of Pat.t * Expr.t
-  | LetFun of bool * string * Pat.t * Expr.t
   | LetAnd of bool * Expr.let_binding list
   | Variant of string * (string * TyExpr.t option) list
 
@@ -60,14 +59,6 @@ let string_of_definition = function
     Printf.sprintf
       "Let (%s) = (%s)"
       (Pat.string_of_pattern pat)
-      (Expr.string_of_expression lhs)
-  | LetFun (is_rec, ident, param, lhs) ->
-    let p = Pat.string_of_pattern param in
-    Printf.sprintf
-      "Let %s (%s) (%s) = (%s)"
-      (if is_rec then "rec" else "")
-      ident
-      p
       (Expr.string_of_expression lhs)
   | LetAnd (is_rec, l) ->
     let l = List.map Expr.string_of_let_binding l |> String.concat " and " in
