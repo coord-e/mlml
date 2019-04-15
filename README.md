@@ -13,19 +13,23 @@ This compiler takes a source string as input, and produces x86\_64 assembly.
 ## roadmap
 
 - [x] basic arithmetic
-  - [ ] div, shift, non-equality comparison, etc
+  - [ ] div, shift, etc
 - [x] variables
 - [x] if-then-else
 - [x] functions
   - [x] recursion
-  - [x] lambda
+  - [x] mutual recursion
   - [x] closure
   - [x] currying
 - [x] tuples
-  - [x] pattern matching
 - [x] variants
-  - [x] pattern matching
 - [x] pattern matching with `match`
+- [x] structual comparison
+- [ ] primitive types
+  - [ ] string
+  - [ ] list
+- [ ] module system
+  - [ ] functor
 - [ ] type checker & type inference
 - [ ] ... and more ...
 - [ ] **self-hosting!**
