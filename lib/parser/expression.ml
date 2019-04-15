@@ -195,70 +195,40 @@ and parse_let = function
     let rest, params = parse_lambda_fun_params rest in
     let rest, params, body = parse_let_fun_body params rest in
     rest, params_to_lambdas body params
-  (* `let rec` -> function definition *)
-  | L.Let :: L.Rec :: rest ->
-    let rec parse_function_name = function
-      | L.LowerIdent ident :: rest -> rest, ident
-      | _ -> failwith "could not find function name"
+  | L.Let :: rest ->
+    let rec parse_rec = function L.Rec :: rest -> rest, true | tokens -> tokens, false
     and parse_until_in rest =
-      let rest, ident = parse_function_name rest in
+      let rest, bind = Pat.parse_pattern rest in
       let rest, params = parse_let_fun_params rest in
       let rest, params, lhs = parse_let_fun_body params rest in
       match rest with
       | L.And :: rest ->
         let rest, acc = parse_until_in rest in
-        rest, (ident, params, lhs) :: acc
-      | rest -> rest, [ident, params, lhs]
+        rest, (bind, params, lhs) :: acc
+      | rest -> rest, [bind, params, lhs]
     and parse_in = function
       | L.In :: rest -> parse_expression rest
       | _ -> failwith "could not find `in`"
-    and conv_params (ident, params, lhs) =
+    and conv_params (bind, params, lhs) =
       match params with
-      | h :: t -> FunBind (ident, h, params_to_lambdas lhs t)
-      | [] -> VarBind (Pat.Var ident, lhs)
-    and single_and ident lhs rhs = function
-      | h :: t -> LetFun (true, ident, h, params_to_lambdas lhs t, rhs)
-      | [] -> LetVar (Pat.Var ident, lhs, rhs)
+      | h :: t ->
+        (match bind with
+        | Pat.Var ident -> FunBind (ident, h, params_to_lambdas lhs t)
+        | _ -> failwith "only variables are allowed to bind functions")
+      | [] -> VarBind (bind, lhs)
+    and single_and is_rec bind lhs rhs = function
+      | h :: t ->
+        (match bind with
+        | Pat.Var ident -> LetFun (is_rec, ident, h, params_to_lambdas lhs t, rhs)
+        | _ -> failwith "only variables are allowed to bind functions")
+      | [] -> LetVar (bind, lhs, rhs)
     in
+    let rest, is_rec = parse_rec rest in
     let rest, acc = parse_until_in rest in
     let rest, rhs = parse_in rest in
     (match acc with
-    | [(ident, params, lhs)] -> rest, single_and ident lhs rhs params
-    | l -> rest, LetAnd (true, List.map conv_params l, rhs))
-  | L.Let :: rest ->
-    let rest, bind = Pat.parse_pattern rest in
-    let rest, params, lhs =
-      match rest with
-      | L.Equal :: L.Function :: _ ->
-        (* function *)
-        let rest, params = parse_let_fun_params rest in
-        parse_let_fun_body params rest
-      | L.Equal :: rest ->
-        (* variable *)
-        let rest, lhs = parse_expression rest in
-        rest, [], lhs
-      | _ ->
-        (* function *)
-        let rest, params = parse_let_fun_params rest in
-        parse_let_fun_body params rest
-    in
-    (match rest with
-    | L.In :: rest ->
-      let rest, rhs = parse_expression rest in
-      (match params with
-      | [] -> rest, LetVar (bind, lhs, rhs)
-      | h :: t ->
-        let ident =
-          match bind with
-          | Pat.Var x -> x
-          | _ ->
-            failwith
-            @@ Printf.sprintf
-                 "cannot name function with pattern '%s'"
-                 (Pat.string_of_pattern bind)
-        in
-        rest, LetFun (false, ident, h, params_to_lambdas lhs t, rhs))
-    | _ -> failwith "could not find 'in'")
+    | [(bind, params, lhs)] -> rest, single_and is_rec bind lhs rhs params
+    | l -> rest, LetAnd (is_rec, List.map conv_params l, rhs))
   | tokens -> parse_match tokens
 
 and parse_follow tokens =
