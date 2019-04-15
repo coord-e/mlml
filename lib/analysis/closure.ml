@@ -143,8 +143,9 @@ and closure_conversion' i expr =
 
 and closure_conversion expr = closure_conversion' 0 expr
 
+let make_let_var_defn pat expr = Def.LetAnd (false, [Expr.VarBind (pat, expr)])
+
 let free_variables_defn = function
-  | Def.LetVar (_pat, lhs) -> free_variables lhs
   | Def.LetAnd (is_rec, l) ->
     let _, l = List.map (intros_and_free_of_binding is_rec) l |> List.split in
     List.fold_left SS.union SS.empty l
@@ -153,7 +154,6 @@ let free_variables_defn = function
 
 let closure_conversion_defn defn =
   match defn with
-  | Def.LetVar (pat, expr) -> Def.LetVar (pat, closure_conversion expr)
   | Def.LetAnd (is_rec, l) ->
     let fvs = free_variables_defn defn |> SS.elements in
     let evals, l = let_bindings_conversion 0 is_rec fvs l in
@@ -170,6 +170,6 @@ let closure_conversion_defn defn =
     let pats, values = List.fold_left folder (List.map aux vars) evals |> List.split in
     let resulting_pat = Pat.Tuple pats in
     let resulting_expr = Expr.Tuple values in
-    Def.LetVar (resulting_pat, Expr.LetAnd (is_rec, funs, resulting_expr))
+    make_let_var_defn resulting_pat (Expr.LetAnd (is_rec, funs, resulting_expr))
   | Def.Variant _ -> defn
 ;;

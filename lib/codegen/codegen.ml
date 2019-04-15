@@ -167,9 +167,6 @@ let rec codegen_expr ctx buf = function
     aux arms
 
 and codegen_definition ctx buf = function
-  | Def.LetVar (pat, lhs) ->
-    let lhs = codegen_expr ctx buf lhs in
-    pattern_match ctx buf pat lhs match_fail_label
   | Def.LetAnd (is_rec, l) ->
     let _, values = emit_let_binding_values ctx buf is_rec l in
     let def (name, ptr) = define_variable ctx buf name ptr in
