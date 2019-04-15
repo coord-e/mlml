@@ -9,6 +9,7 @@ type token =
   | Let
   | Rec
   | In
+  | And
   | Equal
   | DoubleEqual
   | NotEqual
@@ -84,6 +85,7 @@ let rec tokenize_aux acc rest =
       | "let" -> tokenize_aux (Let :: acc) rest
       | "rec" -> tokenize_aux (Rec :: acc) rest
       | "in" -> tokenize_aux (In :: acc) rest
+      | "and" -> tokenize_aux (And :: acc) rest
       | "true" -> tokenize_aux (BoolLiteral true :: acc) rest
       | "false" -> tokenize_aux (BoolLiteral false :: acc) rest
       | "if" -> tokenize_aux (If :: acc) rest
@@ -139,6 +141,7 @@ let string_of_token = function
   | Let -> "let"
   | Rec -> "rec"
   | In -> "in"
+  | And -> "and"
   | Equal -> "="
   | DoubleEqual -> "=="
   | NotEqual -> "!="

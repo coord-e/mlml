@@ -8,7 +8,7 @@ module L = Lexer
 
 type t =
   | LetVar of Pat.t * Expr.t
-  | LetFun of bool * string * Pat.t * Expr.t
+  | LetAnd of bool * Expr.let_binding list
   | Variant of string * (string * TyExpr.t option) list
 
 let try_parse_type = function
@@ -35,52 +35,12 @@ let try_parse_type = function
 let try_parse_let tokens =
   match tokens with
   | L.Type :: rest -> try_parse_type rest
-  (* function definition *)
-  | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
-    let rest, params = Expr.parse_let_fun_params rest in
-    let rest, params, lhs = Expr.parse_let_fun_body params rest in
-    (* check if let-in expression, which is not a definition *)
-    (match rest with
-    | L.In :: _ -> tokens, None
-    | _ ->
-      (match params with
-      (* TODO: Support let rec without arguments *)
-      | [] -> failwith "'let rec' without arguments"
-      | h :: t -> rest, Some (LetFun (true, ident, h, Expr.params_to_lambdas lhs t))))
   | L.Let :: rest ->
-    let rest, bind = Pat.parse_pattern rest in
-    let rest, params, lhs =
-      match rest with
-      | L.Equal :: L.Function :: _ ->
-        (* function *)
-        let rest, params = Expr.parse_let_fun_params rest in
-        Expr.parse_let_fun_body params rest
-      | L.Equal :: rest ->
-        (* variable *)
-        let rest, lhs = Expr.parse_expression rest in
-        rest, [], lhs
-      | _ ->
-        (* function *)
-        let rest, params = Expr.parse_let_fun_params rest in
-        Expr.parse_let_fun_body params rest
-    in
-    (* check if let-in expression, which is not a definition *)
+    let rest, is_rec = Expr.parse_rec rest in
+    let rest, binds = Expr.parse_let_bindings rest in
     (match rest with
     | L.In :: _ -> tokens, None
-    | _ ->
-      (match params with
-      | [] -> rest, Some (LetVar (bind, lhs))
-      | h :: t ->
-        let ident =
-          match bind with
-          | Pat.Var x -> x
-          | _ ->
-            failwith
-            @@ Printf.sprintf
-                 "cannot name function with pattern '%s'"
-                 (Pat.string_of_pattern bind)
-        in
-        rest, Some (LetFun (false, ident, h, Expr.params_to_lambdas lhs t))))
+    | _ -> rest, Some (LetAnd (is_rec, binds)))
   | tokens -> tokens, None
 ;;
 
@@ -100,14 +60,9 @@ let string_of_definition = function
       "Let (%s) = (%s)"
       (Pat.string_of_pattern pat)
       (Expr.string_of_expression lhs)
-  | LetFun (is_rec, ident, param, lhs) ->
-    let p = Pat.string_of_pattern param in
-    Printf.sprintf
-      "Let %s (%s) (%s) = (%s)"
-      (if is_rec then "rec" else "")
-      ident
-      p
-      (Expr.string_of_expression lhs)
+  | LetAnd (is_rec, l) ->
+    let l = List.map Expr.string_of_let_binding l |> String.concat " and " in
+    Printf.sprintf "Let %s %s" (if is_rec then "rec" else "") l
   | Variant (name, variants) ->
     let aux (ctor, param) =
       match param with
