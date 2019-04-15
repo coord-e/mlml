@@ -73,6 +73,27 @@ and parse_let_fun_body params = function
     let rest, body = parse_expression rest in
     rest, params, body
 
+and parse_let_bindings rest =
+  let rec parse_until_in rest =
+    let rest, bind = Pat.parse_pattern rest in
+    let rest, params = parse_let_fun_params rest in
+    let rest, params, lhs = parse_let_fun_body params rest in
+    match rest with
+    | L.And :: rest ->
+      let rest, acc = parse_until_in rest in
+      rest, (bind, params, lhs) :: acc
+    | rest -> rest, [bind, params, lhs]
+  and conv_params (bind, params, lhs) =
+    match params with
+    | h :: t ->
+      (match bind with
+      | Pat.Var ident -> FunBind (ident, h, params_to_lambdas lhs t)
+      | _ -> failwith "only variables are allowed to bind functions")
+    | [] -> VarBind (bind, lhs)
+  in
+  let rest, acc = parse_until_in rest in
+  rest, List.map conv_params acc
+
 and try_parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
@@ -194,31 +215,15 @@ and parse_let = function
     let rest, params, body = parse_let_fun_body params rest in
     rest, params_to_lambdas body params
   | L.Let :: rest ->
-    let rec parse_rec = function L.Rec :: rest -> rest, true | tokens -> tokens, false
-    and parse_until_in rest =
-      let rest, bind = Pat.parse_pattern rest in
-      let rest, params = parse_let_fun_params rest in
-      let rest, params, lhs = parse_let_fun_body params rest in
-      match rest with
-      | L.And :: rest ->
-        let rest, acc = parse_until_in rest in
-        rest, (bind, params, lhs) :: acc
-      | rest -> rest, [bind, params, lhs]
+    let parse_rec = function L.Rec :: rest -> rest, true | tokens -> tokens, false
     and parse_in = function
       | L.In :: rest -> parse_expression rest
       | _ -> failwith "could not find `in`"
-    and conv_params (bind, params, lhs) =
-      match params with
-      | h :: t ->
-        (match bind with
-        | Pat.Var ident -> FunBind (ident, h, params_to_lambdas lhs t)
-        | _ -> failwith "only variables are allowed to bind functions")
-      | [] -> VarBind (bind, lhs)
     in
     let rest, is_rec = parse_rec rest in
-    let rest, acc = parse_until_in rest in
+    let rest, binds = parse_let_bindings rest in
     let rest, rhs = parse_in rest in
-    rest, LetAnd (is_rec, List.map conv_params acc, rhs)
+    rest, LetAnd (is_rec, binds, rhs)
   | tokens -> parse_match tokens
 
 and parse_follow tokens =
