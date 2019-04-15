@@ -49,22 +49,10 @@ let rec codegen_expr ctx buf = function
   | Expr.Follow (lhs, rhs) ->
     let _ = codegen_expr ctx buf lhs in
     codegen_expr ctx buf rhs
-  | Expr.LetVar (pat, lhs, rhs) ->
-    let lhs = codegen_expr ctx buf lhs in
-    pattern_match ctx buf pat lhs match_fail_label;
-    let rhs = codegen_expr ctx buf rhs in
-    undef_variable_pattern ctx pat;
-    rhs
   | Expr.Var ident ->
     (match ident with
     | "print_int" -> function_ptr ctx buf print_int_label
     | _ -> StackValue (get_variable ctx ident))
-  | Expr.LetFun (is_rec, ident, param, lhs, rhs) ->
-    let lhs = emit_function_value ctx buf is_rec ident param lhs in
-    define_variable ctx buf ident lhs;
-    let rhs = codegen_expr ctx buf rhs in
-    undef_variable ctx ident;
-    rhs
   | Expr.LetAnd (is_rec, l, rhs) ->
     let pats, values = emit_let_binding_values ctx buf is_rec l in
     let def (name, ptr) = define_variable ctx buf name ptr in

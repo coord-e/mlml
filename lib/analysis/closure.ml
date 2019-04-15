@@ -17,18 +17,6 @@ let rec free_variables = function
   | Expr.NotPhysicalEqual (l, r) -> SS.union (free_variables l) (free_variables r)
   | Expr.Tuple values ->
     List.map free_variables values |> List.fold_left SS.union SS.empty
-  | Expr.LetVar (pat, lhs, rhs) ->
-    let intros = Pat.introduced_idents pat in
-    let lhs = free_variables lhs in
-    let rhs = free_variables rhs in
-    SS.union lhs (SS.diff rhs intros)
-  | Expr.LetFun (is_rec, ident, param, body, in_) ->
-    let intros = SS.singleton ident in
-    let param = Pat.introduced_idents param in
-    let param = if is_rec then SS.add ident param else param in
-    let body = free_variables body in
-    let in_ = free_variables in_ in
-    SS.union (SS.diff body param) (SS.diff in_ intros)
   | Expr.LetAnd (is_rec, l, in_) ->
     let in_ = free_variables in_ in
     let aux = function
@@ -70,26 +58,16 @@ let rec free_variables = function
 ;;
 
 let free_variable_list x = free_variables x |> SS.elements
+let make_let_var bind body in_ = Expr.LetAnd (false, [Expr.VarBind (bind, body)], in_)
+
+let make_let_fun is_rec ident param body in_ =
+  Expr.LetAnd (is_rec, [Expr.FunBind (ident, param, body)], in_)
+;;
 
 (* TODO: simplify application to subexpr *)
 let closure_conversion expr =
   let rec aux i expr =
     match expr with
-    | Expr.LetFun (is_rec, ident, param, body, in_) ->
-      let fvs = SS.diff (free_variables expr) (free_variables in_) |> SS.elements in
-      let body = aux i body in
-      let in_ = aux i in_ in
-      let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
-      let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
-      let real_body =
-        if is_rec
-        then Expr.LetVar (Pat.Var ident, Expr.Tuple [Expr.Var ident; fv_tuple], body)
-        else body
-      in
-      let real_param = Pat.Tuple [param; fv_pat] in
-      let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
-      let wrap = Expr.LetVar (Pat.Var ident, evalto, in_) in
-      Expr.LetFun (is_rec, ident, real_param, real_body, wrap)
     | Expr.LetAnd (is_rec, l, in_) ->
       let in_ = aux i in_ in
       let fvs = SS.diff (free_variables expr) (free_variables in_) |> SS.elements in
@@ -97,7 +75,7 @@ let closure_conversion expr =
       let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
       let folder_body_rec acc = function
         | Expr.FunBind (ident, _, _) ->
-          Expr.LetVar (Pat.Var ident, Expr.Tuple [Expr.Var ident; fv_tuple], acc)
+          make_let_var (Pat.Var ident) (Expr.Tuple [Expr.Var ident; fv_tuple]) acc
         | Expr.VarBind _ -> acc
       in
       let aux = function
@@ -114,7 +92,7 @@ let closure_conversion expr =
           None, Expr.VarBind (pat, body)
       in
       let folder_wrap acc = function
-        | Some (ident, evalto) -> Expr.LetVar (Pat.Var ident, evalto, acc)
+        | Some (ident, evalto) -> make_let_var (Pat.Var ident) evalto acc
         | None -> acc
       in
       let evals, l = List.map aux l |> List.split in
@@ -135,7 +113,7 @@ let closure_conversion expr =
       let fv_name = Printf.sprintf "_fv%d" i in
       let destruct = Pat.Tuple [Pat.Var f_name; Pat.Var fv_name] in
       let real_app = Expr.App (Expr.Var f_name, Expr.Tuple [rhs; Expr.Var fv_name]) in
-      Expr.LetVar (destruct, lhs, real_app)
+      make_let_var destruct lhs real_app
     | Expr.Var "print_int" -> Expr.Tuple [Expr.Var "print_int"; Expr.Tuple []]
     | Expr.Int _ | Expr.Var _ -> expr
     | Expr.Add (r, l) -> Expr.Add (aux i r, aux i l)
@@ -147,7 +125,6 @@ let closure_conversion expr =
     | Expr.PhysicalEqual (r, l) -> Expr.PhysicalEqual (aux i r, aux i l)
     | Expr.NotPhysicalEqual (r, l) -> Expr.NotPhysicalEqual (aux i r, aux i l)
     | Expr.IfThenElse (c, t, e) -> Expr.IfThenElse (aux i c, aux i t, aux i e)
-    | Expr.LetVar (pat, lhs, rhs) -> Expr.LetVar (pat, aux i lhs, aux i rhs)
     | Expr.Ctor (name, param) ->
       (match param with
       | Some param -> Expr.Ctor (name, Some (aux i param))
@@ -183,12 +160,12 @@ let closure_conversion_defn defn =
     let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
     let real_body =
       if is_rec
-      then Expr.LetVar (Pat.Var ident, Expr.Tuple [Expr.Var ident; fv_tuple], body)
+      then make_let_var (Pat.Var ident) (Expr.Tuple [Expr.Var ident; fv_tuple]) body
       else body
     in
     let real_param = Pat.Tuple [param; fv_pat] in
     let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
-    let f = Expr.LetFun (is_rec, ident, real_param, real_body, evalto) in
+    let f = make_let_fun is_rec ident real_param real_body evalto in
     Def.LetVar (Pat.Var ident, f)
   | Def.LetVar (pat, expr) -> Def.LetVar (pat, closure_conversion expr)
   | Def.Variant _ -> defn

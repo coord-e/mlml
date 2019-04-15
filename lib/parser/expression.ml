@@ -15,8 +15,6 @@ and t =
   | Sub of t * t
   | Mul of t * t
   | Follow of t * t
-  | LetVar of Pat.t * t * t
-  | LetFun of bool * string * Pat.t * t * t
   | LetAnd of bool * let_binding list * t
   | IfThenElse of t * t * t
   | App of t * t
@@ -277,21 +275,6 @@ and string_of_expression = function
   | NotPhysicalEqual (lhs, rhs) ->
     Printf.sprintf
       "NotPhysicalEqual (%s) (%s)"
-      (string_of_expression lhs)
-      (string_of_expression rhs)
-  | LetVar (pat, lhs, rhs) ->
-    Printf.sprintf
-      "Let (%s) = (%s) in (%s)"
-      (Pat.string_of_pattern pat)
-      (string_of_expression lhs)
-      (string_of_expression rhs)
-  | LetFun (is_rec, ident, param, lhs, rhs) ->
-    let p = Pat.string_of_pattern param in
-    Printf.sprintf
-      "Let %s (%s) (%s) = (%s) in (%s)"
-      (if is_rec then "rec" else "")
-      ident
-      p
       (string_of_expression lhs)
       (string_of_expression rhs)
   | LetAnd (is_rec, l, rhs) ->
