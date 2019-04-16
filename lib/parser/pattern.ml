@@ -60,14 +60,11 @@ and parse_pattern_tuple tokens =
 
 and parse_pattern_cons tokens =
   let tokens, lhs = parse_pattern_tuple tokens in
-  let rec aux lhs tokens =
-    match tokens with
-    | L.DoubleColon :: rest ->
-      let rest, rhs = parse_pattern_tuple rest in
-      aux (Cons (lhs, rhs)) rest
-    | _ -> tokens, lhs
-  in
-  aux lhs tokens
+  match tokens with
+  | L.DoubleColon :: tokens ->
+      let tokens, rhs = parse_pattern_cons tokens in
+      tokens, Cons (lhs, rhs)
+  | _ -> tokens, lhs
 
 and parse_pattern tokens = parse_pattern_cons tokens
 

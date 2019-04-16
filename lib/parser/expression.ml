@@ -163,14 +163,11 @@ and parse_add tokens =
 
 and parse_cons tokens =
   let tokens, lhs = parse_add tokens in
-  let rec aux lhs tokens =
-    match tokens with
-    | L.DoubleColon :: rest ->
-      let rest, rhs = parse_add rest in
-      aux (Cons (lhs, rhs)) rest
-    | _ -> tokens, lhs
-  in
-  aux lhs tokens
+  match tokens with
+  | L.DoubleColon :: tokens ->
+      let tokens, rhs = parse_cons tokens in
+      tokens, Cons (lhs, rhs)
+  | _ -> tokens, lhs
 
 and parse_equal tokens =
   let tokens, lhs = parse_cons tokens in
