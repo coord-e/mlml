@@ -165,6 +165,35 @@ let rec codegen_expr ctx buf = function
         StackValue eval_stack
     in
     aux arms
+  | Expr.Nil ->
+    let reg = alloc_register ctx in
+    let reg_value = RegisterValue reg in
+    (* size, flag -> 8 * 2 *)
+    alloc_heap_ptr_constsize ctx buf 16 reg_value;
+    (* data size *)
+    assign_to_address ctx buf (ConstantValue 8) reg_value 0;
+    (* nil -> 0, cons -> 1 *)
+    assign_to_address ctx buf (make_marked_const 0) reg_value (-8);
+    let s = StackValue (turn_into_stack ctx buf reg_value) in
+    free_register reg ctx;
+    s
+  | Expr.Cons (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    let reg = alloc_register ctx in
+    let reg_value = RegisterValue reg in
+    (* size, flag, lhs, rhs -> 8 * 4 *)
+    alloc_heap_ptr_constsize ctx buf 32 reg_value;
+    (* data size *)
+    assign_to_address ctx buf (ConstantValue 24) reg_value 0;
+    (* nil -> 0, cons -> 1 *)
+    assign_to_address ctx buf (make_marked_const 1) reg_value (-8);
+    (* actual data *)
+    assign_to_address ctx buf lhs reg_value (-16);
+    assign_to_address ctx buf rhs reg_value (-24);
+    let s = StackValue (turn_into_stack ctx buf reg_value) in
+    free_register reg ctx;
+    s
 
 and codegen_definition ctx buf = function
   | Def.LetAnd (is_rec, l) ->
