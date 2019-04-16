@@ -1,4 +1,5 @@
 #!/bin/bash
 
-[ -z "$(docker image ls -q mlml-dev)" ] && docker build "$(dirname $0)" -t mlml-dev
+source "$(dirname $0)/init.sh"
+
 docker run --rm -t -v $(pwd):/src mlml-dev
