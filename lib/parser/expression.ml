@@ -26,6 +26,8 @@ and t =
   | NotPhysicalEqual of t * t
   | Match of t * (Pat.t * t option * t) list
   | Lambda of Pat.t * t
+  | Cons of t * t
+  | Nil
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
@@ -112,6 +114,7 @@ and try_parse_literal tokens =
     (match try_parse_literal tokens with
     | rest, Some p -> rest, Some (Ctor (ident, Some p))
     | _, None -> tokens, Some (Ctor (ident, None)))
+  | L.LBracket :: L.RBracket :: tokens -> tokens, Some Nil
   | L.LParen :: tokens ->
     let rest, v = parse_expression tokens in
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
@@ -158,21 +161,32 @@ and parse_add tokens =
   in
   aux lhs tokens
 
-and parse_equal tokens =
+and parse_cons tokens =
   let tokens, lhs = parse_add tokens in
   let rec aux lhs tokens =
     match tokens with
-    | L.Equal :: rest ->
+    | L.DoubleColon :: rest ->
       let rest, rhs = parse_add rest in
+      aux (Cons (lhs, rhs)) rest
+    | _ -> tokens, lhs
+  in
+  aux lhs tokens
+
+and parse_equal tokens =
+  let tokens, lhs = parse_cons tokens in
+  let rec aux lhs tokens =
+    match tokens with
+    | L.Equal :: rest ->
+      let rest, rhs = parse_cons rest in
       aux (Equal (lhs, rhs)) rest
     | L.DoubleEqual :: rest ->
-      let rest, rhs = parse_add rest in
+      let rest, rhs = parse_cons rest in
       aux (PhysicalEqual (lhs, rhs)) rest
     | L.LtGt :: rest ->
-      let rest, rhs = parse_add rest in
+      let rest, rhs = parse_cons rest in
       aux (NotEqual (lhs, rhs)) rest
     | L.NotEqual :: rest ->
-      let rest, rhs = parse_add rest in
+      let rest, rhs = parse_cons rest in
       aux (NotPhysicalEqual (lhs, rhs)) rest
     | _ -> tokens, lhs
   in
@@ -322,6 +336,12 @@ and string_of_expression = function
   | Lambda (param, body) ->
     let p = Pat.string_of_pattern param in
     Printf.sprintf "(%s) -> (%s)" p (string_of_expression body)
+  | Cons (lhs, rhs) ->
+    Printf.sprintf
+      "Cons (%s) (%s)"
+      (string_of_expression lhs)
+      (string_of_expression rhs)
+  | Nil -> "Nil"
 ;;
 
 let f = parse_expression
