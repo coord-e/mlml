@@ -114,7 +114,17 @@ and try_parse_literal tokens =
     (match try_parse_literal tokens with
     | rest, Some p -> rest, Some (Ctor (ident, Some p))
     | _, None -> tokens, Some (Ctor (ident, None)))
-  | L.LBracket :: L.RBracket :: tokens -> tokens, Some Nil
+  | L.LBracket :: rest ->
+      let rec aux = function
+        | L.RBracket :: rest -> rest, Nil
+        | L.Semicolon :: rest -> aux rest
+        | tokens ->
+            let rest, lhs = parse_let tokens in
+            let rest, rhs = aux rest in
+            rest, Cons (lhs, rhs)
+      in
+      let rest, l = aux rest in
+      rest, Some l
   | L.LParen :: tokens ->
     let rest, v = parse_expression tokens in
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
