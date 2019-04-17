@@ -415,7 +415,8 @@ let rec pattern_match ctx buf pat v fail_label =
     emit_instruction buf
     (* nil -> 0, cons -> 1 *)
     @@ Printf.sprintf "cmpq $%d, %s" 0 (string_of_register reg);
-    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label)
+    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
+    free_register reg ctx
 ;;
 
 let undef_variable_pattern ctx pat =
@@ -506,7 +507,8 @@ let alloc_heap_ptr ctx buf size dest =
   let reg = alloc_register ctx in
   assign_to_register buf size reg;
   restore_marked_int buf reg;
-  alloc_heap_ptr_raw ctx buf (RegisterValue reg) dest
+  alloc_heap_ptr_raw ctx buf (RegisterValue reg) dest;
+  free_register reg ctx
 ;;
 
 let alloc_heap_ptr_constsize ctx buf size dest =
