@@ -4,15 +4,18 @@
 module L = Lexer
 module Pat = Pattern
 
-type t =
+type let_binding =
+  | VarBind of Pat.t * t
+  | FunBind of string * Pat.t * t
+
+and t =
   | Int of int
   | Tuple of t list
   | Add of t * t
   | Sub of t * t
   | Mul of t * t
   | Follow of t * t
-  | LetVar of Pat.t * t * t
-  | LetFun of bool * string * Pat.t * t * t
+  | LetAnd of bool * let_binding list * t
   | IfThenElse of t * t * t
   | App of t * t
   | Ctor of string * t option
@@ -23,6 +26,10 @@ type t =
   | NotPhysicalEqual of t * t
   | Match of t * (Pat.t * t option * t) list
   | Lambda of Pat.t * t
+  | Cons of t * t
+  | Nil
+
+let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
 (* fun x y z -> expr                      *)
 (* => fun x -> (fun y -> (fun z -> expr)) *)
@@ -70,6 +77,33 @@ and parse_let_fun_body params = function
     let rest, body = parse_expression rest in
     rest, params, body
 
+and parse_let_bindings rest =
+  let rec parse_until_in rest =
+    let rest, bind = Pat.parse_pattern rest in
+    let rest, params = parse_let_fun_params rest in
+    let rest, params, lhs = parse_let_fun_body params rest in
+    match rest with
+    | L.And :: rest ->
+      let rest, acc = parse_until_in rest in
+      rest, (bind, params, lhs) :: acc
+    | rest -> rest, [bind, params, lhs]
+  and conv_params (bind, params, lhs) =
+    match params with
+    | h :: t ->
+      (match bind with
+      | Pat.Var ident -> FunBind (ident, h, params_to_lambdas lhs t)
+      | _ -> failwith "only variables are allowed to bind functions")
+    | [] -> VarBind (bind, lhs)
+  in
+  let rest, acc = parse_until_in rest in
+  rest, List.map conv_params acc
+
+and parse_rec = function L.Rec :: rest -> rest, true | tokens -> tokens, false
+
+and parse_in = function
+  | L.In :: rest -> parse_expression rest
+  | _ -> failwith "could not find `in`"
+
 and try_parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
@@ -82,6 +116,17 @@ and try_parse_literal tokens =
     (match try_parse_literal tokens with
     | rest, Some p -> rest, Some (Ctor (ident, Some p))
     | _, None -> tokens, Some (Ctor (ident, None)))
+  | L.LBracket :: rest ->
+    let rec aux = function
+      | L.RBracket :: rest -> rest, Nil
+      | L.Semicolon :: rest -> aux rest
+      | tokens ->
+        let rest, lhs = parse_let tokens in
+        let rest, rhs = aux rest in
+        rest, Cons (lhs, rhs)
+    in
+    let rest, l = aux rest in
+    rest, Some l
   | L.LParen :: tokens ->
     let rest, v = parse_expression tokens in
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
@@ -128,21 +173,29 @@ and parse_add tokens =
   in
   aux lhs tokens
 
-and parse_equal tokens =
+and parse_cons tokens =
   let tokens, lhs = parse_add tokens in
+  match tokens with
+  | L.DoubleColon :: tokens ->
+    let tokens, rhs = parse_cons tokens in
+    tokens, Cons (lhs, rhs)
+  | _ -> tokens, lhs
+
+and parse_equal tokens =
+  let tokens, lhs = parse_cons tokens in
   let rec aux lhs tokens =
     match tokens with
     | L.Equal :: rest ->
-      let rest, rhs = parse_add rest in
+      let rest, rhs = parse_cons rest in
       aux (Equal (lhs, rhs)) rest
     | L.DoubleEqual :: rest ->
-      let rest, rhs = parse_add rest in
+      let rest, rhs = parse_cons rest in
       aux (PhysicalEqual (lhs, rhs)) rest
     | L.LtGt :: rest ->
-      let rest, rhs = parse_add rest in
+      let rest, rhs = parse_cons rest in
       aux (NotEqual (lhs, rhs)) rest
     | L.NotEqual :: rest ->
-      let rest, rhs = parse_add rest in
+      let rest, rhs = parse_cons rest in
       aux (NotPhysicalEqual (lhs, rhs)) rest
     | _ -> tokens, lhs
   in
@@ -192,55 +245,11 @@ and parse_let = function
     let rest, params = parse_lambda_fun_params rest in
     let rest, params, body = parse_let_fun_body params rest in
     rest, params_to_lambdas body params
-  (* `let rec` -> function definition *)
-  | L.Let :: L.Rec :: L.LowerIdent ident :: rest ->
-    let rest, params = parse_let_fun_params rest in
-    let rest, params, lhs = parse_let_fun_body params rest in
-    (match rest with
-    | L.In :: rest ->
-      let rest, rhs = parse_expression rest in
-      (match params with
-      (* TODO: Support let rec without arguments *)
-      | [] -> failwith "'let rec' without arguments"
-      | h :: t -> rest, LetFun (true, ident, h, params_to_lambdas lhs t, rhs))
-    | _ -> failwith "could not find 'in'")
-  | L.Let :: L.Rec :: t :: _ ->
-    failwith
-    @@ Printf.sprintf "unexpected token '%s' after let rec" (L.string_of_token t)
   | L.Let :: rest ->
-    let rest, bind = Pat.parse_pattern rest in
-    let rest, params, lhs =
-      match rest with
-      | L.Equal :: L.Function :: _ ->
-        (* function *)
-        let rest, params = parse_let_fun_params rest in
-        parse_let_fun_body params rest
-      | L.Equal :: rest ->
-        (* variable *)
-        let rest, lhs = parse_expression rest in
-        rest, [], lhs
-      | _ ->
-        (* function *)
-        let rest, params = parse_let_fun_params rest in
-        parse_let_fun_body params rest
-    in
-    (match rest with
-    | L.In :: rest ->
-      let rest, rhs = parse_expression rest in
-      (match params with
-      | [] -> rest, LetVar (bind, lhs, rhs)
-      | h :: t ->
-        let ident =
-          match bind with
-          | Pat.Var x -> x
-          | _ ->
-            failwith
-            @@ Printf.sprintf
-                 "cannot name function with pattern '%s'"
-                 (Pat.string_of_pattern bind)
-        in
-        rest, LetFun (false, ident, h, params_to_lambdas lhs t, rhs))
-    | _ -> failwith "could not find 'in'")
+    let rest, is_rec = parse_rec rest in
+    let rest, binds = parse_let_bindings rest in
+    let rest, rhs = parse_in rest in
+    rest, LetAnd (is_rec, binds, rhs)
   | tokens -> parse_match tokens
 
 and parse_follow tokens =
@@ -256,7 +265,17 @@ and parse_follow tokens =
 
 and parse_expression tokens = parse_follow tokens
 
-let rec string_of_expression = function
+let rec string_of_let_binding = function
+  | VarBind (pat, expr) ->
+    Printf.sprintf "(%s) = (%s)" (Pat.string_of_pattern pat) (string_of_expression expr)
+  | FunBind (ident, param, expr) ->
+    Printf.sprintf
+      "%s (%s) = (%s)"
+      ident
+      (Pat.string_of_pattern param)
+      (string_of_expression expr)
+
+and string_of_expression = function
   | Int num -> Printf.sprintf "Int %d" num
   | Tuple values ->
     let p = List.map string_of_expression values |> String.concat ", " in
@@ -289,20 +308,12 @@ let rec string_of_expression = function
       "NotPhysicalEqual (%s) (%s)"
       (string_of_expression lhs)
       (string_of_expression rhs)
-  | LetVar (pat, lhs, rhs) ->
+  | LetAnd (is_rec, l, rhs) ->
+    let l = List.map string_of_let_binding l |> String.concat " and " in
     Printf.sprintf
-      "Let (%s) = (%s) in (%s)"
-      (Pat.string_of_pattern pat)
-      (string_of_expression lhs)
-      (string_of_expression rhs)
-  | LetFun (is_rec, ident, param, lhs, rhs) ->
-    let p = Pat.string_of_pattern param in
-    Printf.sprintf
-      "Let %s (%s) (%s) = (%s) in (%s)"
+      "Let %s %s in (%s)"
       (if is_rec then "rec" else "")
-      ident
-      p
-      (string_of_expression lhs)
+      l
       (string_of_expression rhs)
   | App (lhs, rhs) ->
     Printf.sprintf "App (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
@@ -334,6 +345,9 @@ let rec string_of_expression = function
   | Lambda (param, body) ->
     let p = Pat.string_of_pattern param in
     Printf.sprintf "(%s) -> (%s)" p (string_of_expression body)
+  | Cons (lhs, rhs) ->
+    Printf.sprintf "Cons (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
+  | Nil -> "Nil"
 ;;
 
 let f = parse_expression

@@ -1,4 +1,5 @@
 (library
  (name parser)
- (libraries lexer))
+ (libraries lexer)
+ (preprocess (pps bisect_ppx -conditional)))
 

@@ -1,3 +1,4 @@
 (library
- (name lexer))
+ (name lexer)
+ (preprocess (pps bisect_ppx -conditional)))
 

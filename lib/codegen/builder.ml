@@ -387,6 +387,36 @@ let rec pattern_match ctx buf pat v fail_label =
     start_label buf join_label;
     let redef_vars name s = define_variable ctx buf name (StackValue s) in
     List.iter2 redef_vars idents resulting_area
+  | Pat.Cons (a, b) ->
+    (* assume v holds heap address *)
+    let reg = alloc_register ctx in
+    let reg_value = RegisterValue reg in
+    (* read the flag *)
+    read_from_address ctx buf v reg_value (-8);
+    restore_marked_int buf reg;
+    emit_instruction buf
+    (* nil -> 0, cons -> 1 *)
+    @@ Printf.sprintf "cmpq $%d, %s" 1 (string_of_register reg);
+    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
+    read_from_address ctx buf v reg_value (-16);
+    let s1 = turn_into_stack ctx buf reg_value in
+    read_from_address ctx buf v reg_value (-24);
+    let s2 = turn_into_stack ctx buf reg_value in
+    free_register reg ctx;
+    pattern_match ctx buf a (StackValue s1) fail_label;
+    pattern_match ctx buf b (StackValue s2) fail_label
+  | Pat.Nil ->
+    (* assume v holds heap address *)
+    let reg = alloc_register ctx in
+    let reg_value = RegisterValue reg in
+    (* read the flag *)
+    read_from_address ctx buf v reg_value (-8);
+    restore_marked_int buf reg;
+    emit_instruction buf
+    (* nil -> 0, cons -> 1 *)
+    @@ Printf.sprintf "cmpq $%d, %s" 0 (string_of_register reg);
+    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
+    free_register reg ctx
 ;;
 
 let undef_variable_pattern ctx pat =
@@ -477,7 +507,8 @@ let alloc_heap_ptr ctx buf size dest =
   let reg = alloc_register ctx in
   assign_to_register buf size reg;
   restore_marked_int buf reg;
-  alloc_heap_ptr_raw ctx buf (RegisterValue reg) dest
+  alloc_heap_ptr_raw ctx buf (RegisterValue reg) dest;
+  free_register reg ctx
 ;;
 
 let alloc_heap_ptr_constsize ctx buf size dest =
