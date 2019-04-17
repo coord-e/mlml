@@ -66,6 +66,11 @@ let rec print_list = function
   | h :: t -> print_int h; print_list t
 ;;
 
-print_list (parse l1) ;;
-print_list (parse l2) ;;
+let print_result r =
+  let _, l = r in
+  print_list l
+;;
+
+print_result (parse l1) ;;
+print_result (parse l2) ;;
   |}
