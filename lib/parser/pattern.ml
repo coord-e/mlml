@@ -6,6 +6,8 @@ type t =
   | Tuple of t list
   | Ctor of string * t option
   | Or of t * t
+  | Cons of t * t
+  | Nil
 
 let rec try_parse_pattern_literal tokens =
   match tokens with
@@ -17,6 +19,17 @@ let rec try_parse_pattern_literal tokens =
     (match try_parse_pattern_literal tokens with
     | rest, Some p -> rest, Some (Ctor (ident, Some p))
     | _, None -> tokens, Some (Ctor (ident, None)))
+  | L.LBracket :: rest ->
+      let rec aux = function
+        | L.RBracket :: rest -> rest, Nil
+        | L.Semicolon :: rest -> aux rest
+        | tokens ->
+            let rest, lhs = parse_pattern tokens in
+            let rest, rhs = aux rest in
+            rest, Cons (lhs, rhs)
+      in
+      let rest, l = aux rest in
+      rest, Some l
   | L.LParen :: tokens ->
     let rest, v = parse_pattern tokens in
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
@@ -55,7 +68,15 @@ and parse_pattern_tuple tokens =
   | [value] -> rest, value
   | _ -> rest, Tuple values
 
-and parse_pattern tokens = parse_pattern_tuple tokens
+and parse_pattern_cons tokens =
+  let tokens, lhs = parse_pattern_tuple tokens in
+  match tokens with
+  | L.DoubleColon :: tokens ->
+      let tokens, rhs = parse_pattern_cons tokens in
+      tokens, Cons (lhs, rhs)
+  | _ -> tokens, lhs
+
+and parse_pattern tokens = parse_pattern_cons tokens
 
 let rec string_of_pattern = function
   | Var x -> x
@@ -67,6 +88,8 @@ let rec string_of_pattern = function
     | Some rhs -> Printf.sprintf "%s (%s)" name (string_of_pattern rhs)
     | None -> name)
   | Or (a, b) -> Printf.sprintf "(%s) | (%s)" (string_of_pattern a) (string_of_pattern b)
+  | Cons (a, b) -> Printf.sprintf "(%s) :: (%s)" (string_of_pattern a) (string_of_pattern b)
+  | Nil -> "[]"
 ;;
 
 module SS = Set.Make (String)
@@ -79,6 +102,8 @@ let rec introduced_idents = function
   | Ctor (_, value) ->
     (match value with Some value -> introduced_idents value | None -> SS.empty)
   | Or (a, b) -> SS.union (introduced_idents a) (introduced_idents b)
+  | Cons (a, b) -> SS.union (introduced_idents a) (introduced_idents b)
+  | Nil -> SS.empty
 ;;
 
 let introduced_ident_list p = introduced_idents p |> SS.elements
