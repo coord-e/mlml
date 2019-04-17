@@ -73,4 +73,14 @@ let print_result r =
 
 print_result (parse l1) ;;
 print_result (parse l2) ;;
+  |};
+  Tester.expr {|
+let rec f = function
+  | [a; b] -> a + b
+  | [1] -> 10
+  | [x] -> x
+  | h :: t -> f [h] + f t
+  | _ -> 100
+in
+f [3; 1; 5; 2; 1; 7; 1; 10]
   |}
