@@ -1,12 +1,14 @@
 let () =
-  Tester.expr {|
+  Tester.expr
+    {|
 let v = 1 :: 2 :: 3 :: [] in
 let rec length = function
   | [] -> 0
   | _ :: t -> 1 + length t
 in length v
   |};
-  Tester.f {|
+  Tester.f
+    {|
 let v1 = [1; 2; 3] ;;
 let v2 = [4; 2; 9; 10;] ;;
 let rec print_list = function
@@ -21,14 +23,16 @@ and rev = function
 ;;
 print_list (rev (app v1 v2))
   |};
-  Tester.expr {|
+  Tester.expr
+    {|
 let v1 = [(1, 2); (2, 3); (3, 4)] in
 let rec f = function
   | [] -> 0
   | (x, y) :: t -> x + y + (f t)
 in f v1
   |};
-  Tester.expr {|
+  Tester.expr
+    {|
 let l = [1; 2; 3; 2; 3] in
 let rec f l =
   match l with
@@ -36,7 +40,8 @@ let rec f l =
   | _ -> 0
 in f l
   |};
-  Tester.f {|
+  Tester.f
+    {|
 type t =
   | A
   | G
@@ -74,7 +79,8 @@ let print_result r =
 print_result (parse l1) ;;
 print_result (parse l2) ;;
   |};
-  Tester.expr {|
+  Tester.expr
+    {|
 let rec f = function
   | [a; b] -> a + b
   | [1] -> 10
@@ -84,3 +90,4 @@ let rec f = function
 in
 f [3; 1; 5; 2; 1; 7; 1; 10]
   |}
+;;

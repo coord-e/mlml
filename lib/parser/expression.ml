@@ -115,16 +115,16 @@ and try_parse_literal tokens =
     | rest, Some p -> rest, Some (Ctor (ident, Some p))
     | _, None -> tokens, Some (Ctor (ident, None)))
   | L.LBracket :: rest ->
-      let rec aux = function
-        | L.RBracket :: rest -> rest, Nil
-        | L.Semicolon :: rest -> aux rest
-        | tokens ->
-            let rest, lhs = parse_let tokens in
-            let rest, rhs = aux rest in
-            rest, Cons (lhs, rhs)
-      in
-      let rest, l = aux rest in
-      rest, Some l
+    let rec aux = function
+      | L.RBracket :: rest -> rest, Nil
+      | L.Semicolon :: rest -> aux rest
+      | tokens ->
+        let rest, lhs = parse_let tokens in
+        let rest, rhs = aux rest in
+        rest, Cons (lhs, rhs)
+    in
+    let rest, l = aux rest in
+    rest, Some l
   | L.LParen :: tokens ->
     let rest, v = parse_expression tokens in
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
@@ -175,8 +175,8 @@ and parse_cons tokens =
   let tokens, lhs = parse_add tokens in
   match tokens with
   | L.DoubleColon :: tokens ->
-      let tokens, rhs = parse_cons tokens in
-      tokens, Cons (lhs, rhs)
+    let tokens, rhs = parse_cons tokens in
+    tokens, Cons (lhs, rhs)
   | _ -> tokens, lhs
 
 and parse_equal tokens =
@@ -344,10 +344,7 @@ and string_of_expression = function
     let p = Pat.string_of_pattern param in
     Printf.sprintf "(%s) -> (%s)" p (string_of_expression body)
   | Cons (lhs, rhs) ->
-    Printf.sprintf
-      "Cons (%s) (%s)"
-      (string_of_expression lhs)
-      (string_of_expression rhs)
+    Printf.sprintf "Cons (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | Nil -> "Nil"
 ;;
 

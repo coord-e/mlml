@@ -404,7 +404,7 @@ let rec pattern_match ctx buf pat v fail_label =
     let s2 = turn_into_stack ctx buf reg_value in
     free_register reg ctx;
     pattern_match ctx buf a (StackValue s1) fail_label;
-    pattern_match ctx buf b (StackValue s2) fail_label;
+    pattern_match ctx buf b (StackValue s2) fail_label
   | Pat.Nil ->
     (* assume v holds heap address *)
     let reg = alloc_register ctx in
@@ -415,7 +415,7 @@ let rec pattern_match ctx buf pat v fail_label =
     emit_instruction buf
     (* nil -> 0, cons -> 1 *)
     @@ Printf.sprintf "cmpq $%d, %s" 0 (string_of_register reg);
-    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
+    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label)
 ;;
 
 let undef_variable_pattern ctx pat =
