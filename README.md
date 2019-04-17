@@ -27,7 +27,7 @@ This compiler takes a source string as input, and produces x86\_64 assembly.
 - [x] structual comparison
 - [ ] primitive types
   - [ ] string
-  - [ ] list
+  - [x] list
 - [ ] module system
   - [ ] functor
 - [ ] type checker & type inference
