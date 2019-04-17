@@ -142,10 +142,8 @@ let rec codegen_expr ctx buf = function
     let v = codegen_expr ctx buf v in
     let join_label = new_unnamed_label ctx in
     let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
-    let save_stack_c = ctx.current_env.current_stack in
     let rec aux = function
       | (pat, when_, rhs) :: t ->
-        (ctx.current_env).current_stack <- save_stack_c;
         let next_label = new_unnamed_label ctx in
         pattern_match ctx buf pat v next_label;
         (match when_ with
