@@ -11,6 +11,7 @@ type let_binding =
 and t =
   | Int of int
   | Tuple of t list
+  | String of string
   | Add of t * t
   | Sub of t * t
   | Mul of t * t
@@ -111,6 +112,7 @@ and try_parse_literal tokens =
   | L.BoolLiteral b :: tokens -> tokens, Some (Int (if b then 1 else 0))
   (* TODO: Add char value *)
   | L.CharLiteral c :: tokens -> tokens, Some (Int (Char.code c))
+  | L.StringLiteral s :: tokens -> tokens, Some (String s)
   | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
   | L.CapitalIdent ident :: tokens ->
     (match try_parse_literal tokens with
@@ -280,6 +282,7 @@ and string_of_expression = function
   | Tuple values ->
     let p = List.map string_of_expression values |> String.concat ", " in
     Printf.sprintf "Tuple (%s)" p
+  | String s -> Printf.sprintf "String \"%s\"" s
   | Add (lhs, rhs) ->
     Printf.sprintf "Add (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | Sub (lhs, rhs) ->
