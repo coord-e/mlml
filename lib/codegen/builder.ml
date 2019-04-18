@@ -475,10 +475,13 @@ let emit_match_fail ctx buf _label _ret_label =
   B.emit_sub buf (B.Label (string_of_label str_label));
   B.emit_sub_inst buf ".string \"runtime error: patten match failed. aborted.\"";
   (* emit function body *)
-  B.emit_inst_fmt buf "leaq %s(%%rip), %%rdi" (string_of_label str_label);
-  B.emit_inst buf "call puts@PLT";
-  B.emit_inst buf "movl $1, %eax";
-  B.emit_inst buf "call exit@PLT"
+  let a1, free1 = nth_arg_register ctx 0 in
+  function_ptr_to_register buf str_label a1;
+  let _ = safe_call ctx buf "puts@PLT" [RegisterValue a1] in
+  free1 ctx;
+  assign_to_register buf (ConstantValue 1) ret_register;
+  let _ = safe_call ctx buf "exit@PLT" [RegisterValue a1] in
+  ()
 ;;
 
 let emit_print_int_function ctx buf _label _ret_label =
@@ -492,11 +495,7 @@ let emit_print_int_function ctx buf _label _ret_label =
   (* read the first element of closure tuple *)
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a2) (-8);
   B.emit_inst_fmt buf "shrq $1, %s" (string_of_register a2);
-  B.emit_inst_fmt
-    buf
-    "leaq %s(%%rip), %s"
-    (string_of_label str_label)
-    (string_of_register a1);
+  function_ptr_to_register buf str_label a1;
   B.emit_inst buf "xorq %rax, %rax";
   let _ = safe_call ctx buf "printf@PLT" [RegisterValue a1; RegisterValue a2] in
   free1 ctx;
