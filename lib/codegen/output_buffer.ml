@@ -21,11 +21,21 @@ let emit_inst buf inst = emit buf (Inst inst)
 let emit_sub_inst buf inst = emit_sub buf (Inst inst)
 
 (* placeholder handlings *)
-let emit_placeholder buf =
+let create_placeholder buf =
   let i = buf.placeholder_index in
   buf.placeholder_index <- i + 1;
-  let p = Holder i in
+  Holder i
+;;
+
+let emit_placeholder buf =
+  let p = create_placeholder buf in
   emit buf (Placeholder p);
+  p
+;;
+
+let emit_sub_placeholder buf =
+  let p = create_placeholder buf in
+  emit_sub buf (Placeholder p);
   p
 ;;
 
