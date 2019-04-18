@@ -146,7 +146,8 @@ let make_marked_int buf reg =
   B.emit_inst_fmt buf "incq %s" (string_of_register reg)
 ;;
 
-let make_marked_const i = ConstantValue ((i * 2) + 1)
+let calc_marked_const i = (i * 2) + 1
+let make_marked_const i = ConstantValue (calc_marked_const i)
 
 let restore_marked_int buf reg =
   B.emit_inst_fmt buf "shrq $1, %s" (string_of_register reg)

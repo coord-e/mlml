@@ -7,6 +7,18 @@ module B = Output_buffer
 
 let rec codegen_expr ctx buf = function
   | Expr.Int num -> make_marked_const num
+  | Expr.String s ->
+    let len = String.length s in
+    (* emit data *)
+    let str_label = new_unnamed_label ctx in
+    B.emit_sub buf (B.Label (string_of_label str_label));
+    B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const len;
+    B.emit_sub_inst_fmt buf ".ascii \"%s\"" s;
+    let r = alloc_register ctx in
+    label_ptr_to_register buf str_label r;
+    let s = turn_into_stack ctx buf (RegisterValue r) in
+    free_register r ctx;
+    StackValue s
   | Expr.Add (lhs, rhs) ->
     (* make(a) + make(b)     *)
     (* = (2a + 1) + (2b + 1) *)
