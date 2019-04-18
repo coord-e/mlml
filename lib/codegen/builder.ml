@@ -88,6 +88,7 @@ let new_local_env () =
 
 let match_fail_label = Label ".match_fail"
 let print_int_label = Label "_print_int"
+let mlml_equal_label = Label "_mlml_equal"
 
 let new_context () =
   { used_labels = LS.of_list [print_int_label; match_fail_label]

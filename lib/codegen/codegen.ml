@@ -96,12 +96,12 @@ let rec codegen_expr ctx buf = function
   | Expr.Equal (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let ret = safe_call ctx buf "_mlml_equal" [lhs; rhs] in
+    let ret = safe_call ctx buf (string_of_label mlml_equal_label) [lhs; rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.NotEqual (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let ret = safe_call ctx buf "_mlml_equal" [lhs; rhs] in
+    let ret = safe_call ctx buf (string_of_label mlml_equal_label) [lhs; rhs] in
     (* marked bool inversion *)
     (* 11 -> 01              *)
     (* 01 -> 11              *)
@@ -318,6 +318,6 @@ let f ast =
   emit_module ctx buf (Label "main") ast;
   let _ = emit_function_with ctx buf print_int_label emit_print_int_function in
   let _ = emit_function_with ctx buf match_fail_label emit_match_fail in
-  let _ = emit_function_with ctx buf (Label "_mlml_equal") emit_equal_function in
+  let _ = emit_function_with ctx buf mlml_equal_label emit_equal_function in
   B.contents buf
 ;;
