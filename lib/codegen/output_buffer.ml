@@ -35,14 +35,17 @@ let substitute buf holder line =
 ;;
 
 let prepend_buffer a b =
-  a.main <- a.main @ b.main;
-  a.sub <- a.sub @ b.sub
+  let a_idx = a.placeholder_index in
+  let aux = function
+    | Placeholder (Holder i) -> Placeholder (Holder (i + a_idx))
+    | l -> l
+  in
+  a.main <- List.map aux b.main |> List.append a.main;
+  a.sub <- List.map aux b.sub |> List.append a.sub;
+  a.placeholder_index <- a_idx + b.placeholder_index
 ;;
 
-let append_buffer a b =
-  a.main <- b.main @ a.main;
-  a.sub <- b.sub @ a.sub
-;;
+let append_buffer a b = prepend_buffer b a
 
 let contents buf =
   let aux = function

@@ -236,12 +236,11 @@ and emit_function_with ctx main_buf label fn =
   B.emit_inst buf "popq %rbp";
   B.emit_inst buf "ret";
   let _ = use_env ctx old_env in
-  (* TODO: Use more effective and sufficient way to prepend to the buffer *)
-  B.prepend_buffer main_buf buf;
   B.substitute
-    main_buf
+    buf
     subq_place
-    (B.Inst (Printf.sprintf "subq $%d, %%rsp" (-stack_used + 7)))
+    (B.Inst (Printf.sprintf "subq $%d, %%rsp" (-stack_used + 7)));
+  B.prepend_buffer main_buf buf
 
 and emit_let_bindings ctx buf is_rec l =
   (* TODO: remove `failwith "unreachable"` *)
