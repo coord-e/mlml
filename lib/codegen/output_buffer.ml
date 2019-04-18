@@ -1,6 +1,6 @@
 type line =
   | Inst of string
-  | Subst of string
+  | Placeholder of string
 
 type t =
   { mutable main : line list
@@ -21,10 +21,10 @@ let emit_sub buf inst =
   emit_sub' buf s
 ;;
 
-let emit_substitution buf label = buf.main <- Subst label :: buf.main
+let emit_placeholder buf label = buf.main <- Placeholder label :: buf.main
 
 let substitute buf f =
-  let aux = function Subst l -> f l | l -> l in
+  let aux = function Placeholder l -> f l | l -> l in
   buf.main <- List.map aux buf.main
 ;;
 
@@ -39,6 +39,6 @@ let append_buffer a b =
 ;;
 
 let contents buf =
-  let aux = function Inst s -> s | Subst _ -> failwith "subst is left" in
+  let aux = function Inst s -> s | Placeholder _ -> failwith "subst is left" in
   List.rev buf.main |> List.rev_append buf.sub |> List.map aux |> String.concat "\n"
 ;;

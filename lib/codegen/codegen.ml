@@ -218,8 +218,7 @@ and emit_function_with ctx main_buf label fn =
   start_global_label buf label;
   B.emit_instruction buf "pushq %rbp";
   B.emit_instruction buf "movq %rsp, %rbp";
-  B.emit_substitution buf
-  @@ Printf.sprintf "replace_with_subq_%s" (string_of_label label);
+  B.emit_placeholder buf @@ Printf.sprintf "replace_with_subq_%s" (string_of_label label);
   (* save registers (non-volatile registers) *)
   let exclude_rbp_rsp = function
     | Register "%rbp" | Register "%rsp" -> false
@@ -245,7 +244,7 @@ and emit_function_with ctx main_buf label fn =
     let s = Printf.sprintf "replace_with_subq_%s" (string_of_label label) in
     if x = s
     then B.Inst (Printf.sprintf "subq $%d, %%rsp" (-stack_used + 7))
-    else B.Subst x
+    else B.Placeholder x
   in
   B.substitute main_buf replace
 
