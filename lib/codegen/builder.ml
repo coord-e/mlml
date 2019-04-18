@@ -1,5 +1,6 @@
 module P = Parser
 module Pat = P.Pattern
+module B = Output_buffer
 
 type register = Register of string
 type stack = Stack of int
@@ -80,48 +81,14 @@ let non_volatile_registers =
 ;;
 
 let ret_register = Register "%rax"
-let print_int_label = Label "_print_int"
 
 let new_local_env () =
   {unused_registers = usable_registers; current_stack = -8; vars = Hashtbl.create 10}
 ;;
 
-let emit_match_fail buf =
-  Buffer.add_string
-    buf
-    {|
-.section .rodata
-.string_of_match_fail:
-  .string	"runtime error: patten match failed. aborted."
-.match_fail:
-  leaq	.string_of_match_fail(%rip), %rdi
-  call	puts@PLT
-  movl	$1, %eax
-  call	exit@PLT
-|}
-;;
-
 let match_fail_label = Label ".match_fail"
-
-let emit_print_int_function buf =
-  Buffer.add_string
-    buf
-    {|
-.section .rodata
-.string_of_print_int:
-  .string	"%ld"
-_print_int:
-  pushq	%rbp
-  movq	%rsp, %rbp
-  movq	-8(%rdi), %rsi
-  shrq $1, %rsi
-  leaq	.string_of_print_int(%rip), %rdi
-  movl	$0, %eax
-  call	printf@PLT
-  leave
-  ret
-|}
-;;
+let print_int_label = Label "_print_int"
+let mlml_equal_label = Label "_mlml_equal"
 
 let new_context () =
   { used_labels = LS.of_list [print_int_label; match_fail_label]
@@ -173,34 +140,27 @@ let free_register reg ctx =
   then (ctx.current_env).unused_registers <- RS.add reg ctx.current_env.unused_registers
 ;;
 
-let emit_instruction buf inst =
-  Buffer.add_char buf '\t';
-  Buffer.add_string buf inst;
-  Buffer.add_char buf '\n'
-;;
-
 let make_marked_int buf reg =
   (* TODO: Use imul or add? *)
-  emit_instruction buf @@ Printf.sprintf "shlq $1, %s" (string_of_register reg);
-  emit_instruction buf @@ Printf.sprintf "incq %s" (string_of_register reg)
+  B.emit_inst_fmt buf "shlq $1, %s" (string_of_register reg);
+  B.emit_inst_fmt buf "incq %s" (string_of_register reg)
 ;;
 
 let make_marked_const i = ConstantValue ((i * 2) + 1)
 
 let restore_marked_int buf reg =
-  emit_instruction buf @@ Printf.sprintf "shrq $1, %s" (string_of_register reg)
+  B.emit_inst_fmt buf "shrq $1, %s" (string_of_register reg)
 ;;
 
-let start_label buf label = Buffer.add_string buf @@ string_of_label label ^ ":\n"
+let start_label buf label = B.emit buf (B.Label (string_of_label label))
 
 let start_global_label buf label =
-  emit_instruction buf @@ ".globl " ^ string_of_label label;
+  B.emit_inst buf @@ ".globl " ^ string_of_label label;
   start_label buf label
 ;;
 
 let assign_to_register buf v reg =
-  emit_instruction buf
-  @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_register reg)
+  B.emit_inst_fmt buf "movq %s, %s" (string_of_value v) (string_of_register reg)
 ;;
 
 let turn_into_register ctx buf = function
@@ -214,8 +174,7 @@ let turn_into_register ctx buf = function
 let rec assign_to_stack ctx buf v stack =
   match v with
   | RegisterValue _ | ConstantValue _ ->
-    emit_instruction buf
-    @@ Printf.sprintf "movq %s, %s" (string_of_value v) (string_of_stack stack)
+    B.emit_inst_fmt buf "movq %s, %s" (string_of_value v) (string_of_stack stack)
   | StackValue _ ->
     let reg, free = turn_into_register ctx buf v in
     assign_to_stack ctx buf (RegisterValue reg) stack;
@@ -235,12 +194,12 @@ let turn_into_stack ctx buf = function StackValue s -> s | v -> push_to_stack ct
 let assign_to_address ctx buf src dest offset =
   let src, free_src = turn_into_register ctx buf src in
   let dest, free_dest = turn_into_register ctx buf dest in
-  emit_instruction buf
-  @@ Printf.sprintf
-       "movq %s, %d(%s)"
-       (string_of_register src)
-       offset
-       (string_of_register dest);
+  B.emit_inst_fmt
+    buf
+    "movq %s, %d(%s)"
+    (string_of_register src)
+    offset
+    (string_of_register dest);
   free_src ctx;
   free_dest ctx
 ;;
@@ -248,15 +207,14 @@ let assign_to_address ctx buf src dest offset =
 let read_from_address ctx buf src dest_raw offset =
   let src, free_src = turn_into_register ctx buf src in
   let dest, free_dest = turn_into_register ctx buf dest_raw in
-  emit_instruction buf
-  @@ Printf.sprintf
-       "movq %d(%s), %s"
-       offset
-       (string_of_register src)
-       (string_of_register dest);
+  B.emit_inst_fmt
+    buf
+    "movq %d(%s), %s"
+    offset
+    (string_of_register src)
+    (string_of_register dest);
   free_src ctx;
-  emit_instruction buf
-  @@ Printf.sprintf "movq %s, %s" (string_of_register dest) (string_of_value dest_raw);
+  B.emit_inst_fmt buf "movq %s, %s" (string_of_register dest) (string_of_value dest_raw);
   free_dest ctx
 ;;
 
@@ -306,7 +264,7 @@ let safe_call ctx buf name args =
     x, s
   in
   let saved_regs = RS.elements regs_to_save |> List.map saver in
-  emit_instruction buf @@ "call " ^ name;
+  B.emit_inst buf @@ "call " ^ name;
   List.iter (fun f -> f ctx) free_fns;
   let restore (x, s) = assign_to_register buf (StackValue s) x in
   List.iter restore saved_regs;
@@ -347,9 +305,8 @@ let rec pattern_match ctx buf pat v fail_label =
     let reg_value = RegisterValue reg in
     read_from_address ctx buf v reg_value (-8);
     restore_marked_int buf reg;
-    emit_instruction buf
-    @@ Printf.sprintf "cmpq $%d, %s" actual_idx (string_of_register reg);
-    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
+    B.emit_inst_fmt buf "cmpq $%d, %s" actual_idx (string_of_register reg);
+    B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
     (match p with
     | Some p ->
       read_from_address ctx buf v reg_value (-16);
@@ -360,8 +317,8 @@ let rec pattern_match ctx buf pat v fail_label =
   | Pat.Int x ->
     let reg, free = turn_into_register ctx buf v in
     restore_marked_int buf reg;
-    emit_instruction buf @@ Printf.sprintf "cmpq $%d, %s" x (string_of_register reg);
-    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
+    B.emit_inst_fmt buf "cmpq $%d, %s" x (string_of_register reg);
+    B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
     free ctx
   | Pat.Or (a, b) ->
     let idents = Pat.introduced_ident_list a in
@@ -380,7 +337,7 @@ let rec pattern_match ctx buf pat v fail_label =
     let join_label = new_unnamed_label ctx in
     pattern_match ctx buf a v right_label;
     List.iter2 store_result idents resulting_area;
-    emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
+    B.emit_inst_fmt buf "jmp %s" (string_of_label join_label);
     start_label buf right_label;
     pattern_match ctx buf b v fail_label;
     List.iter2 store_result idents resulting_area;
@@ -394,10 +351,9 @@ let rec pattern_match ctx buf pat v fail_label =
     (* read the flag *)
     read_from_address ctx buf v reg_value (-8);
     restore_marked_int buf reg;
-    emit_instruction buf
     (* nil -> 0, cons -> 1 *)
-    @@ Printf.sprintf "cmpq $%d, %s" 1 (string_of_register reg);
-    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
+    B.emit_inst_fmt buf "cmpq $%d, %s" 1 (string_of_register reg);
+    B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
     read_from_address ctx buf v reg_value (-16);
     let s1 = turn_into_stack ctx buf reg_value in
     read_from_address ctx buf v reg_value (-24);
@@ -412,10 +368,9 @@ let rec pattern_match ctx buf pat v fail_label =
     (* read the flag *)
     read_from_address ctx buf v reg_value (-8);
     restore_marked_int buf reg;
-    emit_instruction buf
     (* nil -> 0, cons -> 1 *)
-    @@ Printf.sprintf "cmpq $%d, %s" 0 (string_of_register reg);
-    emit_instruction buf @@ Printf.sprintf "jne %s" (string_of_label fail_label);
+    B.emit_inst_fmt buf "cmpq $%d, %s" 0 (string_of_register reg);
+    B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
     free_register reg ctx
 ;;
 
@@ -423,14 +378,17 @@ let undef_variable_pattern ctx pat =
   List.iter (undef_variable ctx) (Pat.introduced_ident_list pat)
 ;;
 
-let function_ptr_to_register buf label reg =
-  emit_instruction buf
-  @@ Printf.sprintf "leaq %s(%%rip), %s" (string_of_label label) (string_of_register reg)
+let label_ptr_to_register buf label reg =
+  B.emit_inst_fmt
+    buf
+    "leaq %s(%%rip), %s"
+    (string_of_label label)
+    (string_of_register reg)
 ;;
 
 let function_ptr ctx buf label =
   let reg = alloc_register ctx in
-  function_ptr_to_register buf label reg;
+  label_ptr_to_register buf label reg;
   let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
   free_register reg ctx;
   s
@@ -455,11 +413,9 @@ let string_of_comparison = function
 
 let branch_by_comparison ctx buf cmp v1 v2 label =
   let value, free = turn_into_register ctx buf v2 in
-  emit_instruction buf
-  @@ Printf.sprintf "cmpq %s, %s" (string_of_value v1) (string_of_register value);
+  B.emit_inst_fmt buf "cmpq %s, %s" (string_of_value v1) (string_of_register value);
   free ctx;
-  emit_instruction buf
-  @@ Printf.sprintf "j%s %s" (string_of_comparison cmp) (string_of_label label)
+  B.emit_inst_fmt buf "j%s %s" (string_of_comparison cmp) (string_of_label label)
 ;;
 
 let branch_by_value ctx buf cmp = branch_by_comparison ctx buf cmp (make_marked_const 0)
@@ -470,10 +426,9 @@ let branch_by_value_type ctx buf cmp value label =
   let value, free = turn_into_register ctx buf value in
   (* If the value is pointer, ZF is set to 1 *)
   (* otherwise, ZF is set to 0               *)
-  emit_instruction buf @@ Printf.sprintf "test $1, %s" (string_of_register value);
+  B.emit_inst_fmt buf "test $1, %s" (string_of_register value);
   free ctx;
-  emit_instruction buf
-  @@ Printf.sprintf "j%s %s" (string_of_comparison cmp) (string_of_label label)
+  B.emit_inst_fmt buf "j%s %s" (string_of_comparison cmp) (string_of_label label)
 ;;
 
 let branch_if_pointer ctx buf = branch_by_value_type ctx buf Eq
@@ -484,11 +439,10 @@ let comparison_to_value ctx buf cmp v1 v2 =
   (* Use rdx temporarily (8-bit register(dl) is needed) *)
   let rdx = Register "%rdx" in
   use_register ctx rdx;
-  emit_instruction buf
-  @@ Printf.sprintf "cmpq %s, %s" (string_of_value v1) (string_of_register v2);
+  B.emit_inst_fmt buf "cmpq %s, %s" (string_of_value v1) (string_of_register v2);
   free ctx;
-  emit_instruction buf @@ Printf.sprintf "set%s %%dl" (string_of_comparison cmp);
-  emit_instruction buf "movzbq %dl, %rdx";
+  B.emit_inst_fmt buf "set%s %%dl" (string_of_comparison cmp);
+  B.emit_inst buf "movzbq %dl, %rdx";
   make_marked_int buf rdx;
   let s = push_to_stack ctx buf (RegisterValue rdx) in
   free_register rdx ctx;
@@ -515,6 +469,39 @@ let alloc_heap_ptr_constsize ctx buf size dest =
   alloc_heap_ptr_raw ctx buf (ConstantValue size) dest
 ;;
 
+let emit_match_fail ctx buf _label _ret_label =
+  (* emit data *)
+  let str_label = new_label ctx ".string_of_match_fail" in
+  B.emit_sub buf (B.Label (string_of_label str_label));
+  B.emit_sub_inst buf ".string \"runtime error: patten match failed. aborted.\"";
+  (* emit function body *)
+  let a1, free1 = nth_arg_register ctx 0 in
+  label_ptr_to_register buf str_label a1;
+  let _ = safe_call ctx buf "puts@PLT" [RegisterValue a1] in
+  free1 ctx;
+  assign_to_register buf (ConstantValue 1) ret_register;
+  let _ = safe_call ctx buf "exit@PLT" [RegisterValue a1] in
+  ()
+;;
+
+let emit_print_int_function ctx buf _label _ret_label =
+  (* emit data *)
+  let str_label = new_label ctx ".string_of_print_int" in
+  B.emit_sub buf (B.Label (string_of_label str_label));
+  B.emit_sub_inst buf ".string \"%ld\"";
+  (* emit function body *)
+  let a1, free1 = nth_arg_register ctx 0 in
+  let a2, free2 = nth_arg_register ctx 1 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a2) (-8);
+  B.emit_inst_fmt buf "shrq $1, %s" (string_of_register a2);
+  label_ptr_to_register buf str_label a1;
+  B.emit_inst buf "xorq %rax, %rax";
+  let _ = safe_call ctx buf "printf@PLT" [RegisterValue a1; RegisterValue a2] in
+  free1 ctx;
+  free2 ctx
+;;
+
 let emit_equal_function ctx buf label ret_label =
   (* TODO: Enable to take expected result and return earlier *)
   let arg1, free1 = nth_arg_register ctx 0 in
@@ -536,9 +523,9 @@ let emit_equal_function ctx buf label ret_label =
   assign_to_register buf (RegisterValue arg2) v2;
   start_label buf loop_label;
   branch_by_comparison ctx buf Eq num (RegisterValue count) ret_label;
-  emit_instruction buf @@ Printf.sprintf "addq $8, %s" (string_of_register count);
-  emit_instruction buf @@ Printf.sprintf "subq $8, %s" (string_of_register v1);
-  emit_instruction buf @@ Printf.sprintf "subq $8, %s" (string_of_register v2);
+  B.emit_inst_fmt buf "addq $8, %s" (string_of_register count);
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_register v1);
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_register v2);
   read_from_address ctx buf (RegisterValue v1) (RegisterValue arg1) 0;
   read_from_address ctx buf (RegisterValue v2) (RegisterValue arg2) 0;
   let res =
@@ -548,7 +535,7 @@ let emit_equal_function ctx buf label ret_label =
   free_register v1 ctx;
   free_register v2 ctx;
   branch_if_falsy ctx buf (RegisterValue res) ret_label;
-  emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label loop_label);
+  B.emit_inst_fmt buf "jmp %s" (string_of_label loop_label);
   (* direct comparison branch *)
   start_label buf direct_label;
   let s = comparison_to_value ctx buf Eq (RegisterValue arg1) (RegisterValue arg2) in
