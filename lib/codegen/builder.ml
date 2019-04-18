@@ -504,6 +504,7 @@ let emit_print_int_function ctx buf _label _ret_label =
        "leaq %s(%%rip), %s"
        (string_of_label str_label)
        (string_of_register a1);
+  B.emit_instruction buf "xorq %rax, %rax";
   let _ = safe_call ctx buf "printf@PLT" [RegisterValue a1; RegisterValue a2] in
   free1 ctx;
   free2 ctx
