@@ -9,11 +9,15 @@ let rec codegen_expr ctx buf = function
   | Expr.Int num -> make_marked_const num
   | Expr.String s ->
     let len = String.length s in
+    let aligned = (len / 8 + 1) * 8 in
     (* emit data *)
     let str_label = new_unnamed_label ctx in
     B.emit_sub buf (B.Label (string_of_label str_label));
+    B.emit_sub_inst_fmt buf ".quad %d" (aligned + 8);
     B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const len;
-    B.emit_sub_inst_fmt buf ".ascii \"%s\"" s;
+    B.emit_sub_inst_fmt buf ".string \"%s\"" s;
+    let pad = aligned - len - 1 in
+    B.emit_sub_inst_fmt buf ".fill %d" pad;
     let r = alloc_register ctx in
     label_ptr_to_register buf str_label r;
     let s = turn_into_stack ctx buf (RegisterValue r) in
