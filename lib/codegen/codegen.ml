@@ -217,7 +217,7 @@ and emit_function_with ctx main_buf label fn =
   start_global_label buf label;
   B.emit_inst buf "pushq %rbp";
   B.emit_inst buf "movq %rsp, %rbp";
-  B.emit_placeholder buf @@ Printf.sprintf "replace_with_subq_%s" (string_of_label label);
+  let subq_place = B.emit_placeholder buf in
   (* save registers (non-volatile registers) *)
   let exclude_rbp_rsp = function
     | Register "%rbp" | Register "%rsp" -> false
@@ -238,14 +238,10 @@ and emit_function_with ctx main_buf label fn =
   let _ = use_env ctx old_env in
   (* TODO: Use more effective and sufficient way to prepend to the buffer *)
   B.prepend_buffer main_buf buf;
-  (* TODO: Use more effective way to insert subq instruction *)
-  let replace x =
-    let s = Printf.sprintf "replace_with_subq_%s" (string_of_label label) in
-    if x = s
-    then B.Inst (Printf.sprintf "subq $%d, %%rsp" (-stack_used + 7))
-    else B.Placeholder x
-  in
-  B.substitute main_buf replace
+  B.substitute
+    main_buf
+    subq_place
+    (B.Inst (Printf.sprintf "subq $%d, %%rsp" (-stack_used + 7)))
 
 and emit_let_bindings ctx buf is_rec l =
   (* TODO: remove `failwith "unreachable"` *)

@@ -1,13 +1,16 @@
+type placeholder = Holder of int
+
 type line =
   | Label of string
   | Inst of string
-  | Placeholder of string
+  | Placeholder of placeholder
 
 type t =
   { mutable main : line list
-  ; mutable sub : line list }
+  ; mutable sub : line list
+  ; mutable placeholder_index : int }
 
-let create () = {main = []; sub = []}
+let create () = {main = []; sub = []; placeholder_index = 0}
 
 (* basic emit functions *)
 let emit buf line = buf.main <- line :: buf.main
@@ -16,10 +19,18 @@ let emit_sub buf line = buf.sub <- line :: buf.sub
 (* auxiliary functions *)
 let emit_inst buf inst = emit buf (Inst inst)
 let emit_sub_inst buf inst = emit_sub buf (Inst inst)
-let emit_placeholder buf s = emit buf (Placeholder s)
 
-let substitute buf f =
-  let aux = function Placeholder l -> f l | l -> l in
+(* placeholder handlings *)
+let emit_placeholder buf =
+  let i = buf.placeholder_index in
+  buf.placeholder_index <- i + 1;
+  let p = Holder i in
+  emit buf (Placeholder p);
+  p
+;;
+
+let substitute buf holder line =
+  let aux = function Placeholder l when l = holder -> line | l -> l in
   buf.main <- List.map aux buf.main
 ;;
 
