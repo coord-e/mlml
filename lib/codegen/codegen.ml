@@ -14,9 +14,9 @@ let rec codegen_expr ctx buf = function
     (* = make(a + b) + 1     *)
     let lhs = codegen_expr ctx buf lhs in
     let rhs, free = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
-    B.emit_instruction buf
+    B.emit_inst buf
     @@ Printf.sprintf "addq %s, %s" (string_of_value lhs) (string_of_register rhs);
-    B.emit_instruction buf @@ Printf.sprintf "decq %s" (string_of_register rhs);
+    B.emit_inst buf @@ Printf.sprintf "decq %s" (string_of_register rhs);
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free ctx;
     StackValue s
@@ -27,9 +27,9 @@ let rec codegen_expr ctx buf = function
     (* = make(a - b) - 1 *)
     let rhs = codegen_expr ctx buf rhs in
     let lhs, free = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
-    B.emit_instruction buf
+    B.emit_inst buf
     @@ Printf.sprintf "subq %s, %s" (string_of_value rhs) (string_of_register lhs);
-    B.emit_instruction buf @@ Printf.sprintf "incq %s" (string_of_register lhs);
+    B.emit_inst buf @@ Printf.sprintf "incq %s" (string_of_register lhs);
     let s = turn_into_stack ctx buf (RegisterValue lhs) in
     free ctx;
     StackValue s
@@ -38,12 +38,12 @@ let rec codegen_expr ctx buf = function
     (* = 1/2 * (make(a) - 1) * make(b) + 1 *)
     let lhs, free_l = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
     let rhs, free_r = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
-    B.emit_instruction buf @@ Printf.sprintf "sarq $1, %s" (string_of_register lhs);
-    B.emit_instruction buf @@ Printf.sprintf "decq %s" (string_of_register rhs);
-    B.emit_instruction buf
+    B.emit_inst buf @@ Printf.sprintf "sarq $1, %s" (string_of_register lhs);
+    B.emit_inst buf @@ Printf.sprintf "decq %s" (string_of_register rhs);
+    B.emit_inst buf
     @@ Printf.sprintf "imulq %s, %s" (string_of_register lhs) (string_of_register rhs);
     free_l ctx;
-    B.emit_instruction buf @@ Printf.sprintf "incq %s" (string_of_register rhs);
+    B.emit_inst buf @@ Printf.sprintf "incq %s" (string_of_register rhs);
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free_r ctx;
     StackValue s
@@ -78,7 +78,7 @@ let rec codegen_expr ctx buf = function
     (* then block *)
     let then_ = codegen_expr ctx buf then_ in
     assign_to_stack ctx buf then_ eval_stack;
-    B.emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
+    B.emit_inst buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
     (* else block *)
     start_label buf else_label;
     let else_ = codegen_expr ctx buf else_ in
@@ -105,7 +105,7 @@ let rec codegen_expr ctx buf = function
     (* marked bool inversion *)
     (* 11 -> 01              *)
     (* 01 -> 11              *)
-    B.emit_instruction buf @@ Printf.sprintf "xorq $2, %s" (string_of_register ret);
+    B.emit_inst buf @@ Printf.sprintf "xorq $2, %s" (string_of_register ret);
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.Tuple values ->
     let size = List.length values in
@@ -154,12 +154,11 @@ let rec codegen_expr ctx buf = function
         | None -> ());
         let rhs = codegen_expr ctx buf rhs in
         assign_to_stack ctx buf rhs eval_stack;
-        B.emit_instruction buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
+        B.emit_inst buf @@ Printf.sprintf "jmp %s" (string_of_label join_label);
         start_label buf next_label;
         aux t
       | [] ->
-        B.emit_instruction buf
-        @@ Printf.sprintf "jmp %s" (string_of_label match_fail_label);
+        B.emit_inst buf @@ Printf.sprintf "jmp %s" (string_of_label match_fail_label);
         start_label buf join_label;
         StackValue eval_stack
     in
@@ -216,8 +215,8 @@ and emit_function_with ctx main_buf label fn =
   let buf = B.create () in
   let ret_label = new_unnamed_label ctx in
   start_global_label buf label;
-  B.emit_instruction buf "pushq %rbp";
-  B.emit_instruction buf "movq %rsp, %rbp";
+  B.emit_inst buf "pushq %rbp";
+  B.emit_inst buf "movq %rsp, %rbp";
   B.emit_placeholder buf @@ Printf.sprintf "replace_with_subq_%s" (string_of_label label);
   (* save registers (non-volatile registers) *)
   let exclude_rbp_rsp = function
@@ -233,9 +232,9 @@ and emit_function_with ctx main_buf label fn =
   let stack_used = ctx.current_env.current_stack in
   let restore (r, s) = assign_to_register buf (StackValue s) r in
   List.iter restore saved_stacks;
-  B.emit_instruction buf "movq %rbp, %rsp";
-  B.emit_instruction buf "popq %rbp";
-  B.emit_instruction buf "ret";
+  B.emit_inst buf "movq %rbp, %rsp";
+  B.emit_inst buf "popq %rbp";
+  B.emit_inst buf "ret";
   let _ = use_env ctx old_env in
   (* TODO: Use more effective and sufficient way to prepend to the buffer *)
   B.prepend_buffer main_buf buf;
