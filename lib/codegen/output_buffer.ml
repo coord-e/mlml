@@ -19,6 +19,8 @@ let emit_sub buf line = buf.sub <- line :: buf.sub
 (* auxiliary functions *)
 let emit_inst buf inst = emit buf (Inst inst)
 let emit_sub_inst buf inst = emit_sub buf (Inst inst)
+let emit_inst_fmt buf = Printf.ksprintf (fun x -> emit_inst buf x)
+let emit_sub_inst_fmt buf = Printf.ksprintf (fun x -> emit_sub_inst buf x)
 
 (* placeholder handlings *)
 let create_placeholder buf =
