@@ -13,8 +13,8 @@ let rec codegen_expr ctx buf = function
     (* emit data *)
     let str_label = new_unnamed_label ctx in
     let pad = aligned - len - 1 in
-    B.emit_sub_inst_fmt buf ".fill %d" pad;
     B.emit_sub_inst_fmt buf ".string \"%s\"" s;
+    B.emit_sub_inst_fmt buf ".fill %d" pad;
     B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const len;
     B.emit_sub buf (B.Label (string_of_label str_label));
     B.emit_sub_inst_fmt buf ".quad %d" (((aligned + 8) * 2) + 1);
@@ -207,18 +207,21 @@ let rec codegen_expr ctx buf = function
     free_register reg ctx;
     s
   | Expr.StringIndex (lhs, rhs) ->
-    let reg, free = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
-    let rhs = codegen_expr ctx buf rhs in
+    let reg, free_l = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
+    let rhs, free_r = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
+    restore_marked_int buf (RegisterValue rhs);
     (* assume lhs holds pointer to a string *)
-    B.emit_inst_fmt buf "subq %s, %s" (string_of_value rhs) (string_of_register reg);
+    B.emit_inst_fmt buf "addq %s, %s" (string_of_register rhs) (string_of_register reg);
+    free_r ctx;
     (* take one byte (one character) *)
     B.emit_inst_fmt
       buf
       "movzbq -16(%s), %s"
       (string_of_register reg)
       (string_of_register reg);
+    make_marked_int buf reg;
     let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
-    free ctx;
+    free_l ctx;
     s
 
 and codegen_definition ctx buf = function
