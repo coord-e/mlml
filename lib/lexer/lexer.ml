@@ -39,6 +39,8 @@ type token =
   | RParen
   | LBracket
   | RBracket
+  | Dot
+  | Hat
 
 let to_digit c = int_of_char c - int_of_char '0'
 
@@ -153,6 +155,8 @@ let rec tokenize_aux acc rest =
     | ')' -> tokenize_aux (RParen :: acc) t
     | '[' -> tokenize_aux (LBracket :: acc) t
     | ']' -> tokenize_aux (RBracket :: acc) t
+    | '.' -> tokenize_aux (Dot :: acc) t
+    | '^' -> tokenize_aux (Hat :: acc) t
     | ';' ->
       (match t with
       | ';' :: t -> tokenize_aux (DoubleSemicolon :: acc) t
@@ -204,6 +208,8 @@ let string_of_token = function
   | RParen -> ")"
   | LBracket -> "["
   | RBracket -> "]"
+  | Dot -> "."
+  | Hat -> "^"
 ;;
 
 let string_of_tokens tokens =
