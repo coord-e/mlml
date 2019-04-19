@@ -29,6 +29,7 @@ and t =
   | Lambda of Pat.t * t
   | Cons of t * t
   | Nil
+  | StringIndex of t * t
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
@@ -134,17 +135,30 @@ and try_parse_literal tokens =
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
   | _ -> tokens, None
 
-and parse_literal tokens =
-  match try_parse_literal tokens with
+and try_parse_dot tokens =
+  let rest, lhs_opt = try_parse_literal tokens in
+  match lhs_opt with
+  | Some lhs ->
+    (match rest with
+    | L.Dot :: L.LBracket :: rest ->
+      let rest, rhs = parse_expression rest in
+      (match rest with
+      | L.RBracket :: rest -> rest, Some (StringIndex (lhs, rhs))
+      | _ -> tokens, None)
+    | _ -> tokens, Some lhs)
+  | None -> tokens, None
+
+and parse_dot tokens =
+  match try_parse_dot tokens with
   | tokens, Some v -> tokens, v
   | h :: _, None ->
     failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
   | [], None -> failwith "Empty input"
 
 and parse_app tokens =
-  let rest, f = parse_literal tokens in
+  let rest, f = parse_dot tokens in
   let rec aux lhs tokens =
-    match try_parse_literal tokens with
+    match try_parse_dot tokens with
     | rest, Some p -> aux (App (lhs, p)) rest
     | rest, None -> rest, lhs
   in
