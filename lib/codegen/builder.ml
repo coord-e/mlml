@@ -148,11 +148,7 @@ let make_marked_int buf reg =
 
 let calc_marked_const i = (i * 2) + 1
 let make_marked_const i = ConstantValue (calc_marked_const i)
-
-let restore_marked_int buf reg =
-  B.emit_inst_fmt buf "shrq $1, %s" (string_of_register reg)
-;;
-
+let restore_marked_int buf v = B.emit_inst_fmt buf "shrq $1, %s" (string_of_value v)
 let start_label buf label = B.emit buf (B.Label (string_of_label label))
 
 let start_global_label buf label =
@@ -305,7 +301,7 @@ let rec pattern_match ctx buf pat v fail_label =
     let reg = alloc_register ctx in
     let reg_value = RegisterValue reg in
     read_from_address ctx buf v reg_value (-8);
-    restore_marked_int buf reg;
+    restore_marked_int buf reg_value;
     B.emit_inst_fmt buf "cmpq $%d, %s" actual_idx (string_of_register reg);
     B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
     (match p with
@@ -317,7 +313,7 @@ let rec pattern_match ctx buf pat v fail_label =
     | None -> free_register reg ctx)
   | Pat.Int x ->
     let reg, free = turn_into_register ctx buf v in
-    restore_marked_int buf reg;
+    restore_marked_int buf (RegisterValue reg);
     B.emit_inst_fmt buf "cmpq $%d, %s" x (string_of_register reg);
     B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
     free ctx
@@ -351,7 +347,7 @@ let rec pattern_match ctx buf pat v fail_label =
     let reg_value = RegisterValue reg in
     (* read the flag *)
     read_from_address ctx buf v reg_value (-8);
-    restore_marked_int buf reg;
+    restore_marked_int buf reg_value;
     (* nil -> 0, cons -> 1 *)
     B.emit_inst_fmt buf "cmpq $%d, %s" 1 (string_of_register reg);
     B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
@@ -368,7 +364,7 @@ let rec pattern_match ctx buf pat v fail_label =
     let reg_value = RegisterValue reg in
     (* read the flag *)
     read_from_address ctx buf v reg_value (-8);
-    restore_marked_int buf reg;
+    restore_marked_int buf reg_value;
     (* nil -> 0, cons -> 1 *)
     B.emit_inst_fmt buf "cmpq $%d, %s" 0 (string_of_register reg);
     B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
@@ -461,7 +457,7 @@ let alloc_heap_ptr_raw ctx buf size dest =
 let alloc_heap_ptr ctx buf size dest =
   let reg = alloc_register ctx in
   assign_to_register buf size reg;
-  restore_marked_int buf reg;
+  restore_marked_int buf (RegisterValue reg);
   alloc_heap_ptr_raw ctx buf (RegisterValue reg) dest;
   free_register reg ctx
 ;;
@@ -520,7 +516,7 @@ let emit_equal_function ctx buf label ret_label =
   (* save raw num value to identify comparison mode *)
   let num_tmp_reg = alloc_register ctx in
   assign_to_register buf num num_tmp_reg;
-  B.emit_inst_fmt buf "shrq $1, %s" (string_of_value num);
+  restore_marked_int buf num;
   let loop_label = new_unnamed_label ctx in
   let compare_label = new_unnamed_label ctx in
   let v1 = alloc_register ctx in
