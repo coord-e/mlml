@@ -66,6 +66,7 @@ let rec codegen_expr ctx buf = function
   | Expr.Var ident ->
     (match ident with
     | "print_int" -> function_ptr ctx buf print_int_label
+    | "print_string" -> function_ptr ctx buf print_string_label
     | _ -> StackValue (get_variable ctx ident))
   | Expr.LetAnd (is_rec, l, rhs) ->
     let pats, values = emit_let_binding_values ctx buf is_rec l in
@@ -323,6 +324,7 @@ let f ast =
   let ctx = new_context () in
   emit_module ctx buf (Label "main") ast;
   let _ = emit_function_with ctx buf print_int_label emit_print_int_function in
+  let _ = emit_function_with ctx buf print_string_label emit_print_string_function in
   let _ = emit_function_with ctx buf match_fail_label emit_match_fail in
   let _ = emit_function_with ctx buf mlml_equal_label emit_equal_function in
   B.contents buf

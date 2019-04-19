@@ -119,6 +119,7 @@ and closure_conversion' i expr =
     let real_app = Expr.App (Expr.Var f_name, Expr.Tuple [rhs; Expr.Var fv_name]) in
     make_let_var destruct lhs real_app
   | Expr.Var "print_int" -> Expr.Tuple [Expr.Var "print_int"; Expr.Tuple []]
+  | Expr.Var "print_string" -> Expr.Tuple [Expr.Var "print_string"; Expr.Tuple []]
   | Expr.Int _ | Expr.Var _ | Expr.String _ | Expr.Nil -> expr
   | Expr.Add (r, l) -> Expr.Add (aux i r, aux i l)
   | Expr.Sub (r, l) -> Expr.Sub (aux i r, aux i l)

@@ -88,6 +88,7 @@ let new_local_env () =
 
 let match_fail_label = Label ".match_fail"
 let print_int_label = Label "_print_int"
+let print_string_label = Label "_print_string"
 let mlml_equal_label = Label "_mlml_equal"
 
 let new_context () =
@@ -497,6 +498,23 @@ let emit_print_int_function ctx buf _label _ret_label =
   let _ = safe_call ctx buf "printf@PLT" [RegisterValue a1; RegisterValue a2] in
   free1 ctx;
   free2 ctx
+;;
+
+let emit_print_string_function ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  let reg = alloc_register ctx in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the length of string *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue reg) (-8);
+  restore_marked_int buf (RegisterValue reg);
+  (* assume reg is a pointer to string value *)
+  (* 8 + 1 (\0 terminate) *)
+  B.emit_inst_fmt buf "subq $9, %s" (string_of_register a1);
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_register reg) (string_of_register a1);
+  let _ = safe_call ctx buf "puts@PLT" [RegisterValue a1] in
+  free1 ctx;
+  free_register reg ctx
 ;;
 
 let emit_equal_function ctx buf label ret_label =
