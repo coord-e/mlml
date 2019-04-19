@@ -206,6 +206,20 @@ let rec codegen_expr ctx buf = function
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
     s
+  | Expr.StringIndex (lhs, rhs) ->
+    let reg, free = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
+    let rhs = codegen_expr ctx buf rhs in
+    (* assume lhs holds pointer to a string *)
+    B.emit_inst_fmt buf "subq %s, %s" (string_of_value rhs) (string_of_register reg);
+    (* take one byte (one character) *)
+    B.emit_inst_fmt
+      buf
+      "movzbq -16(%s), %s"
+      (string_of_register reg)
+      (string_of_register reg);
+    let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
+    free ctx;
+    s
 
 and codegen_definition ctx buf = function
   | Def.LetAnd (is_rec, l) ->

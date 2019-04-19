@@ -365,6 +365,11 @@ and string_of_expression = function
   | Cons (lhs, rhs) ->
     Printf.sprintf "Cons (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | Nil -> "Nil"
+  | StringIndex (lhs, rhs) ->
+    Printf.sprintf
+      "StringIndex (%s) (%s)"
+      (string_of_expression lhs)
+      (string_of_expression rhs)
 ;;
 
 let f = parse_expression
