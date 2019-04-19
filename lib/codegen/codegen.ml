@@ -207,21 +207,21 @@ let rec codegen_expr ctx buf = function
     free_register reg ctx;
     s
   | Expr.StringIndex (lhs, rhs) ->
-    let reg, free_l = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
-    let rhs, free_r = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
+    let lhs = codegen_expr ctx buf lhs |> assign_to_new_register ctx buf in
+    let rhs = codegen_expr ctx buf rhs |> assign_to_new_register ctx buf in
     restore_marked_int buf (RegisterValue rhs);
     (* assume lhs holds pointer to a string *)
-    B.emit_inst_fmt buf "addq %s, %s" (string_of_register rhs) (string_of_register reg);
-    free_r ctx;
+    B.emit_inst_fmt buf "addq %s, %s" (string_of_register rhs) (string_of_register lhs);
+    free_register rhs ctx;
     (* take one byte (one character) *)
     B.emit_inst_fmt
       buf
       "movzbq -16(%s), %s"
-      (string_of_register reg)
-      (string_of_register reg);
-    make_marked_int buf reg;
-    let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
-    free_l ctx;
+      (string_of_register lhs)
+      (string_of_register lhs);
+    make_marked_int buf lhs;
+    let s = StackValue (turn_into_stack ctx buf (RegisterValue lhs)) in
+    free_register lhs ctx;
     s
 
 and codegen_definition ctx buf = function

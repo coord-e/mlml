@@ -169,6 +169,12 @@ let turn_into_register ctx buf = function
     new_register, free_register new_register
 ;;
 
+let assign_to_new_register ctx buf v =
+  let r = alloc_register ctx in
+  assign_to_register buf v r;
+  r
+;;
+
 let rec assign_to_stack ctx buf v stack =
   match v with
   | RegisterValue _ | ConstantValue _ ->
