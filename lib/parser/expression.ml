@@ -30,6 +30,7 @@ and t =
   | Cons of t * t
   | Nil
   | StringIndex of t * t
+  | StringAppend of t * t
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
@@ -197,21 +198,32 @@ and parse_cons tokens =
     tokens, Cons (lhs, rhs)
   | _ -> tokens, lhs
 
-and parse_equal tokens =
+and parse_append tokens =
   let tokens, lhs = parse_cons tokens in
   let rec aux lhs tokens =
     match tokens with
-    | L.Equal :: rest ->
+    | L.Hat :: rest ->
       let rest, rhs = parse_cons rest in
+      aux (StringAppend (lhs, rhs)) rest
+    | _ -> tokens, lhs
+  in
+  aux lhs tokens
+
+and parse_equal tokens =
+  let tokens, lhs = parse_append tokens in
+  let rec aux lhs tokens =
+    match tokens with
+    | L.Equal :: rest ->
+      let rest, rhs = parse_append rest in
       aux (Equal (lhs, rhs)) rest
     | L.DoubleEqual :: rest ->
-      let rest, rhs = parse_cons rest in
+      let rest, rhs = parse_append rest in
       aux (PhysicalEqual (lhs, rhs)) rest
     | L.LtGt :: rest ->
-      let rest, rhs = parse_cons rest in
+      let rest, rhs = parse_append rest in
       aux (NotEqual (lhs, rhs)) rest
     | L.NotEqual :: rest ->
-      let rest, rhs = parse_cons rest in
+      let rest, rhs = parse_append rest in
       aux (NotPhysicalEqual (lhs, rhs)) rest
     | _ -> tokens, lhs
   in
@@ -368,6 +380,11 @@ and string_of_expression = function
   | StringIndex (lhs, rhs) ->
     Printf.sprintf
       "StringIndex (%s) (%s)"
+      (string_of_expression lhs)
+      (string_of_expression rhs)
+  | StringAppend (lhs, rhs) ->
+    Printf.sprintf
+      "StringAppend (%s) (%s)"
       (string_of_expression lhs)
       (string_of_expression rhs)
 ;;
