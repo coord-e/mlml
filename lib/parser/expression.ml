@@ -145,7 +145,7 @@ and try_parse_dot tokens =
       (match rest with
       | L.RBracket :: rest -> rest, Some (StringIndex (lhs, rhs))
       | _ -> tokens, None)
-    | _ -> tokens, Some lhs)
+    | _ -> rest, Some lhs)
   | None -> tokens, None
 
 and parse_dot tokens =
