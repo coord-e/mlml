@@ -517,7 +517,12 @@ let emit_equal_function ctx buf label ret_label =
   assign_to_register buf (ConstantValue 0) count;
   (* assume arg1 and arg2 has the same number of values *)
   read_from_address ctx buf (RegisterValue arg1) num 0;
+  (* save raw num value to identify comparison mode *)
+  let num_tmp_reg = alloc_register ctx in
+  assign_to_register buf num num_tmp_reg;
+  B.emit_inst_fmt buf "shrq $1, %s" (string_of_value num);
   let loop_label = new_unnamed_label ctx in
+  let compare_label = new_unnamed_label ctx in
   let v1 = alloc_register ctx in
   assign_to_register buf (RegisterValue arg1) v1;
   let v2 = alloc_register ctx in
@@ -529,12 +534,19 @@ let emit_equal_function ctx buf label ret_label =
   B.emit_inst_fmt buf "subq $8, %s" (string_of_register v2);
   read_from_address ctx buf (RegisterValue v1) (RegisterValue arg1) 0;
   read_from_address ctx buf (RegisterValue v2) (RegisterValue arg2) 0;
+  (* skip if recursive comparison mode *)
+  branch_by_value_type ctx buf Eq (RegisterValue num_tmp_reg) compare_label;
+  make_marked_int buf arg1;
+  make_marked_int buf arg2;
+  (* compare arg1 and arg2 *)
+  start_label buf compare_label;
   let res =
     safe_call ctx buf (string_of_label label) [RegisterValue arg1; RegisterValue arg2]
   in
   free_register count ctx;
   free_register v1 ctx;
   free_register v2 ctx;
+  free_register num_tmp_reg ctx;
   branch_if_falsy ctx buf (RegisterValue res) ret_label;
   B.emit_inst_fmt buf "jmp %s" (string_of_label loop_label);
   (* direct comparison branch *)

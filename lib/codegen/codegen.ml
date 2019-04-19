@@ -9,15 +9,15 @@ let rec codegen_expr ctx buf = function
   | Expr.Int num -> make_marked_const num
   | Expr.String s ->
     let len = String.length s in
-    let aligned = (len / 8 + 1) * 8 in
+    let aligned = ((len / 8) + 1) * 8 in
     (* emit data *)
     let str_label = new_unnamed_label ctx in
-    B.emit_sub buf (B.Label (string_of_label str_label));
-    B.emit_sub_inst_fmt buf ".quad %d" (aligned + 8);
-    B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const len;
-    B.emit_sub_inst_fmt buf ".string \"%s\"" s;
     let pad = aligned - len - 1 in
     B.emit_sub_inst_fmt buf ".fill %d" pad;
+    B.emit_sub_inst_fmt buf ".string \"%s\"" s;
+    B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const len;
+    B.emit_sub buf (B.Label (string_of_label str_label));
+    B.emit_sub_inst_fmt buf ".quad %d" (((aligned + 8) * 2) + 1);
     let r = alloc_register ctx in
     label_ptr_to_register buf str_label r;
     let s = turn_into_stack ctx buf (RegisterValue r) in
@@ -126,7 +126,7 @@ let rec codegen_expr ctx buf = function
     let reg_value = RegisterValue reg in
     alloc_heap_ptr_constsize ctx buf ((size + 1) * 8) reg_value;
     let values = List.map (codegen_expr ctx buf) values in
-    assign_to_address ctx buf (ConstantValue (size * 8)) reg_value 0;
+    assign_to_address ctx buf (ConstantValue (size * 8 * 2)) reg_value 0;
     List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-(i + 1) * 8)) values;
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
@@ -144,7 +144,7 @@ let rec codegen_expr ctx buf = function
     (* three 64-bit values -> 24 *)
     alloc_heap_ptr_constsize ctx buf 24 reg_value;
     (* size of data (2 * 8) *)
-    assign_to_address ctx buf (ConstantValue 16) reg_value 0;
+    assign_to_address ctx buf (ConstantValue (16 * 2)) reg_value 0;
     (* ctor index *)
     assign_to_address ctx buf (make_marked_const idx) reg_value (-8);
     (* the value *)
@@ -182,7 +182,7 @@ let rec codegen_expr ctx buf = function
     (* size, flag -> 8 * 2 *)
     alloc_heap_ptr_constsize ctx buf 16 reg_value;
     (* data size *)
-    assign_to_address ctx buf (ConstantValue 8) reg_value 0;
+    assign_to_address ctx buf (ConstantValue (8 * 2)) reg_value 0;
     (* nil -> 0, cons -> 1 *)
     assign_to_address ctx buf (make_marked_const 0) reg_value (-8);
     let s = StackValue (turn_into_stack ctx buf reg_value) in
@@ -196,7 +196,7 @@ let rec codegen_expr ctx buf = function
     (* size, flag, lhs, rhs -> 8 * 4 *)
     alloc_heap_ptr_constsize ctx buf 32 reg_value;
     (* data size *)
-    assign_to_address ctx buf (ConstantValue 24) reg_value 0;
+    assign_to_address ctx buf (ConstantValue (24 * 2)) reg_value 0;
     (* nil -> 0, cons -> 1 *)
     assign_to_address ctx buf (make_marked_const 1) reg_value (-8);
     (* actual data *)
