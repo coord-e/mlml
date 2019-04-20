@@ -88,6 +88,7 @@ let new_local_env () =
 
 let match_fail_label = Label ".match_fail"
 let print_int_label = Label "_print_int"
+let print_char_label = Label "_print_char"
 let print_string_label = Label "_print_string"
 let mlml_equal_label = Label "_mlml_equal"
 let append_string_label = Label "_append_string"
@@ -543,12 +544,21 @@ let emit_print_int_function ctx buf _label _ret_label =
   let a2, free2 = nth_arg_register ctx 1 in
   (* read the first element of closure tuple *)
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a2) (-8);
-  B.emit_inst_fmt buf "shrq $1, %s" (string_of_register a2);
+  restore_marked_int buf (RegisterValue a2);
   label_ptr_to_register buf str_label a1;
   B.emit_inst buf "xorq %rax, %rax";
   let _ = safe_call ctx buf "printf@PLT" [RegisterValue a1; RegisterValue a2] in
   free1 ctx;
   free2 ctx
+;;
+
+let emit_print_char_function ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  restore_marked_int buf (RegisterValue a1);
+  let _ = safe_call ctx buf "putchar@PLT" [RegisterValue a1] in
+  free1 ctx
 ;;
 
 let emit_print_string_function ctx buf _label _ret_label =
