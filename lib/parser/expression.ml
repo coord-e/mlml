@@ -11,6 +11,7 @@ type let_binding =
 and t =
   | Int of int
   | Tuple of t list
+  | String of string
   | Add of t * t
   | Sub of t * t
   | Mul of t * t
@@ -28,6 +29,8 @@ and t =
   | Lambda of Pat.t * t
   | Cons of t * t
   | Nil
+  | StringIndex of t * t
+  | StringAppend of t * t
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
@@ -109,6 +112,9 @@ and try_parse_literal tokens =
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
   (* TODO: Add boolean value *)
   | L.BoolLiteral b :: tokens -> tokens, Some (Int (if b then 1 else 0))
+  (* TODO: Add char value *)
+  | L.CharLiteral c :: tokens -> tokens, Some (Int (Char.code c))
+  | L.StringLiteral s :: tokens -> tokens, Some (String s)
   | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
   | L.CapitalIdent ident :: tokens ->
     (match try_parse_literal tokens with
@@ -130,17 +136,30 @@ and try_parse_literal tokens =
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
   | _ -> tokens, None
 
-and parse_literal tokens =
-  match try_parse_literal tokens with
+and try_parse_dot tokens =
+  let rest, lhs_opt = try_parse_literal tokens in
+  match lhs_opt with
+  | Some lhs ->
+    (match rest with
+    | L.Dot :: L.LBracket :: rest ->
+      let rest, rhs = parse_expression rest in
+      (match rest with
+      | L.RBracket :: rest -> rest, Some (StringIndex (lhs, rhs))
+      | _ -> tokens, None)
+    | _ -> rest, Some lhs)
+  | None -> tokens, None
+
+and parse_dot tokens =
+  match try_parse_dot tokens with
   | tokens, Some v -> tokens, v
   | h :: _, None ->
     failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
   | [], None -> failwith "Empty input"
 
 and parse_app tokens =
-  let rest, f = parse_literal tokens in
+  let rest, f = parse_dot tokens in
   let rec aux lhs tokens =
-    match try_parse_literal tokens with
+    match try_parse_dot tokens with
     | rest, Some p -> aux (App (lhs, p)) rest
     | rest, None -> rest, lhs
   in
@@ -179,21 +198,32 @@ and parse_cons tokens =
     tokens, Cons (lhs, rhs)
   | _ -> tokens, lhs
 
-and parse_equal tokens =
+and parse_append tokens =
   let tokens, lhs = parse_cons tokens in
   let rec aux lhs tokens =
     match tokens with
-    | L.Equal :: rest ->
+    | L.Hat :: rest ->
       let rest, rhs = parse_cons rest in
+      aux (StringAppend (lhs, rhs)) rest
+    | _ -> tokens, lhs
+  in
+  aux lhs tokens
+
+and parse_equal tokens =
+  let tokens, lhs = parse_append tokens in
+  let rec aux lhs tokens =
+    match tokens with
+    | L.Equal :: rest ->
+      let rest, rhs = parse_append rest in
       aux (Equal (lhs, rhs)) rest
     | L.DoubleEqual :: rest ->
-      let rest, rhs = parse_cons rest in
+      let rest, rhs = parse_append rest in
       aux (PhysicalEqual (lhs, rhs)) rest
     | L.LtGt :: rest ->
-      let rest, rhs = parse_cons rest in
+      let rest, rhs = parse_append rest in
       aux (NotEqual (lhs, rhs)) rest
     | L.NotEqual :: rest ->
-      let rest, rhs = parse_cons rest in
+      let rest, rhs = parse_append rest in
       aux (NotPhysicalEqual (lhs, rhs)) rest
     | _ -> tokens, lhs
   in
@@ -278,6 +308,7 @@ and string_of_expression = function
   | Tuple values ->
     let p = List.map string_of_expression values |> String.concat ", " in
     Printf.sprintf "Tuple (%s)" p
+  | String s -> Printf.sprintf "String \"%s\"" s
   | Add (lhs, rhs) ->
     Printf.sprintf "Add (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | Sub (lhs, rhs) ->
@@ -346,6 +377,16 @@ and string_of_expression = function
   | Cons (lhs, rhs) ->
     Printf.sprintf "Cons (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | Nil -> "Nil"
+  | StringIndex (lhs, rhs) ->
+    Printf.sprintf
+      "StringIndex (%s) (%s)"
+      (string_of_expression lhs)
+      (string_of_expression rhs)
+  | StringAppend (lhs, rhs) ->
+    Printf.sprintf
+      "StringAppend (%s) (%s)"
+      (string_of_expression lhs)
+      (string_of_expression rhs)
 ;;
 
 let f = parse_expression

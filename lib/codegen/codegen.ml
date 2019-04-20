@@ -7,6 +7,7 @@ module B = Output_buffer
 
 let rec codegen_expr ctx buf = function
   | Expr.Int num -> make_marked_const num
+  | Expr.String s -> make_string_const ctx buf s
   | Expr.Add (lhs, rhs) ->
     (* make(a) + make(b)     *)
     (* = (2a + 1) + (2b + 1) *)
@@ -50,6 +51,8 @@ let rec codegen_expr ctx buf = function
   | Expr.Var ident ->
     (match ident with
     | "print_int" -> function_ptr ctx buf print_int_label
+    | "print_char" -> function_ptr ctx buf print_char_label
+    | "print_string" -> function_ptr ctx buf print_string_label
     | _ -> StackValue (get_variable ctx ident))
   | Expr.LetAnd (is_rec, l, rhs) ->
     let pats, values = emit_let_binding_values ctx buf is_rec l in
@@ -110,7 +113,7 @@ let rec codegen_expr ctx buf = function
     let reg_value = RegisterValue reg in
     alloc_heap_ptr_constsize ctx buf ((size + 1) * 8) reg_value;
     let values = List.map (codegen_expr ctx buf) values in
-    assign_to_address ctx buf (ConstantValue (size * 8)) reg_value 0;
+    assign_to_address ctx buf (ConstantValue (size * 8 * 2)) reg_value 0;
     List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-(i + 1) * 8)) values;
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
@@ -128,7 +131,7 @@ let rec codegen_expr ctx buf = function
     (* three 64-bit values -> 24 *)
     alloc_heap_ptr_constsize ctx buf 24 reg_value;
     (* size of data (2 * 8) *)
-    assign_to_address ctx buf (ConstantValue 16) reg_value 0;
+    assign_to_address ctx buf (ConstantValue (16 * 2)) reg_value 0;
     (* ctor index *)
     assign_to_address ctx buf (make_marked_const idx) reg_value (-8);
     (* the value *)
@@ -166,7 +169,7 @@ let rec codegen_expr ctx buf = function
     (* size, flag -> 8 * 2 *)
     alloc_heap_ptr_constsize ctx buf 16 reg_value;
     (* data size *)
-    assign_to_address ctx buf (ConstantValue 8) reg_value 0;
+    assign_to_address ctx buf (ConstantValue (8 * 2)) reg_value 0;
     (* nil -> 0, cons -> 1 *)
     assign_to_address ctx buf (make_marked_const 0) reg_value (-8);
     let s = StackValue (turn_into_stack ctx buf reg_value) in
@@ -180,7 +183,7 @@ let rec codegen_expr ctx buf = function
     (* size, flag, lhs, rhs -> 8 * 4 *)
     alloc_heap_ptr_constsize ctx buf 32 reg_value;
     (* data size *)
-    assign_to_address ctx buf (ConstantValue 24) reg_value 0;
+    assign_to_address ctx buf (ConstantValue (24 * 2)) reg_value 0;
     (* nil -> 0, cons -> 1 *)
     assign_to_address ctx buf (make_marked_const 1) reg_value (-8);
     (* actual data *)
@@ -189,6 +192,29 @@ let rec codegen_expr ctx buf = function
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
     s
+  | Expr.StringIndex (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs |> assign_to_new_register ctx buf in
+    let rhs = codegen_expr ctx buf rhs |> assign_to_new_register ctx buf in
+    restore_marked_int buf (RegisterValue rhs);
+    (* assume lhs holds pointer to a string *)
+    string_value_to_content ctx buf (RegisterValue lhs) (RegisterValue lhs);
+    B.emit_inst_fmt buf "addq %s, %s" (string_of_register rhs) (string_of_register lhs);
+    free_register rhs ctx;
+    (* take one byte (one character) *)
+    B.emit_inst_fmt
+      buf
+      "movzbq (%s), %s"
+      (string_of_register lhs)
+      (string_of_register lhs);
+    make_marked_int buf (RegisterValue lhs);
+    let s = StackValue (turn_into_stack ctx buf (RegisterValue lhs)) in
+    free_register lhs ctx;
+    s
+  | Expr.StringAppend (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    let ret = safe_call ctx buf (string_of_label append_string_label) [lhs; rhs] in
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
 
 and codegen_definition ctx buf = function
   | Def.LetAnd (is_rec, l) ->
@@ -307,7 +333,10 @@ let f ast =
   let ctx = new_context () in
   emit_module ctx buf (Label "main") ast;
   let _ = emit_function_with ctx buf print_int_label emit_print_int_function in
+  let _ = emit_function_with ctx buf print_char_label emit_print_char_function in
+  let _ = emit_function_with ctx buf print_string_label emit_print_string_function in
   let _ = emit_function_with ctx buf match_fail_label emit_match_fail in
   let _ = emit_function_with ctx buf mlml_equal_label emit_equal_function in
+  let _ = emit_function_with ctx buf append_string_label emit_append_string_function in
   B.contents buf
 ;;

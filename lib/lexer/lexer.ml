@@ -1,6 +1,8 @@
 type token =
   | IntLiteral of int
   | BoolLiteral of bool
+  | StringLiteral of string
+  | CharLiteral of char
   | CapitalIdent of string
   | LowerIdent of string
   | Plus
@@ -37,6 +39,8 @@ type token =
   | RParen
   | LBracket
   | RBracket
+  | Dot
+  | Hat
 
 let to_digit c = int_of_char c - int_of_char '0'
 
@@ -51,6 +55,37 @@ let rec read_int acc rest =
   | h :: t ->
     (match h with '0' .. '9' -> read_int ((acc * 10) + to_digit h) t | _ -> rest, acc)
   | _ -> [], acc
+;;
+
+let read_one_char = function
+  | '\\' :: t ->
+    (match t with
+    | '\\' :: rest -> rest, '\\'
+    | '"' :: rest -> rest, '"'
+    | '\'' :: rest -> rest, '\''
+    | 'n' :: rest -> rest, '\n'
+    | 'r' :: rest -> rest, '\r'
+    | 't' :: rest -> rest, '\t'
+    | 'b' :: rest -> rest, '\b'
+    | ' ' :: rest -> rest, ' '
+    | _ ->
+      failwith "Invalid escape sequence" (* TODO: Implement ASCII escape sequences *))
+  | c :: rest -> rest, c
+  | [] -> failwith "attempt to read a char from empty input"
+;;
+
+let rec read_string acc rest =
+  let rest, c = read_one_char rest in
+  match c with
+  | '"' -> rest, acc
+  | c ->
+    let rest, acc = read_string acc rest in
+    rest, c :: acc
+;;
+
+let read_char tokens =
+  let rest, c = read_one_char tokens in
+  match rest with '\'' :: rest -> rest, c | _ -> failwith "invalid char literal"
 ;;
 
 let rec read_ident acc rest =
@@ -82,6 +117,13 @@ let rec tokenize_aux acc rest =
     | '0' .. '9' ->
       let rest, num = read_int 0 rest in
       tokenize_aux (IntLiteral num :: acc) rest
+    | '"' ->
+      let rest, str = read_string [] t in
+      let str_str = string_of_chars str in
+      tokenize_aux (StringLiteral str_str :: acc) rest
+    | '\'' ->
+      let rest, ch = read_char t in
+      tokenize_aux (CharLiteral ch :: acc) rest
     | 'a' .. 'z' | 'A' .. 'Z' | '_' ->
       let rest, ident = read_ident [] rest in
       let ident_str = string_of_chars ident in
@@ -130,6 +172,8 @@ let rec tokenize_aux acc rest =
     | ')' -> tokenize_aux (RParen :: acc) t
     | '[' -> tokenize_aux (LBracket :: acc) t
     | ']' -> tokenize_aux (RBracket :: acc) t
+    | '.' -> tokenize_aux (Dot :: acc) t
+    | '^' -> tokenize_aux (Hat :: acc) t
     | ';' ->
       (match t with
       | ';' :: t -> tokenize_aux (DoubleSemicolon :: acc) t
@@ -144,6 +188,8 @@ let rec tokenize_aux acc rest =
 let string_of_token = function
   | IntLiteral num -> string_of_int num
   | BoolLiteral b -> string_of_bool b
+  | StringLiteral str -> Printf.sprintf "\"%s\"" str
+  | CharLiteral ch -> Printf.sprintf "'%c'" ch
   | CapitalIdent ident | LowerIdent ident -> ident
   | Plus -> "+"
   | Minus -> "-"
@@ -179,6 +225,8 @@ let string_of_token = function
   | RParen -> ")"
   | LBracket -> "["
   | RBracket -> "]"
+  | Dot -> "."
+  | Hat -> "^"
 ;;
 
 let string_of_tokens tokens =
