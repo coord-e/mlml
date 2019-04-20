@@ -631,7 +631,7 @@ let emit_append_string_function ctx buf _label _ret_label =
   assign_to_address ctx buf (StackValue len) (RegisterValue ptr) (-8);
   (* copy strings *)
   let src_tmp = assign_to_new_register ctx buf (StackValue lhs) in
-  B.emit_inst_fmt buf "subq $16, %s" (string_of_register src_tmp);
+  string_value_to_content ctx buf (RegisterValue src_tmp) (RegisterValue src_tmp);
   B.emit_inst_fmt buf "subq %s, %s" (string_of_stack size) (string_of_register ptr);
   let _ =
     safe_call
@@ -641,7 +641,7 @@ let emit_append_string_function ctx buf _label _ret_label =
       [RegisterValue ptr; RegisterValue src_tmp; RegisterValue lhs_len]
   in
   assign_to_register buf (StackValue rhs) src_tmp;
-  B.emit_inst_fmt buf "subq $16, %s" (string_of_register src_tmp);
+  string_value_to_content ctx buf (RegisterValue src_tmp) (RegisterValue src_tmp);
   B.emit_inst_fmt buf "addq %s, %s" (string_of_register lhs_len) (string_of_register ptr);
   let _ =
     safe_call
