@@ -644,6 +644,8 @@ let emit_append_string_function ctx buf _label _ret_label =
   assign_to_register buf (StackValue rhs) src_tmp;
   string_value_to_content ctx buf (RegisterValue src_tmp) (RegisterValue src_tmp);
   B.emit_inst_fmt buf "addq %s, %s" (string_of_register lhs_len) (string_of_register ptr);
+  (* incr to include one byte of null *)
+  B.emit_inst_fmt buf "incq %s" (string_of_register rhs_len);
   let _ =
     safe_call
       ctx
@@ -651,8 +653,6 @@ let emit_append_string_function ctx buf _label _ret_label =
       "memcpy@PLT"
       [RegisterValue ptr; RegisterValue src_tmp; RegisterValue rhs_len]
   in
-  B.emit_inst_fmt buf "addq %s, %s" (string_of_register rhs_len) (string_of_register ptr);
-  assign_to_address ctx buf (ConstantValue 0) (RegisterValue ptr) 0;
   free_register src_tmp ctx;
   free_register lhs_len ctx;
   free_register rhs_len ctx;
