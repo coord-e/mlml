@@ -6,9 +6,11 @@ module Pat = Pattern
 module TyExpr = Type_expression
 module L = Lexer
 
+type type_def = Variant of (string * TyExpr.t option) list
+
 type t =
   | LetAnd of bool * Expr.let_binding list
-  | Variant of string * (string * TyExpr.t option) list
+  | TypeDef of string * type_def
 
 let try_parse_type = function
   | L.LowerIdent ident :: L.Equal :: rest ->
@@ -27,7 +29,7 @@ let try_parse_type = function
       | _ -> rest, []
     in
     let rest, ctors = match rest with L.Vertical :: rest | rest -> aux rest in
-    rest, Some (Variant (ident, ctors))
+    rest, Some (TypeDef (ident, Variant ctors))
   | tokens -> tokens, None
 ;;
 
@@ -53,18 +55,21 @@ let parse_definition tokens =
   | [], None -> failwith "Empty input"
 ;;
 
-let string_of_definition = function
-  | LetAnd (is_rec, l) ->
-    let l = List.map Expr.string_of_let_binding l |> String.concat " and " in
-    Printf.sprintf "Let %s %s" (if is_rec then "rec" else "") l
-  | Variant (name, variants) ->
+let string_of_type_def = function
+  | Variant variants ->
     let aux (ctor, param) =
       match param with
       | Some p -> Printf.sprintf "%s (%s)" ctor (TyExpr.string_of_type_expression p)
       | None -> ctor
     in
-    let variants = List.map aux variants |> String.concat " | " in
-    Printf.sprintf "type %s = %s" name variants
+    List.map aux variants |> String.concat " | "
+;;
+
+let string_of_definition = function
+  | LetAnd (is_rec, l) ->
+    let l = List.map Expr.string_of_let_binding l |> String.concat " and " in
+    Printf.sprintf "Let %s %s" (if is_rec then "rec" else "") l
+  | TypeDef (name, def) -> Printf.sprintf "type %s = %s" name (string_of_type_def def)
 ;;
 
 let f = parse_definition

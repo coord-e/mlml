@@ -179,5 +179,5 @@ let closure_conversion_defn defn =
     let resulting_pat = Pat.Tuple pats in
     let resulting_expr = Expr.Tuple values in
     make_let_var_defn resulting_pat (Expr.LetAnd (is_rec, funs, resulting_expr))
-  | Def.Variant _ -> defn
+  | Def.TypeDef _ -> defn
 ;;
