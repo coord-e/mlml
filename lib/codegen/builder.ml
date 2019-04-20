@@ -90,6 +90,7 @@ let match_fail_label = Label ".match_fail"
 let print_int_label = Label "_print_int"
 let print_string_label = Label "_print_string"
 let mlml_equal_label = Label "_mlml_equal"
+let append_string_label = Label "_append_string"
 
 let new_context () =
   { used_labels = LS.of_list [print_int_label; match_fail_label]
@@ -185,11 +186,16 @@ let rec assign_to_stack ctx buf v stack =
     free ctx
 ;;
 
-let push_to_stack ctx buf v =
+let alloc_stack ctx =
   let c = ctx.current_env.current_stack in
   let s = Stack c in
-  assign_to_stack ctx buf v s;
   (ctx.current_env).current_stack <- c - 8;
+  s
+;;
+
+let push_to_stack ctx buf v =
+  let s = alloc_stack ctx in
+  assign_to_stack ctx buf v s;
   s
 ;;
 
@@ -462,9 +468,7 @@ let alloc_heap_ptr_raw ctx buf size dest =
 ;;
 
 let alloc_heap_ptr ctx buf size dest =
-  let reg = alloc_register ctx in
-  assign_to_register buf size reg;
-  restore_marked_int buf (RegisterValue reg);
+  let reg = assign_to_new_register ctx buf size in
   alloc_heap_ptr_raw ctx buf (RegisterValue reg) dest;
   free_register reg ctx
 ;;
@@ -575,4 +579,69 @@ let emit_equal_function ctx buf label ret_label =
   assign_to_register buf s ret_register;
   free1 ctx;
   free2 ctx
+;;
+
+let emit_append_string_function ctx buf _label _ret_label =
+  let lhs, free1 = nth_arg_register ctx 0 in
+  let rhs, free2 = nth_arg_register ctx 1 in
+  let lhs = push_to_stack ctx buf (RegisterValue lhs) in
+  let rhs = push_to_stack ctx buf (RegisterValue rhs) in
+  free1 ctx;
+  free2 ctx;
+  let lhs_len = alloc_register ctx in
+  let rhs_len = alloc_register ctx in
+  let size = alloc_stack ctx in
+  let len = alloc_stack ctx in
+  read_from_address ctx buf (StackValue lhs) (RegisterValue lhs_len) (-8);
+  read_from_address ctx buf (StackValue rhs) (RegisterValue rhs_len) (-8);
+  restore_marked_int buf (RegisterValue lhs_len);
+  restore_marked_int buf (RegisterValue rhs_len);
+  assign_to_stack ctx buf (RegisterValue rhs_len) len;
+  B.emit_inst_fmt buf "addq %s, %s" (string_of_register lhs_len) (string_of_stack len);
+  (* calculate aligned size *)
+  assign_to_stack ctx buf (StackValue len) size;
+  B.emit_inst_fmt buf "shrq $3, %s" (string_of_stack size);
+  B.emit_inst_fmt buf "incq %s" (string_of_stack size);
+  B.emit_inst_fmt buf "shlq $3, %s" (string_of_stack size);
+  (* add 16 (metadata) *)
+  B.emit_inst_fmt buf "addq $16, %s" (string_of_stack size);
+  let ptr = alloc_register ctx in
+  alloc_heap_ptr ctx buf (StackValue size) (RegisterValue ptr);
+  let ptr_save = turn_into_stack ctx buf (RegisterValue ptr) in
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_stack size);
+  let size_tmp = assign_to_new_register ctx buf (StackValue size) in
+  B.emit_inst_fmt buf "shlq $1, %s" (string_of_register size_tmp);
+  B.emit_inst_fmt buf "incq %s" (string_of_register size_tmp);
+  (* data size *)
+  assign_to_address ctx buf (RegisterValue size_tmp) (RegisterValue ptr) 0;
+  free_register size_tmp ctx;
+  (* string length *)
+  assign_to_address ctx buf (StackValue len) (RegisterValue ptr) (-8);
+  (* copy strings *)
+  let src_tmp = assign_to_new_register ctx buf (StackValue lhs) in
+  B.emit_inst_fmt buf "subq $16, %s" (string_of_register src_tmp);
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_stack size) (string_of_register ptr);
+  let _ =
+    safe_call
+      ctx
+      buf
+      "memcpy@PLT"
+      [RegisterValue ptr; RegisterValue src_tmp; RegisterValue lhs_len]
+  in
+  assign_to_register buf (StackValue rhs) src_tmp;
+  B.emit_inst_fmt buf "subq $16, %s" (string_of_register src_tmp);
+  B.emit_inst_fmt buf "addq %s, %s" (string_of_register lhs_len) (string_of_register ptr);
+  let _ =
+    safe_call
+      ctx
+      buf
+      "memcpy@PLT"
+      [RegisterValue ptr; RegisterValue src_tmp; RegisterValue rhs_len]
+  in
+  B.emit_inst_fmt buf "addq %s, %s" (string_of_register rhs_len) (string_of_register ptr);
+  assign_to_address ctx buf (ConstantValue 0) (RegisterValue ptr) 0;
+  free_register src_tmp ctx;
+  free_register lhs_len ctx;
+  free_register rhs_len ctx;
+  assign_to_register buf (StackValue ptr_save) ret_register
 ;;

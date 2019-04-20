@@ -223,6 +223,11 @@ let rec codegen_expr ctx buf = function
     let s = StackValue (turn_into_stack ctx buf (RegisterValue lhs)) in
     free_register lhs ctx;
     s
+  | Expr.StringAppend (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    let ret = safe_call ctx buf (string_of_label append_string_label) [lhs; rhs] in
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
 
 and codegen_definition ctx buf = function
   | Def.LetAnd (is_rec, l) ->
@@ -344,5 +349,6 @@ let f ast =
   let _ = emit_function_with ctx buf print_string_label emit_print_string_function in
   let _ = emit_function_with ctx buf match_fail_label emit_match_fail in
   let _ = emit_function_with ctx buf mlml_equal_label emit_equal_function in
+  let _ = emit_function_with ctx buf append_string_label emit_append_string_function in
   B.contents buf
 ;;
