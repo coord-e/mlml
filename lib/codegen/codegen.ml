@@ -211,12 +211,13 @@ let rec codegen_expr ctx buf = function
     let rhs = codegen_expr ctx buf rhs |> assign_to_new_register ctx buf in
     restore_marked_int buf (RegisterValue rhs);
     (* assume lhs holds pointer to a string *)
+    string_value_to_content ctx buf (RegisterValue lhs) (RegisterValue lhs);
     B.emit_inst_fmt buf "addq %s, %s" (string_of_register rhs) (string_of_register lhs);
     free_register rhs ctx;
     (* take one byte (one character) *)
     B.emit_inst_fmt
       buf
-      "movzbq -16(%s), %s"
+      "movzbq (%s), %s"
       (string_of_register lhs)
       (string_of_register lhs);
     make_marked_int buf (RegisterValue lhs);
