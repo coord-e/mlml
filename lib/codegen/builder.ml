@@ -317,7 +317,7 @@ let make_string_const ctx buf s =
   (* emit data *)
   let str_label = new_unnamed_label ctx in
   let pad = aligned - len - 1 in
-  B.emit_sub_inst_fmt buf ".string \"%s\"" s;
+  B.emit_sub_inst_fmt buf ".string \"%s\"" @@ String.escaped s;
   B.emit_sub_inst_fmt buf ".fill %d" pad;
   B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const len;
   B.emit_sub buf (B.Label (string_of_label str_label));
