@@ -43,6 +43,7 @@ type local_env =
 type context =
   { mutable used_labels : LS.t
   ; mutable ctors : (string, int) Hashtbl.t
+  ; mutable fields : (string, int) Hashtbl.t
   ; mutable current_env : local_env }
 
 let usable_registers =
@@ -96,6 +97,7 @@ let append_string_label = Label "_append_string"
 let new_context () =
   { used_labels = LS.of_list [print_int_label; match_fail_label]
   ; ctors = Hashtbl.create 32
+  ; fields = Hashtbl.create 32
   ; current_env = new_local_env () }
 ;;
 
@@ -293,6 +295,8 @@ let safe_call ctx buf name args =
 
 let define_ctor ctx ctor idx = Hashtbl.add ctx.ctors ctor idx
 let get_ctor_index ctx ctor = Hashtbl.find ctx.ctors ctor
+let define_field ctx field idx = Hashtbl.add ctx.fields field idx
+let get_field_index ctx field = Hashtbl.find ctx.fields field
 
 let define_variable ctx buf ident v =
   (* TODO: Print warning when ident is accidentally "_" *)

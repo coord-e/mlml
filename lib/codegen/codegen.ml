@@ -227,6 +227,9 @@ and codegen_type_def ctx _buf = function
   | Def.Variant variants ->
     let aux i (ctor, _) = define_ctor ctx ctor i in
     List.iteri aux variants
+  | Def.Record fields ->
+    let aux i (name, _) = define_field ctx name i in
+    List.iteri aux fields
 
 and codegen_module_item ctx buf = function
   | Item.Definition def -> codegen_definition ctx buf def
