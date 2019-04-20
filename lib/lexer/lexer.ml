@@ -39,6 +39,8 @@ type token =
   | RParen
   | LBracket
   | RBracket
+  | LBrace
+  | RBrace
   | Dot
   | Hat
 
@@ -172,6 +174,8 @@ let rec tokenize_aux acc rest =
     | ')' -> tokenize_aux (RParen :: acc) t
     | '[' -> tokenize_aux (LBracket :: acc) t
     | ']' -> tokenize_aux (RBracket :: acc) t
+    | '{' -> tokenize_aux (LBrace :: acc) t
+    | '}' -> tokenize_aux (RBrace :: acc) t
     | '.' -> tokenize_aux (Dot :: acc) t
     | '^' -> tokenize_aux (Hat :: acc) t
     | ';' ->
@@ -225,6 +229,8 @@ let string_of_token = function
   | RParen -> ")"
   | LBracket -> "["
   | RBracket -> "]"
+  | LBrace -> "{"
+  | RBrace -> "}"
   | Dot -> "."
   | Hat -> "^"
 ;;
