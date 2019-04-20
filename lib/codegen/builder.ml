@@ -524,6 +524,7 @@ let emit_match_fail ctx buf _label _ret_label =
   let str_label = new_label ctx ".string_of_match_fail" in
   B.emit_sub buf (B.Label (string_of_label str_label));
   B.emit_sub_inst buf ".string \"runtime error: patten match failed. aborted.\"";
+  B.emit_sub_inst buf ".fill 3";
   (* emit function body *)
   let a1, free1 = nth_arg_register ctx 0 in
   label_ptr_to_register buf str_label a1;
