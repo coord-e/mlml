@@ -219,7 +219,7 @@ let rec codegen_expr ctx buf = function
       "movzbq -16(%s), %s"
       (string_of_register lhs)
       (string_of_register lhs);
-    make_marked_int buf lhs;
+    make_marked_int buf (RegisterValue lhs);
     let s = StackValue (turn_into_stack ctx buf (RegisterValue lhs)) in
     free_register lhs ctx;
     s

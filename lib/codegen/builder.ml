@@ -142,10 +142,10 @@ let free_register reg ctx =
   then (ctx.current_env).unused_registers <- RS.add reg ctx.current_env.unused_registers
 ;;
 
-let make_marked_int buf reg =
+let make_marked_int buf v =
   (* TODO: Use imul or add? *)
-  B.emit_inst_fmt buf "shlq $1, %s" (string_of_register reg);
-  B.emit_inst_fmt buf "incq %s" (string_of_register reg)
+  B.emit_inst_fmt buf "shlq $1, %s" (string_of_value v);
+  B.emit_inst_fmt buf "incq %s" (string_of_value v)
 ;;
 
 let calc_marked_const i = (i * 2) + 1
@@ -462,7 +462,7 @@ let comparison_to_value ctx buf cmp v1 v2 =
   free ctx;
   B.emit_inst_fmt buf "set%s %%dl" (string_of_comparison cmp);
   B.emit_inst buf "movzbq %dl, %rdx";
-  make_marked_int buf rdx;
+  make_marked_int buf (RegisterValue rdx);
   let s = push_to_stack ctx buf (RegisterValue rdx) in
   free_register rdx ctx;
   StackValue s
@@ -572,8 +572,8 @@ let emit_equal_function ctx buf label ret_label =
   read_from_address ctx buf (RegisterValue v2) (RegisterValue arg2) 0;
   (* skip if recursive comparison mode *)
   branch_by_value_type ctx buf Eq (RegisterValue num_tmp_reg) compare_label;
-  make_marked_int buf arg1;
-  make_marked_int buf arg2;
+  make_marked_int buf (RegisterValue arg1);
+  make_marked_int buf (RegisterValue arg2);
   (* compare arg1 and arg2 *)
   start_label buf compare_label;
   let res =
@@ -628,6 +628,7 @@ let emit_append_string_function ctx buf _label _ret_label =
   assign_to_address ctx buf (RegisterValue size_tmp) (RegisterValue ptr) 0;
   free_register size_tmp ctx;
   (* string length *)
+  make_marked_int buf (StackValue len);
   assign_to_address ctx buf (StackValue len) (RegisterValue ptr) (-8);
   (* copy strings *)
   let src_tmp = assign_to_new_register ctx buf (StackValue lhs) in
