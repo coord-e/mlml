@@ -563,12 +563,15 @@ let emit_print_char_function ctx buf _label _ret_label =
 
 let emit_print_string_function ctx buf _label _ret_label =
   let a1, free1 = nth_arg_register ctx 0 in
+  let a2, free2 = nth_arg_register ctx 1 in
   (* read the first element of closure tuple *)
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
   (* assume reg is a pointer to string value *)
   string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
-  let _ = safe_call ctx buf "puts@PLT" [RegisterValue a1] in
-  free1 ctx
+  B.emit_inst_fmt buf "movq stdout(%%rip), %s" (string_of_register a2);
+  let _ = safe_call ctx buf "fputs@PLT" [RegisterValue a1; RegisterValue a2] in
+  free1 ctx;
+  free2 ctx
 ;;
 
 let emit_equal_function ctx buf label ret_label =
