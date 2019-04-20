@@ -57,18 +57,35 @@ let rec read_int acc rest =
   | _ -> [], acc
 ;;
 
-let rec read_string acc rest =
-  match rest with
-  | '"' :: t -> t, acc
-  | h :: t ->
-    let rest, acc = read_string acc t in
-    rest, h :: acc
-  | _ -> failwith "string literal is not terminated"
+let read_one_char = function
+  | '\\' :: t ->
+    (match t with
+    | '\\' :: rest -> rest, '\\'
+    | '"' :: rest -> rest, '"'
+    | '\'' :: rest -> rest, '\''
+    | 'n' :: rest -> rest, '\n'
+    | 'r' :: rest -> rest, '\r'
+    | 't' :: rest -> rest, '\t'
+    | 'b' :: rest -> rest, '\b'
+    | ' ' :: rest -> rest, ' '
+    | _ ->
+      failwith "Invalid escape sequence" (* TODO: Implement ASCII escape sequences *))
+  | c :: rest -> rest, c
+  | [] -> failwith "attempt to read a char from empty input"
 ;;
 
-let read_char = function
-  | c :: '\'' :: rest -> rest, c
-  | _ -> failwith "invalid char literal"
+let rec read_string acc rest =
+  let rest, c = read_one_char rest in
+  match c with
+  | '"' -> rest, acc
+  | c ->
+    let rest, acc = read_string acc rest in
+    rest, c :: acc
+;;
+
+let read_char tokens =
+  let rest, c = read_one_char tokens in
+  match rest with '\'' :: rest -> rest, c | _ -> failwith "invalid char literal"
 ;;
 
 let rec read_ident acc rest =
