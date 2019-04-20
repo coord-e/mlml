@@ -463,7 +463,7 @@ let rec pattern_match ctx buf pat v fail_label =
   | Pat.String s ->
     let sv = make_string_const ctx buf s in
     let ret = safe_call ctx buf (string_of_label mlml_equal_label) [v; sv] in
-    branch_if_truthy ctx buf (RegisterValue ret) fail_label
+    branch_if_falsy ctx buf (RegisterValue ret) fail_label
   | Pat.Or (a, b) ->
     let idents = Pat.introduced_ident_list a in
     if idents <> Pat.introduced_ident_list b
