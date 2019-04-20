@@ -302,107 +302,34 @@ let define_variable ctx buf ident v =
 let undef_variable ctx ident = Hashtbl.remove ctx.current_env.vars ident
 let get_variable ctx ident = Hashtbl.find ctx.current_env.vars ident
 
-let rec pattern_match ctx buf pat v fail_label =
-  match pat with
-  | Pat.Var "_" -> ()
-  | Pat.Var x -> define_variable ctx buf x v
-  | Pat.Tuple values ->
-    (* assume v holds heap address *)
-    let aux i p =
-      let reg = alloc_register ctx in
-      let reg_value = RegisterValue reg in
-      read_from_address ctx buf v reg_value (-(i + 1) * 8);
-      let s = turn_into_stack ctx buf reg_value in
-      free_register reg ctx;
-      pattern_match ctx buf p (StackValue s) fail_label
-    in
-    List.iteri aux values
-  | Pat.Ctor (name, p) ->
-    (* assume v holds heap address *)
-    let actual_idx = get_ctor_index ctx name in
-    let reg = alloc_register ctx in
-    let reg_value = RegisterValue reg in
-    read_from_address ctx buf v reg_value (-8);
-    restore_marked_int buf reg_value;
-    B.emit_inst_fmt buf "cmpq $%d, %s" actual_idx (string_of_register reg);
-    B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
-    (match p with
-    | Some p ->
-      read_from_address ctx buf v reg_value (-16);
-      let s = turn_into_stack ctx buf reg_value in
-      free_register reg ctx;
-      pattern_match ctx buf p (StackValue s) fail_label
-    | None -> free_register reg ctx)
-  | Pat.Int x ->
-    let reg, free = turn_into_register ctx buf v in
-    restore_marked_int buf (RegisterValue reg);
-    B.emit_inst_fmt buf "cmpq $%d, %s" x (string_of_register reg);
-    B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
-    free ctx
-  | Pat.Or (a, b) ->
-    let idents = Pat.introduced_ident_list a in
-    if idents <> Pat.introduced_ident_list b
-    then failwith "introduced identifiers mismatch in | pattern";
-    let resulting_area =
-      List.map (fun _ -> push_to_stack ctx buf (ConstantValue 0)) idents
-    in
-    let store_result name s =
-      (* TODO: `v` can be freed here *)
-      let v = get_variable ctx name in
-      assign_to_stack ctx buf (StackValue v) s;
-      undef_variable ctx name
-    in
-    let right_label = new_unnamed_label ctx in
-    let join_label = new_unnamed_label ctx in
-    pattern_match ctx buf a v right_label;
-    List.iter2 store_result idents resulting_area;
-    B.emit_inst_fmt buf "jmp %s" (string_of_label join_label);
-    start_label buf right_label;
-    pattern_match ctx buf b v fail_label;
-    List.iter2 store_result idents resulting_area;
-    start_label buf join_label;
-    let redef_vars name s = define_variable ctx buf name (StackValue s) in
-    List.iter2 redef_vars idents resulting_area
-  | Pat.Cons (a, b) ->
-    (* assume v holds heap address *)
-    let reg = alloc_register ctx in
-    let reg_value = RegisterValue reg in
-    (* read the flag *)
-    read_from_address ctx buf v reg_value (-8);
-    restore_marked_int buf reg_value;
-    (* nil -> 0, cons -> 1 *)
-    B.emit_inst_fmt buf "cmpq $%d, %s" 1 (string_of_register reg);
-    B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
-    read_from_address ctx buf v reg_value (-16);
-    let s1 = turn_into_stack ctx buf reg_value in
-    read_from_address ctx buf v reg_value (-24);
-    let s2 = turn_into_stack ctx buf reg_value in
-    free_register reg ctx;
-    pattern_match ctx buf a (StackValue s1) fail_label;
-    pattern_match ctx buf b (StackValue s2) fail_label
-  | Pat.Nil ->
-    (* assume v holds heap address *)
-    let reg = alloc_register ctx in
-    let reg_value = RegisterValue reg in
-    (* read the flag *)
-    read_from_address ctx buf v reg_value (-8);
-    restore_marked_int buf reg_value;
-    (* nil -> 0, cons -> 1 *)
-    B.emit_inst_fmt buf "cmpq $%d, %s" 0 (string_of_register reg);
-    B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
-    free_register reg ctx
-;;
-
-let undef_variable_pattern ctx pat =
-  List.iter (undef_variable ctx) (Pat.introduced_ident_list pat)
-;;
-
 let label_ptr_to_register buf label reg =
   B.emit_inst_fmt
     buf
     "leaq %s(%%rip), %s"
     (string_of_label label)
     (string_of_register reg)
+;;
+
+let make_string_const ctx buf s =
+  let len = String.length s in
+  let aligned = ((len / 8) + 1) * 8 in
+  (* emit data *)
+  let str_label = new_unnamed_label ctx in
+  let pad = aligned - len - 1 in
+  B.emit_sub_inst_fmt buf ".string \"%s\"" s;
+  B.emit_sub_inst_fmt buf ".fill %d" pad;
+  B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const len;
+  B.emit_sub buf (B.Label (string_of_label str_label));
+  B.emit_sub_inst_fmt buf ".quad %d" (((aligned + 8) * 2) + 1);
+  let r = alloc_register ctx in
+  label_ptr_to_register buf str_label r;
+  let s = turn_into_stack ctx buf (RegisterValue r) in
+  free_register r ctx;
+  StackValue s
+;;
+
+let undef_variable_pattern ctx pat =
+  List.iter (undef_variable ctx) (Pat.introduced_ident_list pat)
 ;;
 
 let function_ptr ctx buf label =
@@ -494,6 +421,101 @@ let string_value_to_content ctx buf v dest =
   assign_to_value ctx buf v dest;
   B.emit_inst_fmt buf "subq %s, %s" (string_of_register reg) (string_of_value dest);
   free_register reg ctx
+;;
+
+let rec pattern_match ctx buf pat v fail_label =
+  match pat with
+  | Pat.Var "_" -> ()
+  | Pat.Var x -> define_variable ctx buf x v
+  | Pat.Tuple values ->
+    (* assume v holds heap address *)
+    let aux i p =
+      let reg = alloc_register ctx in
+      let reg_value = RegisterValue reg in
+      read_from_address ctx buf v reg_value (-(i + 1) * 8);
+      let s = turn_into_stack ctx buf reg_value in
+      free_register reg ctx;
+      pattern_match ctx buf p (StackValue s) fail_label
+    in
+    List.iteri aux values
+  | Pat.Ctor (name, p) ->
+    (* assume v holds heap address *)
+    let actual_idx = get_ctor_index ctx name in
+    let reg = alloc_register ctx in
+    let reg_value = RegisterValue reg in
+    read_from_address ctx buf v reg_value (-8);
+    restore_marked_int buf reg_value;
+    B.emit_inst_fmt buf "cmpq $%d, %s" actual_idx (string_of_register reg);
+    B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
+    (match p with
+    | Some p ->
+      read_from_address ctx buf v reg_value (-16);
+      let s = turn_into_stack ctx buf reg_value in
+      free_register reg ctx;
+      pattern_match ctx buf p (StackValue s) fail_label
+    | None -> free_register reg ctx)
+  | Pat.Int x ->
+    let reg, free = turn_into_register ctx buf v in
+    restore_marked_int buf (RegisterValue reg);
+    B.emit_inst_fmt buf "cmpq $%d, %s" x (string_of_register reg);
+    B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
+    free ctx
+  | Pat.String s ->
+    let sv = make_string_const ctx buf s in
+    let ret = safe_call ctx buf (string_of_label mlml_equal_label) [v; sv] in
+    branch_if_truthy ctx buf (RegisterValue ret) fail_label
+  | Pat.Or (a, b) ->
+    let idents = Pat.introduced_ident_list a in
+    if idents <> Pat.introduced_ident_list b
+    then failwith "introduced identifiers mismatch in | pattern";
+    let resulting_area =
+      List.map (fun _ -> push_to_stack ctx buf (ConstantValue 0)) idents
+    in
+    let store_result name s =
+      (* TODO: `v` can be freed here *)
+      let v = get_variable ctx name in
+      assign_to_stack ctx buf (StackValue v) s;
+      undef_variable ctx name
+    in
+    let right_label = new_unnamed_label ctx in
+    let join_label = new_unnamed_label ctx in
+    pattern_match ctx buf a v right_label;
+    List.iter2 store_result idents resulting_area;
+    B.emit_inst_fmt buf "jmp %s" (string_of_label join_label);
+    start_label buf right_label;
+    pattern_match ctx buf b v fail_label;
+    List.iter2 store_result idents resulting_area;
+    start_label buf join_label;
+    let redef_vars name s = define_variable ctx buf name (StackValue s) in
+    List.iter2 redef_vars idents resulting_area
+  | Pat.Cons (a, b) ->
+    (* assume v holds heap address *)
+    let reg = alloc_register ctx in
+    let reg_value = RegisterValue reg in
+    (* read the flag *)
+    read_from_address ctx buf v reg_value (-8);
+    restore_marked_int buf reg_value;
+    (* nil -> 0, cons -> 1 *)
+    B.emit_inst_fmt buf "cmpq $%d, %s" 1 (string_of_register reg);
+    B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
+    read_from_address ctx buf v reg_value (-16);
+    let s1 = turn_into_stack ctx buf reg_value in
+    read_from_address ctx buf v reg_value (-24);
+    let s2 = turn_into_stack ctx buf reg_value in
+    free_register reg ctx;
+    pattern_match ctx buf a (StackValue s1) fail_label;
+    pattern_match ctx buf b (StackValue s2) fail_label
+  | Pat.Nil ->
+    (* assume v holds heap address *)
+    let reg = alloc_register ctx in
+    let reg_value = RegisterValue reg in
+    (* read the flag *)
+    read_from_address ctx buf v reg_value (-8);
+    restore_marked_int buf reg_value;
+    (* nil -> 0, cons -> 1 *)
+    B.emit_inst_fmt buf "cmpq $%d, %s" 0 (string_of_register reg);
+    B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
+    free_register reg ctx
 ;;
 
 let emit_match_fail ctx buf _label _ret_label =

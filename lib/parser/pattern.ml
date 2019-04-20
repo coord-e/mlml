@@ -3,6 +3,7 @@ module L = Lexer
 type t =
   | Var of string
   | Int of int
+  | String of string
   | Tuple of t list
   | Ctor of string * t option
   | Or of t * t
@@ -14,6 +15,9 @@ let rec try_parse_pattern_literal tokens =
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
   (* TODO: Add boolean value *)
   | L.BoolLiteral b :: tokens -> tokens, Some (Int (if b then 1 else 0))
+  (* TODO: Add char value *)
+  | L.CharLiteral c :: tokens -> tokens, Some (Int (Char.code c))
+  | L.StringLiteral s :: tokens -> tokens, Some (String s)
   | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
   | L.CapitalIdent ident :: tokens ->
     (match try_parse_pattern_literal tokens with
@@ -81,6 +85,7 @@ and parse_pattern tokens = parse_pattern_cons tokens
 let rec string_of_pattern = function
   | Var x -> x
   | Int x -> string_of_int x
+  | String s -> Printf.sprintf "\"%s\"" s
   | Tuple values ->
     List.map string_of_pattern values |> String.concat ", " |> Printf.sprintf "(%s)"
   | Ctor (name, rhs) ->
@@ -98,7 +103,7 @@ module SS = Set.Make (String)
 let rec introduced_idents = function
   | Var "_" -> SS.empty
   | Var x -> SS.singleton x
-  | Int _ -> SS.empty
+  | Int _ | String _ -> SS.empty
   | Tuple values -> List.map introduced_idents values |> List.fold_left SS.union SS.empty
   | Ctor (_, value) ->
     (match value with Some value -> introduced_idents value | None -> SS.empty)
