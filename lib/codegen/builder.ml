@@ -201,6 +201,15 @@ let push_to_stack ctx buf v =
 
 let turn_into_stack ctx buf = function StackValue s -> s | v -> push_to_stack ctx buf v
 
+let assign_to_value ctx buf a b =
+  match a, b with
+  | StackValue _, StackValue _ ->
+    let reg = assign_to_new_register ctx buf a in
+    B.emit_inst_fmt buf "movq %s, %s" (string_of_register reg) (string_of_value b);
+    free_register reg ctx
+  | _ -> B.emit_inst_fmt buf "movq %s, %s" (string_of_value a) (string_of_value b)
+;;
+
 let assign_to_address ctx buf src dest offset =
   let src, free_src = turn_into_register ctx buf src in
   let dest, free_dest = turn_into_register ctx buf dest in
@@ -477,6 +486,16 @@ let alloc_heap_ptr_constsize ctx buf size dest =
   alloc_heap_ptr_raw ctx buf (ConstantValue size) dest
 ;;
 
+let string_value_to_content ctx buf v dest =
+  let reg = alloc_register ctx in
+  (* read the size of data *)
+  read_from_address ctx buf v (RegisterValue reg) 0;
+  restore_marked_int buf (RegisterValue reg);
+  assign_to_value ctx buf v dest;
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_register reg) (string_of_value dest);
+  free_register reg ctx
+;;
+
 let emit_match_fail ctx buf _label _ret_label =
   (* emit data *)
   let str_label = new_label ctx ".string_of_match_fail" in
@@ -512,19 +531,12 @@ let emit_print_int_function ctx buf _label _ret_label =
 
 let emit_print_string_function ctx buf _label _ret_label =
   let a1, free1 = nth_arg_register ctx 0 in
-  let reg = alloc_register ctx in
   (* read the first element of closure tuple *)
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
-  (* read the length of string *)
-  read_from_address ctx buf (RegisterValue a1) (RegisterValue reg) (-8);
-  restore_marked_int buf (RegisterValue reg);
   (* assume reg is a pointer to string value *)
-  (* 8 + 1 (\0 terminate) *)
-  B.emit_inst_fmt buf "subq $9, %s" (string_of_register a1);
-  B.emit_inst_fmt buf "subq %s, %s" (string_of_register reg) (string_of_register a1);
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
   let _ = safe_call ctx buf "puts@PLT" [RegisterValue a1] in
-  free1 ctx;
-  free_register reg ctx
+  free1 ctx
 ;;
 
 let emit_equal_function ctx buf label ret_label =
