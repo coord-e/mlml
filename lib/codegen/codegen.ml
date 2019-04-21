@@ -108,16 +108,8 @@ let rec codegen_expr ctx buf = function
     B.emit_inst_fmt buf "xorq $2, %s" (string_of_register ret);
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.Tuple values ->
-    let size = List.length values in
-    let reg = alloc_register ctx in
-    let reg_value = RegisterValue reg in
-    alloc_heap_ptr_constsize ctx buf ((size + 1) * 8) reg_value;
     let values = List.map (codegen_expr ctx buf) values in
-    assign_to_address ctx buf (ConstantValue (size * 8 * 2)) reg_value 0;
-    List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-(i + 1) * 8)) values;
-    let s = StackValue (turn_into_stack ctx buf reg_value) in
-    free_register reg ctx;
-    s
+    make_tuple_const ctx buf values
   | Expr.Ctor (name, value) ->
     let value =
       match value with
@@ -215,15 +207,46 @@ let rec codegen_expr ctx buf = function
     let rhs = codegen_expr ctx buf rhs in
     let ret = safe_call ctx buf (string_of_label append_string_label) [lhs; rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
+  | Expr.Record fields ->
+    let trans (name, expr) = get_field_index ctx name, codegen_expr ctx buf expr in
+    let cmp (i1, _) (i2, _) = compare i1 i2 in
+    List.map trans fields |> List.sort cmp |> List.map snd |> make_tuple_const ctx buf
+  | Expr.RecordField (v, field) ->
+    let v = codegen_expr ctx buf v in
+    let idx = get_field_index ctx field in
+    let reg = alloc_register ctx in
+    read_from_address ctx buf v (RegisterValue reg) (-(idx + 1) * 8);
+    let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
+    free_register reg ctx;
+    s
+  | Expr.RecordUpdate (target, fields) ->
+    let target = codegen_expr ctx buf target in
+    let reg = alloc_register ctx in
+    shallow_copy ctx buf target (RegisterValue reg);
+    let aux (name, v) =
+      let v = codegen_expr ctx buf v in
+      let i = get_field_index ctx name in
+      assign_to_address ctx buf v (RegisterValue reg) (-(i + 1) * 8)
+    in
+    List.iter aux fields;
+    let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
+    free_register reg ctx;
+    s
 
 and codegen_definition ctx buf = function
   | Def.LetAnd (is_rec, l) ->
     let _, values = emit_let_binding_values ctx buf is_rec l in
     let def (name, ptr) = define_variable ctx buf name ptr in
     List.iter def values
-  | Def.Variant (_, variants) ->
+  | Def.TypeDef (_, def) -> codegen_type_def ctx buf def
+
+and codegen_type_def ctx _buf = function
+  | Def.Variant variants ->
     let aux i (ctor, _) = define_ctor ctx ctor i in
     List.iteri aux variants
+  | Def.Record fields ->
+    let aux i (name, _) = define_field ctx name i in
+    List.iteri aux fields
 
 and codegen_module_item ctx buf = function
   | Item.Definition def -> codegen_definition ctx buf def
@@ -338,5 +361,6 @@ let f ast =
   let _ = emit_function_with ctx buf match_fail_label emit_match_fail in
   let _ = emit_function_with ctx buf mlml_equal_label emit_equal_function in
   let _ = emit_function_with ctx buf append_string_label emit_append_string_function in
+  let _ = emit_function_with ctx buf shallow_copy_label emit_shallow_copy_function in
   B.contents buf
 ;;

@@ -31,6 +31,9 @@ and t =
   | Nil
   | StringIndex of t * t
   | StringAppend of t * t
+  | Record of (string * t) list
+  | RecordField of t * string
+  | RecordUpdate of t * (string * t) list
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
@@ -107,6 +110,39 @@ and parse_in = function
   | L.In :: rest -> parse_expression rest
   | _ -> failwith "could not find `in`"
 
+and parse_fields tokens =
+  let continue name expr = function
+    | L.Semicolon :: rest ->
+      let rest, acc = parse_fields rest in
+      rest, (name, expr) :: acc
+    | rest -> rest, [name, expr]
+  in
+  match tokens with
+  | L.LowerIdent name :: L.Equal :: rest ->
+    let rest, expr = parse_let rest in
+    continue name expr rest
+  | L.LowerIdent name :: rest -> continue name (Var name) rest
+  | rest -> rest, []
+
+and parse_record tokens =
+  let parse_value tokens =
+    let rest, fields = parse_fields tokens in
+    rest, Record fields
+  and try_parse_with tokens =
+    let rest, expr = parse_let tokens in
+    match rest with
+    | L.With :: rest ->
+      let rest, fields = parse_fields rest in
+      rest, Some (RecordUpdate (expr, fields))
+    | _ -> tokens, None
+  in
+  let aux tokens =
+    let rest, v_opt = try_parse_with tokens in
+    match v_opt with Some v -> rest, v | None -> parse_value tokens
+  in
+  let rest, v = match tokens with L.LBrace :: rest | rest -> aux rest in
+  match rest with L.RBrace :: rest -> rest, v | _ -> failwith "could not find `}`"
+
 and try_parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
@@ -120,6 +156,9 @@ and try_parse_literal tokens =
     (match try_parse_literal tokens with
     | rest, Some p -> rest, Some (Ctor (ident, Some p))
     | _, None -> tokens, Some (Ctor (ident, None)))
+  | L.LBrace :: rest ->
+    let rest, r = parse_record rest in
+    rest, Some r
   | L.LBracket :: rest ->
     let rec aux = function
       | L.RBracket :: rest -> rest, Nil
@@ -141,6 +180,7 @@ and try_parse_dot tokens =
   match lhs_opt with
   | Some lhs ->
     (match rest with
+    | L.Dot :: L.LowerIdent ident :: rest -> rest, Some (RecordField (lhs, ident))
     | L.Dot :: L.LBracket :: rest ->
       let rest, rhs = parse_expression rest in
       (match rest with
@@ -387,6 +427,16 @@ and string_of_expression = function
       "StringAppend (%s) (%s)"
       (string_of_expression lhs)
       (string_of_expression rhs)
+  | Record fields ->
+    let aux (name, expr) = Printf.sprintf "%s = (%s)" name (string_of_expression expr) in
+    List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
+  | RecordField (v, field) ->
+    Printf.sprintf "RecordField (%s).%s" (string_of_expression v) field
+  | RecordUpdate (e, fields) ->
+    let aux (name, expr) = Printf.sprintf "%s = (%s)" name (string_of_expression expr) in
+    List.map aux fields
+    |> String.concat "; "
+    |> Printf.sprintf "{%s with %s}" (string_of_expression e)
 ;;
 
 let f = parse_expression

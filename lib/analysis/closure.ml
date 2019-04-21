@@ -59,6 +59,13 @@ and free_variables = function
     let body = free_variables body in
     SS.diff body param
   | Expr.Var x -> SS.singleton x
+  | Expr.Record fields ->
+    let aux (_, expr) = free_variables expr in
+    List.map aux fields |> List.fold_left SS.union SS.empty
+  | Expr.RecordField (v, _) -> free_variables v
+  | Expr.RecordUpdate (e, fields) ->
+    let aux (_, expr) = free_variables expr in
+    List.map aux fields |> List.fold_left SS.union (free_variables e)
 ;;
 
 let free_variable_list x = free_variables x |> SS.elements
@@ -148,6 +155,13 @@ and closure_conversion' i expr =
       pat, when_, aux i v
     in
     Expr.Match (expr, List.map aux' arms)
+  | Expr.Record fields ->
+    let aux' (name, expr) = name, aux i expr in
+    Expr.Record (List.map aux' fields)
+  | Expr.RecordField (v, field) -> Expr.RecordField (aux i v, field)
+  | Expr.RecordUpdate (e, fields) ->
+    let aux' (name, expr) = name, aux i expr in
+    Expr.RecordUpdate (aux i e, List.map aux' fields)
 
 and closure_conversion expr = closure_conversion' 0 expr
 
@@ -179,5 +193,5 @@ let closure_conversion_defn defn =
     let resulting_pat = Pat.Tuple pats in
     let resulting_expr = Expr.Tuple values in
     make_let_var_defn resulting_pat (Expr.LetAnd (is_rec, funs, resulting_expr))
-  | Def.Variant _ -> defn
+  | Def.TypeDef _ -> defn
 ;;

@@ -43,6 +43,7 @@ type local_env =
 type context =
   { mutable used_labels : LS.t
   ; mutable ctors : (string, int) Hashtbl.t
+  ; mutable fields : (string, int) Hashtbl.t
   ; mutable current_env : local_env }
 
 let usable_registers =
@@ -92,10 +93,12 @@ let print_char_label = Label "_print_char"
 let print_string_label = Label "_print_string"
 let mlml_equal_label = Label "_mlml_equal"
 let append_string_label = Label "_append_string"
+let shallow_copy_label = Label "_shallow_copy"
 
 let new_context () =
   { used_labels = LS.of_list [print_int_label; match_fail_label]
   ; ctors = Hashtbl.create 32
+  ; fields = Hashtbl.create 32
   ; current_env = new_local_env () }
 ;;
 
@@ -293,6 +296,8 @@ let safe_call ctx buf name args =
 
 let define_ctor ctx ctor idx = Hashtbl.add ctx.ctors ctor idx
 let get_ctor_index ctx ctor = Hashtbl.find ctx.ctors ctor
+let define_field ctx field idx = Hashtbl.add ctx.fields field idx
+let get_field_index ctx field = Hashtbl.find ctx.fields field
 
 let define_variable ctx buf ident v =
   (* TODO: Print warning when ident is accidentally "_" *)
@@ -311,6 +316,24 @@ let label_ptr_to_register buf label reg =
     (string_of_register reg)
 ;;
 
+let alloc_heap_ptr_raw ctx buf size dest =
+  let ptr = RegisterValue (safe_call ctx buf "malloc@PLT" [size]) in
+  match dest with
+  | RegisterValue r -> assign_to_register buf ptr r
+  | StackValue s -> assign_to_stack ctx buf ptr s
+  | ConstantValue _ -> failwith "can't assign to constant"
+;;
+
+let alloc_heap_ptr ctx buf size dest =
+  let reg = assign_to_new_register ctx buf size in
+  alloc_heap_ptr_raw ctx buf (RegisterValue reg) dest;
+  free_register reg ctx
+;;
+
+let alloc_heap_ptr_constsize ctx buf size dest =
+  alloc_heap_ptr_raw ctx buf (ConstantValue size) dest
+;;
+
 let make_string_const ctx buf s =
   let len = String.length s in
   let aligned = ((len / 8) + 1) * 8 in
@@ -326,6 +349,18 @@ let make_string_const ctx buf s =
   label_ptr_to_register buf str_label r;
   let s = turn_into_stack ctx buf (RegisterValue r) in
   free_register r ctx;
+  StackValue s
+;;
+
+let make_tuple_const ctx buf values =
+  let size = List.length values in
+  let reg = alloc_register ctx in
+  let reg_value = RegisterValue reg in
+  alloc_heap_ptr_constsize ctx buf ((size + 1) * 8) reg_value;
+  assign_to_address ctx buf (ConstantValue (size * 8 * 2)) reg_value 0;
+  List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-(i + 1) * 8)) values;
+  let s = turn_into_stack ctx buf reg_value in
+  free_register reg ctx;
   StackValue s
 ;;
 
@@ -396,24 +431,6 @@ let comparison_to_value ctx buf cmp v1 v2 =
   StackValue s
 ;;
 
-let alloc_heap_ptr_raw ctx buf size dest =
-  let ptr = RegisterValue (safe_call ctx buf "malloc@PLT" [size]) in
-  match dest with
-  | RegisterValue r -> assign_to_register buf ptr r
-  | StackValue s -> assign_to_stack ctx buf ptr s
-  | ConstantValue _ -> failwith "can't assign to constant"
-;;
-
-let alloc_heap_ptr ctx buf size dest =
-  let reg = assign_to_new_register ctx buf size in
-  alloc_heap_ptr_raw ctx buf (RegisterValue reg) dest;
-  free_register reg ctx
-;;
-
-let alloc_heap_ptr_constsize ctx buf size dest =
-  alloc_heap_ptr_raw ctx buf (ConstantValue size) dest
-;;
-
 let string_value_to_content ctx buf v dest =
   let reg = alloc_register ctx in
   (* read the size of data *)
@@ -439,6 +456,18 @@ let rec pattern_match ctx buf pat v fail_label =
       pattern_match ctx buf p (StackValue s) fail_label
     in
     List.iteri aux values
+  | Pat.Record fields ->
+    (* assume v holds heap address *)
+    let aux (name, p) =
+      let i = get_field_index ctx name in
+      let reg = alloc_register ctx in
+      let reg_value = RegisterValue reg in
+      read_from_address ctx buf v reg_value (-(i + 1) * 8);
+      let s = turn_into_stack ctx buf reg_value in
+      free_register reg ctx;
+      pattern_match ctx buf p (StackValue s) fail_label
+    in
+    List.iter aux fields
   | Pat.Ctor (name, p) ->
     (* assume v holds heap address *)
     let actual_idx = get_ctor_index ctx name in
@@ -517,6 +546,11 @@ let rec pattern_match ctx buf pat v fail_label =
     B.emit_inst_fmt buf "cmpq $%d, %s" 0 (string_of_register reg);
     B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
     free_register reg ctx
+;;
+
+let shallow_copy ctx buf src dest =
+  let ret = safe_call ctx buf (string_of_label shallow_copy_label) [src] in
+  assign_to_value ctx buf (RegisterValue ret) dest
 ;;
 
 let emit_match_fail ctx buf _label _ret_label =
@@ -693,4 +727,27 @@ let emit_append_string_function ctx buf _label _ret_label =
   free_register lhs_len ctx;
   free_register rhs_len ctx;
   assign_to_register buf (StackValue ptr_save) ret_register
+;;
+
+let emit_shallow_copy_function ctx buf _label _ret_label =
+  let src = nth_arg_stack ctx buf 0 in
+  let dest = alloc_register ctx in
+  let size = alloc_register ctx in
+  (* read data size *)
+  read_from_address ctx buf (StackValue src) (RegisterValue size) 0;
+  restore_marked_int buf (RegisterValue size);
+  alloc_heap_ptr ctx buf (RegisterValue size) (RegisterValue dest);
+  let ptr = push_to_stack ctx buf (RegisterValue dest) in
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_register dest);
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_stack src);
+  let _ =
+    safe_call
+      ctx
+      buf
+      "memcpy@PLT"
+      [RegisterValue dest; StackValue src; RegisterValue size]
+  in
+  free_register size ctx;
+  assign_to_register buf (StackValue ptr) ret_register;
+  free_register dest ctx
 ;;
