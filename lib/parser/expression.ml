@@ -110,30 +110,35 @@ and parse_in = function
   | L.In :: rest -> parse_expression rest
   | _ -> failwith "could not find `in`"
 
+and parse_fields tokens =
+  let continue name expr = function
+    | L.Semicolon :: rest ->
+      let rest, acc = parse_fields rest in
+      rest, (name, expr) :: acc
+    | rest -> rest, [name, expr]
+  in
+  match tokens with
+  | L.LowerIdent name :: L.Equal :: rest ->
+    let rest, expr = parse_let rest in
+    continue name expr rest
+  | L.LowerIdent name :: rest -> continue name (Var name) rest
+  | rest -> rest, []
+
 and parse_record tokens =
-  let rec parse_fields = function
-    | L.LowerIdent name :: L.Equal :: rest ->
-      let rest, expr = parse_let rest in
-      (match rest with
-      | L.Semicolon :: rest ->
-        let rest, acc = parse_fields rest in
-        rest, (name, expr) :: acc
-      | _ -> rest, [name, expr])
-    | rest -> rest, []
-  and parse_value tokens =
+  let parse_value tokens =
     let rest, fields = parse_fields tokens in
     rest, Record fields
-  and parse_with tokens =
+  and try_parse_with tokens =
     let rest, expr = parse_let tokens in
     match rest with
     | L.With :: rest ->
       let rest, fields = parse_fields rest in
-      rest, RecordUpdate (expr, fields)
-    | _ -> failwith "could not find `with`"
-  and aux tokens =
-    match tokens with
-    | L.LowerIdent _ :: L.Equal :: _ -> parse_value tokens
-    | _ -> parse_with tokens
+      rest, Some (RecordUpdate (expr, fields))
+    | _ -> tokens, None
+  in
+  let aux tokens =
+    let rest, v_opt = try_parse_with tokens in
+    match v_opt with Some v -> rest, v | None -> parse_value tokens
   in
   let rest, v = match tokens with L.LBrace :: rest | rest -> aux rest in
   match rest with L.RBrace :: rest -> rest, v | _ -> failwith "could not find `}`"

@@ -11,7 +11,21 @@ type t =
   | Nil
   | Record of (string * t) list
 
-let rec try_parse_pattern_literal tokens =
+let rec parse_fields tokens =
+  let continue name expr = function
+    | L.Semicolon :: rest ->
+      let rest, acc = parse_fields rest in
+      rest, (name, expr) :: acc
+    | rest -> rest, [name, expr]
+  in
+  match tokens with
+  | L.LowerIdent name :: L.Equal :: rest ->
+    let rest, expr = parse_pattern rest in
+    continue name expr rest
+  | L.LowerIdent name :: rest -> continue name (Var name) rest
+  | rest -> rest, []
+
+and try_parse_pattern_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
   (* TODO: Add boolean value *)
@@ -25,17 +39,7 @@ let rec try_parse_pattern_literal tokens =
     | rest, Some p -> rest, Some (Ctor (ident, Some p))
     | _, None -> tokens, Some (Ctor (ident, None)))
   | L.LBrace :: rest ->
-    let rec aux = function
-      | L.LowerIdent name :: L.Equal :: rest ->
-        let rest, expr = parse_pattern rest in
-        (match rest with
-        | L.Semicolon :: rest ->
-          let rest, acc = aux rest in
-          rest, (name, expr) :: acc
-        | _ -> rest, [name, expr])
-      | rest -> rest, []
-    in
-    let rest, fields = aux rest in
+    let rest, fields = parse_fields rest in
     (match rest with
     | L.RBrace :: rest -> rest, Some (Record fields)
     | _ -> failwith "record definition is not terminated")
