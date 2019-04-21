@@ -10,6 +10,7 @@ type t =
   | Cons of t * t
   | Nil
   | Record of (string * t) list
+  | Range of char * char
 
 let rec parse_fields tokens =
   let continue name expr = function
@@ -31,6 +32,8 @@ and try_parse_literal tokens =
   (* TODO: Add boolean value *)
   | L.BoolLiteral b :: tokens -> tokens, Some (Int (if b then 1 else 0))
   (* TODO: Add char value *)
+  | L.CharLiteral from :: L.DoubleDot :: L.CharLiteral to_ :: tokens ->
+    tokens, Some (Range (from, to_))
   | L.CharLiteral c :: tokens -> tokens, Some (Int (Char.code c))
   | L.StringLiteral s :: tokens -> tokens, Some (String s)
   | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
@@ -119,6 +122,7 @@ let rec string_of_pattern = function
   | Record fields ->
     let aux (name, expr) = Printf.sprintf "%s = (%s)" name (string_of_pattern expr) in
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
+  | Range (from, to_) -> Printf.sprintf "'%c' .. '%c'" from to_
 ;;
 
 module SS = Set.Make (String)
@@ -132,7 +136,7 @@ let rec introduced_idents = function
     (match value with Some value -> introduced_idents value | None -> SS.empty)
   | Or (a, b) -> SS.union (introduced_idents a) (introduced_idents b)
   | Cons (a, b) -> SS.union (introduced_idents a) (introduced_idents b)
-  | Nil -> SS.empty
+  | Nil | Range _ -> SS.empty
   | Record fields ->
     let aux (_, p) = introduced_idents p in
     List.map aux fields |> List.fold_left SS.union SS.empty
