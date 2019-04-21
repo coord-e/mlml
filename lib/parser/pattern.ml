@@ -66,20 +66,17 @@ and parse_literal tokens =
     failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
   | [], None -> failwith "Empty input"
 
-and parse_or tokens =
+and parse_cons tokens =
   let tokens, lhs = parse_literal tokens in
-  let rec aux lhs tokens =
-    match tokens with
-    | L.Vertical :: rest ->
-      let rest, rhs = parse_literal rest in
-      aux (Or (lhs, rhs)) rest
-    | _ -> tokens, lhs
-  in
-  aux lhs tokens
+  match tokens with
+  | L.DoubleColon :: tokens ->
+    let tokens, rhs = parse_cons tokens in
+    tokens, Cons (lhs, rhs)
+  | _ -> tokens, lhs
 
 and parse_tuple tokens =
   let rec aux tokens =
-    let rest, curr = parse_or tokens in
+    let rest, curr = parse_cons tokens in
     match rest with
     | L.Comma :: rest ->
       let rest, tail = aux rest in
@@ -92,15 +89,18 @@ and parse_tuple tokens =
   | [value] -> rest, value
   | _ -> rest, Tuple values
 
-and parse_cons tokens =
+and parse_or tokens =
   let tokens, lhs = parse_tuple tokens in
-  match tokens with
-  | L.DoubleColon :: tokens ->
-    let tokens, rhs = parse_cons tokens in
-    tokens, Cons (lhs, rhs)
-  | _ -> tokens, lhs
+  let rec aux lhs tokens =
+    match tokens with
+    | L.Vertical :: rest ->
+      let rest, rhs = parse_tuple rest in
+      aux (Or (lhs, rhs)) rest
+    | _ -> tokens, lhs
+  in
+  aux lhs tokens
 
-and parse_pattern tokens = parse_cons tokens
+and parse_pattern tokens = parse_or tokens
 
 let rec string_of_pattern = function
   | Var x -> x
