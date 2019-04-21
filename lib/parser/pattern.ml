@@ -25,7 +25,7 @@ let rec parse_fields tokens =
   | L.LowerIdent name :: rest -> continue name (Var name) rest
   | rest -> rest, []
 
-and try_parse_pattern_literal tokens =
+and try_parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
   (* TODO: Add boolean value *)
@@ -35,7 +35,7 @@ and try_parse_pattern_literal tokens =
   | L.StringLiteral s :: tokens -> tokens, Some (String s)
   | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
   | L.CapitalIdent ident :: tokens ->
-    (match try_parse_pattern_literal tokens with
+    (match try_parse_literal tokens with
     | rest, Some p -> rest, Some (Ctor (ident, Some p))
     | _, None -> tokens, Some (Ctor (ident, None)))
   | L.LBrace :: rest ->
@@ -59,27 +59,27 @@ and try_parse_pattern_literal tokens =
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
   | _ -> tokens, None
 
-and parse_pattern_literal tokens =
-  match try_parse_pattern_literal tokens with
+and parse_literal tokens =
+  match try_parse_literal tokens with
   | tokens, Some v -> tokens, v
   | h :: _, None ->
     failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
   | [], None -> failwith "Empty input"
 
-and parse_pattern_or tokens =
-  let tokens, lhs = parse_pattern_literal tokens in
+and parse_or tokens =
+  let tokens, lhs = parse_literal tokens in
   let rec aux lhs tokens =
     match tokens with
     | L.Vertical :: rest ->
-      let rest, rhs = parse_pattern_literal rest in
+      let rest, rhs = parse_literal rest in
       aux (Or (lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
 
-and parse_pattern_tuple tokens =
+and parse_tuple tokens =
   let rec aux tokens =
-    let rest, curr = parse_pattern_or tokens in
+    let rest, curr = parse_or tokens in
     match rest with
     | L.Comma :: rest ->
       let rest, tail = aux rest in
@@ -92,15 +92,15 @@ and parse_pattern_tuple tokens =
   | [value] -> rest, value
   | _ -> rest, Tuple values
 
-and parse_pattern_cons tokens =
-  let tokens, lhs = parse_pattern_tuple tokens in
+and parse_cons tokens =
+  let tokens, lhs = parse_tuple tokens in
   match tokens with
   | L.DoubleColon :: tokens ->
-    let tokens, rhs = parse_pattern_cons tokens in
+    let tokens, rhs = parse_cons tokens in
     tokens, Cons (lhs, rhs)
   | _ -> tokens, lhs
 
-and parse_pattern tokens = parse_pattern_cons tokens
+and parse_pattern tokens = parse_cons tokens
 
 let rec string_of_pattern = function
   | Var x -> x
