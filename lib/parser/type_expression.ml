@@ -41,10 +41,14 @@ and parse_type_params = function
     rest, [t]
 
 and parse_app tokens =
-  match parse_type_params tokens with
-  | L.LowerIdent ident :: rest, l -> rest, Ctor (l, ident)
-  | rest, [t] -> rest, t
-  | _ -> failwith "could not parse type"
+  let rest, l = parse_type_params tokens in
+  let rec aux l tokens =
+    match tokens, l with
+    | L.LowerIdent ident :: rest, l -> aux [Ctor (l, ident)] rest
+    | rest, [t] -> rest, t
+    | _ -> failwith "could not parse type"
+  in
+  aux l rest
 
 and parse_tuple tokens =
   let rec aux tokens =
