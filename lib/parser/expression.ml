@@ -111,7 +111,7 @@ and parse_in = function
 and parse_record tokens =
   let rec aux = function
     | L.LowerIdent name :: L.Equal :: rest ->
-      let rest, expr = parse_expression rest in
+      let rest, expr = parse_let rest in
       (match rest with
       | L.Semicolon :: rest ->
         let rest, acc = aux rest in
