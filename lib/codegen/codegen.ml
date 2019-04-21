@@ -219,6 +219,19 @@ let rec codegen_expr ctx buf = function
     let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
     free_register reg ctx;
     s
+  | Expr.RecordUpdate (target, fields) ->
+    let target = codegen_expr ctx buf target in
+    let reg = alloc_register ctx in
+    shallow_copy ctx buf target (RegisterValue reg);
+    let aux (name, v) =
+      let v = codegen_expr ctx buf v in
+      let i = get_field_index ctx name in
+      assign_to_address ctx buf v (RegisterValue reg) (-(i + 1) * 8)
+    in
+    List.iter aux fields;
+    let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
+    free_register reg ctx;
+    s
 
 and codegen_definition ctx buf = function
   | Def.LetAnd (is_rec, l) ->

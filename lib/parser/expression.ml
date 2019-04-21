@@ -33,6 +33,7 @@ and t =
   | StringAppend of t * t
   | Record of (string * t) list
   | RecordField of t * string
+  | RecordUpdate of t * (string * t) list
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
@@ -110,20 +111,32 @@ and parse_in = function
   | _ -> failwith "could not find `in`"
 
 and parse_record tokens =
-  let rec aux = function
+  let rec parse_fields = function
     | L.LowerIdent name :: L.Equal :: rest ->
       let rest, expr = parse_let rest in
       (match rest with
       | L.Semicolon :: rest ->
-        let rest, acc = aux rest in
+        let rest, acc = parse_fields rest in
         rest, (name, expr) :: acc
       | _ -> rest, [name, expr])
     | rest -> rest, []
+  and parse_value tokens =
+    let rest, fields = parse_fields tokens in
+    rest, Record fields
+  and parse_with tokens =
+    let rest, expr = parse_let tokens in
+    match rest with
+    | L.With :: rest ->
+      let rest, fields = parse_fields rest in
+      rest, RecordUpdate (expr, fields)
+    | _ -> failwith "could not find `with`"
+  and aux tokens =
+    match tokens with
+    | L.LowerIdent _ :: L.Equal :: _ -> parse_value tokens
+    | _ -> parse_with tokens
   in
-  let rest, fields = match tokens with L.LBrace :: rest | rest -> aux rest in
-  match rest with
-  | L.RBrace :: rest -> rest, Record fields
-  | _ -> failwith "record definition is not terminated"
+  let rest, v = match tokens with L.LBrace :: rest | rest -> aux rest in
+  match rest with L.RBrace :: rest -> rest, v | _ -> failwith "could not find `}`"
 
 and try_parse_literal tokens =
   match tokens with
@@ -414,6 +427,11 @@ and string_of_expression = function
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
   | RecordField (v, field) ->
     Printf.sprintf "RecordField (%s).%s" (string_of_expression v) field
+  | RecordUpdate (e, fields) ->
+    let aux (name, expr) = Printf.sprintf "%s = (%s)" name (string_of_expression expr) in
+    List.map aux fields
+    |> String.concat "; "
+    |> Printf.sprintf "{%s with %s}" (string_of_expression e)
 ;;
 
 let f = parse_expression

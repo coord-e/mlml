@@ -440,6 +440,17 @@ let string_value_to_content ctx buf v dest =
   free_register reg ctx
 ;;
 
+let shallow_copy ctx buf src dest =
+  let size = alloc_register ctx in
+  (* read data size *)
+  read_from_address ctx buf src (RegisterValue size) 0;
+  restore_marked_int buf (RegisterValue size);
+  alloc_heap_ptr ctx buf (RegisterValue size) dest;
+  let _ = safe_call ctx buf "memcpy@PLT" [src; dest; RegisterValue size] in
+  make_marked_int buf (RegisterValue size);
+  assign_to_address ctx buf (RegisterValue size) dest 0
+;;
+
 let rec pattern_match ctx buf pat v fail_label =
   match pat with
   | Pat.Var "_" -> ()
