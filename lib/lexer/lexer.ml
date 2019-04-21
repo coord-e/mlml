@@ -42,6 +42,7 @@ type token =
   | LBrace
   | RBrace
   | Dot
+  | DoubleDot
   | Hat
 
 let to_digit c = int_of_char c - int_of_char '0'
@@ -176,7 +177,10 @@ let rec tokenize_aux acc rest =
     | ']' -> tokenize_aux (RBracket :: acc) t
     | '{' -> tokenize_aux (LBrace :: acc) t
     | '}' -> tokenize_aux (RBrace :: acc) t
-    | '.' -> tokenize_aux (Dot :: acc) t
+    | '.' ->
+      (match t with
+      | '.' :: t -> tokenize_aux (DoubleDot :: acc) t
+      | _ -> tokenize_aux (Dot :: acc) t)
     | '^' -> tokenize_aux (Hat :: acc) t
     | ';' ->
       (match t with
@@ -232,6 +236,7 @@ let string_of_token = function
   | LBrace -> "{"
   | RBrace -> "}"
   | Dot -> "."
+  | DoubleDot -> ".."
   | Hat -> "^"
 ;;
 
