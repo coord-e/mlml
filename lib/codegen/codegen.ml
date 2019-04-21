@@ -238,7 +238,9 @@ and codegen_definition ctx buf = function
     let _, values = emit_let_binding_values ctx buf is_rec l in
     let def (name, ptr) = define_variable ctx buf name ptr in
     List.iter def values
-  | Def.TypeDef (_, def) -> codegen_type_def ctx buf def
+  | Def.TypeDef l ->
+    let aux (_, def) = codegen_type_def ctx buf def in
+    List.iter aux l
 
 and codegen_type_def ctx _buf = function
   | Def.Variant variants ->

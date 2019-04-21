@@ -13,7 +13,7 @@ type type_def =
 
 type t =
   | LetAnd of bool * Expr.let_binding list
-  | TypeDef of string * type_def
+  | TypeDef of (string * type_def) list
 
 let parse_variant tokens =
   let rec aux = function
@@ -51,7 +51,7 @@ let parse_record tokens =
   | _ -> failwith "record definition is not terminated"
 ;;
 
-let try_parse_type = function
+let rec try_parse_type_bindings = function
   | L.LowerIdent ident :: L.Equal :: rest ->
     let rest, def =
       match rest with
@@ -61,13 +61,21 @@ let try_parse_type = function
         let rest, ty = TyExpr.parse_type_expression rest in
         rest, Alias ty
     in
-    rest, Some (TypeDef (ident, def))
+    (match rest with
+    | L.And :: rest ->
+      (match try_parse_type_bindings rest with
+      | rest, Some l -> rest, Some ((ident, def) :: l)
+      | _, None -> failwith "could not parse a binding after `and`")
+    | _ -> rest, Some [ident, def])
   | tokens -> tokens, None
 ;;
 
 let try_parse_let tokens =
   match tokens with
-  | L.Type :: rest -> try_parse_type rest
+  | L.Type :: rest ->
+    (match try_parse_type_bindings rest with
+    | rest, Some l -> rest, Some (TypeDef l)
+    | rest, None -> rest, None)
   | L.Let :: rest ->
     let rest, is_rec = Expr.parse_rec rest in
     let rest, binds = Expr.parse_let_bindings rest in
@@ -107,7 +115,9 @@ let string_of_definition = function
   | LetAnd (is_rec, l) ->
     let l = List.map Expr.string_of_let_binding l |> String.concat " and " in
     Printf.sprintf "Let %s %s" (if is_rec then "rec" else "") l
-  | TypeDef (name, def) -> Printf.sprintf "type %s = %s" name (string_of_type_def def)
+  | TypeDef l ->
+    let aux (name, def) = Printf.sprintf "%s = %s" name (string_of_type_def def) in
+    List.map aux l |> String.concat " and " |> Printf.sprintf "type %s"
 ;;
 
 let f = parse_definition
