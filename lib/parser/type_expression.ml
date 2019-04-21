@@ -7,7 +7,7 @@ type t =
   | Ident of string
   | Tuple of t list
   | Var of string
-  | Ctor of t * string
+  | Ctor of t list * string
 
 let rec try_parse_primary = function
   | L.LowerIdent ident :: rest -> rest, Some (Ident ident)
@@ -24,13 +24,27 @@ and parse_primary tokens =
     failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
   | [], None -> failwith "Empty input"
 
+and parse_type_params = function
+  | L.LParen :: rest ->
+    let rec aux tokens =
+      let rest, t = parse_type_expression tokens in
+      match rest with
+      | L.Comma :: rest ->
+        let rest, l = aux rest in
+        rest, t :: l
+      | L.RParen :: rest -> rest, [t]
+      | _ -> failwith "could not parse type params"
+    in
+    aux rest
+  | tokens ->
+    let rest, t = parse_primary tokens in
+    rest, [t]
+
 and parse_app tokens =
-  let rest, t = parse_primary tokens in
-  let rec aux lhs = function
-    | L.LowerIdent ident :: rest -> aux (Ctor (lhs, ident)) rest
-    | rest -> rest, lhs
-  in
-  aux t rest
+  match parse_type_params tokens with
+  | L.LowerIdent ident :: rest, l -> rest, Ctor (l, ident)
+  | rest, [t] -> rest, t
+  | _ -> failwith "could not parse type"
 
 and parse_tuple tokens =
   let rec aux tokens =
@@ -52,8 +66,9 @@ and parse_type_expression tokens = parse_tuple tokens
 let rec string_of_type_expression = function
   | Ident ident -> Printf.sprintf "Ident %s" ident
   | Var ident -> Printf.sprintf "Var %s" ident
-  | Ctor (ty, ident) ->
-    Printf.sprintf "Ctor (%s, %s)" (string_of_type_expression ty) ident
+  | Ctor (tys, ident) ->
+    let tys = List.map string_of_type_expression tys |> String.concat ", " in
+    Printf.sprintf "Ctor (%s) %s" tys ident
   | Tuple ts ->
     let ts = List.map string_of_type_expression ts |> String.concat " * " in
     Printf.sprintf "Tuple (%s)" ts
