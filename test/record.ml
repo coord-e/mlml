@@ -55,9 +55,9 @@ let g = function
   | _ -> "mlml"
 ;;
 
-print_int (f v)
-print_string (g v)
-print_string (g {v with value = {a = "string"; b = 20, "str"}, 1})
+print_int (f v) ;;
+print_string (g v) ;;
+print_string (g {v with value = {a = "string"; b = 20, "str"}, 1}) ;;
 print_string (g {v with sub = {v.sub with t = "o, mlml"}})
 |}
 ;;
