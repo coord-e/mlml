@@ -103,7 +103,8 @@ and closure_conversion' i expr =
   match expr with
   | Expr.LetAnd (is_rec, l, in_) ->
     let in_ = aux i in_ in
-    let fvs = SS.diff (free_variables expr) (free_variables in_) |> SS.elements in
+    let fvs_binding x = intros_and_free_of_binding is_rec x |> snd |> SS.elements in
+    let fvs = List.map fvs_binding l |> List.flatten in
     let folder_wrap acc = function
       | pat, Some evalto -> make_let_var pat evalto acc
       | _, None -> acc
