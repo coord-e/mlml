@@ -59,6 +59,9 @@ and free_variables = function
     let body = free_variables body in
     SS.diff body param
   | Expr.Var x -> SS.singleton x
+  | Expr.Record fields ->
+    let aux (_, expr) = free_variables expr in
+    List.map aux fields |> List.fold_left SS.union SS.empty
 ;;
 
 let free_variable_list x = free_variables x |> SS.elements
@@ -148,6 +151,9 @@ and closure_conversion' i expr =
       pat, when_, aux i v
     in
     Expr.Match (expr, List.map aux' arms)
+  | Expr.Record fields ->
+    let aux' (name, expr) = name, aux i expr in
+    Expr.Record (List.map aux' fields)
 
 and closure_conversion expr = closure_conversion' 0 expr
 

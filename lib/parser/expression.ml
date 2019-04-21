@@ -31,6 +31,7 @@ and t =
   | Nil
   | StringIndex of t * t
   | StringAppend of t * t
+  | Record of (string * t) list
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
@@ -107,6 +108,22 @@ and parse_in = function
   | L.In :: rest -> parse_expression rest
   | _ -> failwith "could not find `in`"
 
+and parse_record tokens =
+  let rec aux = function
+    | L.LowerIdent name :: L.Equal :: rest ->
+      let rest, expr = parse_expression rest in
+      (match rest with
+      | L.Semicolon :: rest ->
+        let rest, acc = aux rest in
+        rest, (name, expr) :: acc
+      | _ -> rest, [name, expr])
+    | rest -> rest, []
+  in
+  let rest, fields = match tokens with L.LBrace :: rest | rest -> aux rest in
+  match rest with
+  | L.RBrace :: rest -> rest, Record fields
+  | _ -> failwith "record definition is not terminated"
+
 and try_parse_literal tokens =
   match tokens with
   | L.IntLiteral num :: tokens -> tokens, Some (Int num)
@@ -120,6 +137,9 @@ and try_parse_literal tokens =
     (match try_parse_literal tokens with
     | rest, Some p -> rest, Some (Ctor (ident, Some p))
     | _, None -> tokens, Some (Ctor (ident, None)))
+  | L.LBrace :: rest ->
+    let rest, r = parse_record rest in
+    rest, Some r
   | L.LBracket :: rest ->
     let rec aux = function
       | L.RBracket :: rest -> rest, Nil
@@ -387,6 +407,9 @@ and string_of_expression = function
       "StringAppend (%s) (%s)"
       (string_of_expression lhs)
       (string_of_expression rhs)
+  | Record fields ->
+    let aux (name, expr) = Printf.sprintf "%s = (%s)" name (string_of_expression expr) in
+    List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
 ;;
 
 let f = parse_expression
