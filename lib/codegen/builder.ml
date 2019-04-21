@@ -546,6 +546,9 @@ let rec pattern_match ctx buf pat v fail_label =
     B.emit_inst_fmt buf "cmpq $%d, %s" 0 (string_of_register reg);
     B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
     free_register reg ctx
+  | Pat.Range (from, to_) ->
+    branch_by_comparison ctx buf Ge (ConstantValue (Char.code from)) v fail_label;
+    branch_by_comparison ctx buf Le (ConstantValue (Char.code to_)) v fail_label
 ;;
 
 let shallow_copy ctx buf src dest =
