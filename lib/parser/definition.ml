@@ -9,10 +9,11 @@ module L = Lexer
 type type_def =
   | Variant of (string * TyExpr.t option) list
   | Record of (string * TyExpr.t) list
+  | Alias of TyExpr.t
 
 type t =
   | LetAnd of bool * Expr.let_binding list
-  | TypeDef of string * type_def
+  | TypeDef of (string list * string * type_def) list
 
 let parse_variant tokens =
   let rec aux = function
@@ -50,18 +51,47 @@ let parse_record tokens =
   | _ -> failwith "record definition is not terminated"
 ;;
 
-let try_parse_type = function
+let parse_type_params tokens =
+  let rec aux = function
+    | L.Apostrophe :: L.LowerIdent ident :: L.Comma :: rest ->
+      let rest, params = aux rest in
+      rest, ident :: params
+    | L.Apostrophe :: L.LowerIdent ident :: L.RParen :: rest -> rest, [ident]
+    | _ -> failwith "could not parse type params"
+  in
+  match tokens with
+  | L.Apostrophe :: L.LowerIdent ident :: rest -> rest, [ident]
+  | L.LParen :: rest -> aux rest
+  | _ -> tokens, []
+;;
+
+let rec try_parse_type_bindings tokens =
+  let rest, params = parse_type_params tokens in
+  match rest with
   | L.LowerIdent ident :: L.Equal :: rest ->
     let rest, def =
-      match rest with L.LBrace :: _ -> parse_record rest | _ -> parse_variant rest
+      match rest with
+      | L.LBrace :: _ -> parse_record rest
+      | L.Vertical :: _ | L.CapitalIdent _ :: _ -> parse_variant rest
+      | _ ->
+        let rest, ty = TyExpr.parse_type_expression rest in
+        rest, Alias ty
     in
-    rest, Some (TypeDef (ident, def))
+    (match rest with
+    | L.And :: rest ->
+      (match try_parse_type_bindings rest with
+      | rest, Some l -> rest, Some ((params, ident, def) :: l)
+      | _, None -> failwith "could not parse a binding after `and`")
+    | _ -> rest, Some [params, ident, def])
   | tokens -> tokens, None
 ;;
 
 let try_parse_let tokens =
   match tokens with
-  | L.Type :: rest -> try_parse_type rest
+  | L.Type :: rest ->
+    (match try_parse_type_bindings rest with
+    | rest, Some l -> rest, Some (TypeDef l)
+    | rest, None -> rest, None)
   | L.Let :: rest ->
     let rest, is_rec = Expr.parse_rec rest in
     let rest, binds = Expr.parse_let_bindings rest in
@@ -94,13 +124,19 @@ let string_of_type_def = function
       Printf.sprintf "%s: %s" name (TyExpr.string_of_type_expression ty)
     in
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
+  | Alias ty -> TyExpr.string_of_type_expression ty
 ;;
 
 let string_of_definition = function
   | LetAnd (is_rec, l) ->
     let l = List.map Expr.string_of_let_binding l |> String.concat " and " in
     Printf.sprintf "Let %s %s" (if is_rec then "rec" else "") l
-  | TypeDef (name, def) -> Printf.sprintf "type %s = %s" name (string_of_type_def def)
+  | TypeDef l ->
+    let aux (params, name, def) =
+      let params = String.concat ", '" params |> Printf.sprintf "('%s)" in
+      Printf.sprintf "%s %s = %s" params name (string_of_type_def def)
+    in
+    List.map aux l |> String.concat " and " |> Printf.sprintf "type %s"
 ;;
 
 let f = parse_definition

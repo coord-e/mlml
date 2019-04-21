@@ -44,6 +44,7 @@ type token =
   | Dot
   | DoubleDot
   | Hat
+  | Apostrophe
 
 let to_digit c = int_of_char c - int_of_char '0'
 
@@ -86,9 +87,15 @@ let rec read_string acc rest =
     rest, c :: acc
 ;;
 
-let read_char tokens =
+let try_read_char tokens =
   let rest, c = read_one_char tokens in
-  match rest with '\'' :: rest -> rest, c | _ -> failwith "invalid char literal"
+  match rest with '\'' :: rest -> rest, Some c | _ -> tokens, None
+;;
+
+let read_char tokens =
+  match try_read_char tokens with
+  | rest, Some c -> rest, c
+  | _, None -> failwith "invalid char literal"
 ;;
 
 let rec read_ident acc rest =
@@ -125,8 +132,9 @@ let rec tokenize_aux acc rest =
       let str_str = string_of_chars str in
       tokenize_aux (StringLiteral str_str :: acc) rest
     | '\'' ->
-      let rest, ch = read_char t in
-      tokenize_aux (CharLiteral ch :: acc) rest
+      (match try_read_char t with
+      | rest, Some ch -> tokenize_aux (CharLiteral ch :: acc) rest
+      | rest, None -> tokenize_aux (Apostrophe :: acc) rest)
     | 'a' .. 'z' | 'A' .. 'Z' | '_' ->
       let rest, ident = read_ident [] rest in
       let ident_str = string_of_chars ident in
@@ -238,6 +246,7 @@ let string_of_token = function
   | Dot -> "."
   | DoubleDot -> ".."
   | Hat -> "^"
+  | Apostrophe -> "'"
 ;;
 
 let string_of_tokens tokens =
