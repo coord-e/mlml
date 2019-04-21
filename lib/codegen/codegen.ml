@@ -361,5 +361,6 @@ let f ast =
   let _ = emit_function_with ctx buf match_fail_label emit_match_fail in
   let _ = emit_function_with ctx buf mlml_equal_label emit_equal_function in
   let _ = emit_function_with ctx buf append_string_label emit_append_string_function in
+  let _ = emit_function_with ctx buf shallow_copy_label emit_shallow_copy_function in
   B.contents buf
 ;;

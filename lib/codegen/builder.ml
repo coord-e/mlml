@@ -93,6 +93,7 @@ let print_char_label = Label "_print_char"
 let print_string_label = Label "_print_string"
 let mlml_equal_label = Label "_mlml_equal"
 let append_string_label = Label "_append_string"
+let shallow_copy_label = Label "_shallow_copy"
 
 let new_context () =
   { used_labels = LS.of_list [print_int_label; match_fail_label]
@@ -440,28 +441,6 @@ let string_value_to_content ctx buf v dest =
   free_register reg ctx
 ;;
 
-(* TODO: Implement this as a function *)
-let shallow_copy ctx buf src dest =
-  let size = alloc_register ctx in
-  (* read data size *)
-  read_from_address ctx buf src (RegisterValue size) 0;
-  restore_marked_int buf (RegisterValue size);
-  alloc_heap_ptr ctx buf (RegisterValue size) dest;
-  let dest' = assign_to_new_register ctx buf dest in
-  let src' = assign_to_new_register ctx buf src in
-  B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_register dest');
-  B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_register src');
-  let _ =
-    safe_call
-      ctx
-      buf
-      "memcpy@PLT"
-      [RegisterValue dest'; RegisterValue src'; RegisterValue size]
-  in
-  free_register dest' ctx;
-  free_register src' ctx
-;;
-
 let rec pattern_match ctx buf pat v fail_label =
   match pat with
   | Pat.Var "_" -> ()
@@ -567,6 +546,11 @@ let rec pattern_match ctx buf pat v fail_label =
     B.emit_inst_fmt buf "cmpq $%d, %s" 0 (string_of_register reg);
     B.emit_inst_fmt buf "jne %s" (string_of_label fail_label);
     free_register reg ctx
+;;
+
+let shallow_copy ctx buf src dest =
+  let ret = safe_call ctx buf (string_of_label shallow_copy_label) [src] in
+  assign_to_value ctx buf (RegisterValue ret) dest
 ;;
 
 let emit_match_fail ctx buf _label _ret_label =
@@ -743,4 +727,27 @@ let emit_append_string_function ctx buf _label _ret_label =
   free_register lhs_len ctx;
   free_register rhs_len ctx;
   assign_to_register buf (StackValue ptr_save) ret_register
+;;
+
+let emit_shallow_copy_function ctx buf _label _ret_label =
+  let src = nth_arg_stack ctx buf 0 in
+  let dest = alloc_register ctx in
+  let size = alloc_register ctx in
+  (* read data size *)
+  read_from_address ctx buf (StackValue src) (RegisterValue size) 0;
+  restore_marked_int buf (RegisterValue size);
+  alloc_heap_ptr ctx buf (RegisterValue size) (RegisterValue dest);
+  let ptr = push_to_stack ctx buf (RegisterValue dest) in
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_register dest);
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_stack src);
+  let _ =
+    safe_call
+      ctx
+      buf
+      "memcpy@PLT"
+      [RegisterValue dest; StackValue src; RegisterValue size]
+  in
+  free_register size ctx;
+  assign_to_register buf (StackValue ptr) ret_register;
+  free_register dest ctx
 ;;
