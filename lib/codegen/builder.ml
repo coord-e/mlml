@@ -455,6 +455,18 @@ let rec pattern_match ctx buf pat v fail_label =
       pattern_match ctx buf p (StackValue s) fail_label
     in
     List.iteri aux values
+  | Pat.Record fields ->
+    (* assume v holds heap address *)
+    let aux (name, p) =
+      let i = get_field_index ctx name in
+      let reg = alloc_register ctx in
+      let reg_value = RegisterValue reg in
+      read_from_address ctx buf v reg_value (-(i + 1) * 8);
+      let s = turn_into_stack ctx buf reg_value in
+      free_register reg ctx;
+      pattern_match ctx buf p (StackValue s) fail_label
+    in
+    List.iter aux fields
   | Pat.Ctor (name, p) ->
     (* assume v holds heap address *)
     let actual_idx = get_ctor_index ctx name in
