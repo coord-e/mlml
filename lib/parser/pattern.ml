@@ -9,6 +9,7 @@ type t =
   | Or of t * t
   | Cons of t * t
   | Nil
+  | Record of (string * t) list
 
 let rec try_parse_pattern_literal tokens =
   match tokens with
@@ -23,6 +24,21 @@ let rec try_parse_pattern_literal tokens =
     (match try_parse_pattern_literal tokens with
     | rest, Some p -> rest, Some (Ctor (ident, Some p))
     | _, None -> tokens, Some (Ctor (ident, None)))
+  | L.LBrace :: rest ->
+    let rec aux = function
+      | L.LowerIdent name :: L.Equal :: rest ->
+        let rest, expr = parse_pattern rest in
+        (match rest with
+        | L.Semicolon :: rest ->
+          let rest, acc = aux rest in
+          rest, (name, expr) :: acc
+        | _ -> rest, [name, expr])
+      | rest -> rest, []
+    in
+    let rest, fields = aux rest in
+    (match rest with
+    | L.RBrace :: rest -> rest, Some (Record fields)
+    | _ -> failwith "record definition is not terminated")
   | L.LBracket :: rest ->
     let rec aux = function
       | L.RBracket :: rest -> rest, Nil
@@ -96,6 +112,9 @@ let rec string_of_pattern = function
   | Cons (a, b) ->
     Printf.sprintf "(%s) :: (%s)" (string_of_pattern a) (string_of_pattern b)
   | Nil -> "[]"
+  | Record fields ->
+    let aux (name, expr) = Printf.sprintf "%s = (%s)" name (string_of_pattern expr) in
+    List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
 ;;
 
 module SS = Set.Make (String)
@@ -110,6 +129,9 @@ let rec introduced_idents = function
   | Or (a, b) -> SS.union (introduced_idents a) (introduced_idents b)
   | Cons (a, b) -> SS.union (introduced_idents a) (introduced_idents b)
   | Nil -> SS.empty
+  | Record fields ->
+    let aux (_, p) = introduced_idents p in
+    List.map aux fields |> List.fold_left SS.union SS.empty
 ;;
 
 let introduced_ident_list p = introduced_idents p |> SS.elements
