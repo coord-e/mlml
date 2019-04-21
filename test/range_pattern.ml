@@ -23,7 +23,7 @@ print_int (is_digit 'a');
 print_int (is_digit '0');
 print_int (is_digit '7');
 print_int (is_digit '9');
-print_int (is_digit 'd');
+print_int (is_digit 'd')
   |};
   Tester.f
     {|
