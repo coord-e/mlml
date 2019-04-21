@@ -315,6 +315,24 @@ let label_ptr_to_register buf label reg =
     (string_of_register reg)
 ;;
 
+let alloc_heap_ptr_raw ctx buf size dest =
+  let ptr = RegisterValue (safe_call ctx buf "malloc@PLT" [size]) in
+  match dest with
+  | RegisterValue r -> assign_to_register buf ptr r
+  | StackValue s -> assign_to_stack ctx buf ptr s
+  | ConstantValue _ -> failwith "can't assign to constant"
+;;
+
+let alloc_heap_ptr ctx buf size dest =
+  let reg = assign_to_new_register ctx buf size in
+  alloc_heap_ptr_raw ctx buf (RegisterValue reg) dest;
+  free_register reg ctx
+;;
+
+let alloc_heap_ptr_constsize ctx buf size dest =
+  alloc_heap_ptr_raw ctx buf (ConstantValue size) dest
+;;
+
 let make_string_const ctx buf s =
   let len = String.length s in
   let aligned = ((len / 8) + 1) * 8 in
@@ -330,6 +348,18 @@ let make_string_const ctx buf s =
   label_ptr_to_register buf str_label r;
   let s = turn_into_stack ctx buf (RegisterValue r) in
   free_register r ctx;
+  StackValue s
+;;
+
+let make_tuple_const ctx buf values =
+  let size = List.length values in
+  let reg = alloc_register ctx in
+  let reg_value = RegisterValue reg in
+  alloc_heap_ptr_constsize ctx buf ((size + 1) * 8) reg_value;
+  assign_to_address ctx buf (ConstantValue (size * 8 * 2)) reg_value 0;
+  List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-(i + 1) * 8)) values;
+  let s = turn_into_stack ctx buf reg_value in
+  free_register reg ctx;
   StackValue s
 ;;
 
@@ -398,24 +428,6 @@ let comparison_to_value ctx buf cmp v1 v2 =
   let s = push_to_stack ctx buf (RegisterValue rdx) in
   free_register rdx ctx;
   StackValue s
-;;
-
-let alloc_heap_ptr_raw ctx buf size dest =
-  let ptr = RegisterValue (safe_call ctx buf "malloc@PLT" [size]) in
-  match dest with
-  | RegisterValue r -> assign_to_register buf ptr r
-  | StackValue s -> assign_to_stack ctx buf ptr s
-  | ConstantValue _ -> failwith "can't assign to constant"
-;;
-
-let alloc_heap_ptr ctx buf size dest =
-  let reg = assign_to_new_register ctx buf size in
-  alloc_heap_ptr_raw ctx buf (RegisterValue reg) dest;
-  free_register reg ctx
-;;
-
-let alloc_heap_ptr_constsize ctx buf size dest =
-  alloc_heap_ptr_raw ctx buf (ConstantValue size) dest
 ;;
 
 let string_value_to_content ctx buf v dest =

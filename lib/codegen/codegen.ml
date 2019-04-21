@@ -108,16 +108,8 @@ let rec codegen_expr ctx buf = function
     B.emit_inst_fmt buf "xorq $2, %s" (string_of_register ret);
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.Tuple values ->
-    let size = List.length values in
-    let reg = alloc_register ctx in
-    let reg_value = RegisterValue reg in
-    alloc_heap_ptr_constsize ctx buf ((size + 1) * 8) reg_value;
     let values = List.map (codegen_expr ctx buf) values in
-    assign_to_address ctx buf (ConstantValue (size * 8 * 2)) reg_value 0;
-    List.iteri (fun i x -> assign_to_address ctx buf x reg_value (-(i + 1) * 8)) values;
-    let s = StackValue (turn_into_stack ctx buf reg_value) in
-    free_register reg ctx;
-    s
+    make_tuple_const ctx buf values
   | Expr.Ctor (name, value) ->
     let value =
       match value with
@@ -215,6 +207,10 @@ let rec codegen_expr ctx buf = function
     let rhs = codegen_expr ctx buf rhs in
     let ret = safe_call ctx buf (string_of_label append_string_label) [lhs; rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
+  | Expr.Record fields ->
+    let trans (name, expr) = get_field_index ctx name, codegen_expr ctx buf expr in
+    let cmp (i1, _) (i2, _) = compare i1 i2 in
+    List.map trans fields |> List.sort cmp |> List.map snd |> make_tuple_const ctx buf
 
 and codegen_definition ctx buf = function
   | Def.LetAnd (is_rec, l) ->
