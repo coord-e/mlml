@@ -31,12 +31,12 @@ type t1 =
   { a : string
   ; b : int * string }
 
-type t2 =
+and t2 =
   { f : string
   ; s : string
   ; t : string }
 
-type t3 =
+and t3 =
   { value : t1 * int
   ; sub : t2 }
 
@@ -59,5 +59,21 @@ print_int (f v) ;;
 print_string (g v) ;;
 print_string (g {v with value = {a = "string"; b = 20, "str"}, 1}) ;;
 print_string (g {v with sub = {v.sub with t = "o, mlml"}})
-|}
+  |};
+  Tester.f
+    {|
+type 'a t =
+  { lst : 'a t list
+  ; v : 'a }
+
+let rec f v =
+  let rec aux = function h :: t -> (aux h.lst * h.v) + aux t | [] -> v.v in
+  aux v.lst
+;;
+
+let value = {lst = [{lst = [{lst = []; v = 1}]; v = 10}; {lst = []; v = 40}]; v = 20}
+
+;;
+print_int (f value)
+  |}
 ;;
