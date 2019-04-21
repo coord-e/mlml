@@ -28,7 +28,7 @@ and parse_app tokens =
   let rest, t = parse_primary tokens in
   let rec aux lhs = function
     | L.LowerIdent ident :: rest -> aux (Ctor (lhs, ident)) rest
-    | _ -> rest, lhs
+    | rest -> rest, lhs
   in
   aux t rest
 
