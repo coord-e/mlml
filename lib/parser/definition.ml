@@ -13,7 +13,7 @@ type type_def =
 
 type t =
   | LetAnd of bool * Expr.let_binding list
-  | TypeDef of (string * type_def) list
+  | TypeDef of (string list * string * type_def) list
 
 let parse_variant tokens =
   let rec aux = function
@@ -51,7 +51,23 @@ let parse_record tokens =
   | _ -> failwith "record definition is not terminated"
 ;;
 
-let rec try_parse_type_bindings = function
+let parse_type_params tokens =
+  let rec aux = function
+    | L.Apostrophe :: L.LowerIdent ident :: L.Comma :: rest ->
+      let rest, params = aux rest in
+      rest, ident :: params
+    | L.Apostrophe :: L.LowerIdent ident :: L.RParen :: rest -> rest, [ident]
+    | _ -> failwith "could not parse type params"
+  in
+  match tokens with
+  | L.Apostrophe :: L.LowerIdent ident :: rest -> rest, [ident]
+  | L.LParen :: rest -> aux rest
+  | _ -> tokens, []
+;;
+
+let rec try_parse_type_bindings tokens =
+  let rest, params = parse_type_params tokens in
+  match rest with
   | L.LowerIdent ident :: L.Equal :: rest ->
     let rest, def =
       match rest with
@@ -64,9 +80,9 @@ let rec try_parse_type_bindings = function
     (match rest with
     | L.And :: rest ->
       (match try_parse_type_bindings rest with
-      | rest, Some l -> rest, Some ((ident, def) :: l)
+      | rest, Some l -> rest, Some ((params, ident, def) :: l)
       | _, None -> failwith "could not parse a binding after `and`")
-    | _ -> rest, Some [ident, def])
+    | _ -> rest, Some [params, ident, def])
   | tokens -> tokens, None
 ;;
 
@@ -116,7 +132,10 @@ let string_of_definition = function
     let l = List.map Expr.string_of_let_binding l |> String.concat " and " in
     Printf.sprintf "Let %s %s" (if is_rec then "rec" else "") l
   | TypeDef l ->
-    let aux (name, def) = Printf.sprintf "%s = %s" name (string_of_type_def def) in
+    let aux (params, name, def) =
+      let params = String.concat ", '" params |> Printf.sprintf "('%s)" in
+      Printf.sprintf "%s %s = %s" params name (string_of_type_def def)
+    in
     List.map aux l |> String.concat " and " |> Printf.sprintf "type %s"
 ;;
 
