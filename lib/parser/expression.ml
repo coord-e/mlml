@@ -32,6 +32,7 @@ and t =
   | StringIndex of t * t
   | StringAppend of t * t
   | Record of (string * t) list
+  | RecordField of t * string
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
@@ -161,6 +162,7 @@ and try_parse_dot tokens =
   match lhs_opt with
   | Some lhs ->
     (match rest with
+    | L.Dot :: L.LowerIdent ident :: rest -> rest, Some (RecordField (lhs, ident))
     | L.Dot :: L.LBracket :: rest ->
       let rest, rhs = parse_expression rest in
       (match rest with
@@ -410,6 +412,11 @@ and string_of_expression = function
   | Record fields ->
     let aux (name, expr) = Printf.sprintf "%s = (%s)" name (string_of_expression expr) in
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
+  | RecordField (v, field) ->
+    Printf.sprintf
+      "RecordField (%s).%s"
+      (string_of_expression v)
+      field
 ;;
 
 let f = parse_expression
