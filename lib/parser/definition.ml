@@ -9,6 +9,7 @@ module L = Lexer
 type type_def =
   | Variant of (string * TyExpr.t option) list
   | Record of (string * TyExpr.t) list
+  | Alias of TyExpr.t
 
 type t =
   | LetAnd of bool * Expr.let_binding list
@@ -53,7 +54,12 @@ let parse_record tokens =
 let try_parse_type = function
   | L.LowerIdent ident :: L.Equal :: rest ->
     let rest, def =
-      match rest with L.LBrace :: _ -> parse_record rest | _ -> parse_variant rest
+      match rest with
+      | L.LBrace :: _ -> parse_record rest
+      | L.Vertical :: _ | L.CapitalIdent _ :: _ -> parse_variant rest
+      | _ ->
+        let rest, ty = TyExpr.parse_type_expression rest in
+        rest, Alias ty
     in
     rest, Some (TypeDef (ident, def))
   | tokens -> tokens, None
@@ -94,6 +100,7 @@ let string_of_type_def = function
       Printf.sprintf "%s: %s" name (TyExpr.string_of_type_expression ty)
     in
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
+  | Alias ty -> TyExpr.string_of_type_expression ty
 ;;
 
 let string_of_definition = function
