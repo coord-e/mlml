@@ -440,15 +440,26 @@ let string_value_to_content ctx buf v dest =
   free_register reg ctx
 ;;
 
+(* TODO: Implement this as a function *)
 let shallow_copy ctx buf src dest =
   let size = alloc_register ctx in
   (* read data size *)
   read_from_address ctx buf src (RegisterValue size) 0;
   restore_marked_int buf (RegisterValue size);
   alloc_heap_ptr ctx buf (RegisterValue size) dest;
-  let _ = safe_call ctx buf "memcpy@PLT" [src; dest; RegisterValue size] in
-  make_marked_int buf (RegisterValue size);
-  assign_to_address ctx buf (RegisterValue size) dest 0
+  let dest' = assign_to_new_register ctx buf dest in
+  let src' = assign_to_new_register ctx buf src in
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_register dest');
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_register src');
+  let _ =
+    safe_call
+      ctx
+      buf
+      "memcpy@PLT"
+      [RegisterValue dest'; RegisterValue src'; RegisterValue size]
+  in
+  free_register dest' ctx;
+  free_register src' ctx
 ;;
 
 let rec pattern_match ctx buf pat v fail_label =
