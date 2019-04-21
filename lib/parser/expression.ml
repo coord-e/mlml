@@ -413,10 +413,7 @@ and string_of_expression = function
     let aux (name, expr) = Printf.sprintf "%s = (%s)" name (string_of_expression expr) in
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
   | RecordField (v, field) ->
-    Printf.sprintf
-      "RecordField (%s).%s"
-      (string_of_expression v)
-      field
+    Printf.sprintf "RecordField (%s).%s" (string_of_expression v) field
 ;;
 
 let f = parse_expression

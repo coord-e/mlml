@@ -211,6 +211,14 @@ let rec codegen_expr ctx buf = function
     let trans (name, expr) = get_field_index ctx name, codegen_expr ctx buf expr in
     let cmp (i1, _) (i2, _) = compare i1 i2 in
     List.map trans fields |> List.sort cmp |> List.map snd |> make_tuple_const ctx buf
+  | Expr.RecordField (v, field) ->
+    let v = codegen_expr ctx buf v in
+    let idx = get_field_index ctx field in
+    let reg = alloc_register ctx in
+    read_from_address ctx buf v (RegisterValue reg) (-(idx + 1) * 8);
+    let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
+    free_register reg ctx;
+    s
 
 and codegen_definition ctx buf = function
   | Def.LetAnd (is_rec, l) ->
