@@ -42,7 +42,7 @@ type local_env =
 
 (* module-local environment *)
 type module_env =
-  { mutable local_env : local_env
+  { mutable vars : (string, stack) Hashtbl.t
   ; mutable ctors : (string, int) Hashtbl.t
   ; mutable fields : (string, int) Hashtbl.t
   ; mutable modules : (string, module_env) Hashtbl.t }
@@ -50,7 +50,8 @@ type module_env =
 (* global environment *)
 type context =
   { mutable used_labels : LS.t
-  ; mutable module_env : module_env }
+  ; mutable module_env : module_env
+  ; mutable current_env : local_env }
 
 let usable_registers =
   RS.of_list
@@ -104,18 +105,19 @@ let shallow_copy_label = Label "_shallow_copy"
 let new_module_env () =
   { ctors = Hashtbl.create 32
   ; fields = Hashtbl.create 32
-  ; local_env = new_local_env ()
+  ; vars = Hashtbl.create 32
   ; modules = Hashtbl.create 32 }
 ;;
 
 let new_context () =
   { used_labels = LS.of_list [print_int_label; match_fail_label]
-  ; module_env = new_module_env () }
+  ; module_env = new_module_env ()
+  ; current_env = new_local_env () }
 ;;
 
 let use_env ctx env =
-  let old_env = ctx.module_env.local_env in
-  (ctx.module_env).local_env <- env;
+  let old_env = ctx.current_env in
+  ctx.current_env <- env;
   old_env
 ;;
 
@@ -136,27 +138,25 @@ let new_label ctx name =
 let new_unnamed_label ctx = new_label ctx ".L"
 
 let use_register ctx reg =
-  if RS.mem reg ctx.module_env.local_env.unused_registers
+  if RS.mem reg ctx.current_env.unused_registers
   then
-    (ctx.module_env.local_env).unused_registers
-    <- RS.filter (fun x -> x != reg) ctx.module_env.local_env.unused_registers
+    (ctx.current_env).unused_registers
+    <- RS.filter (fun x -> x != reg) ctx.current_env.unused_registers
   else failwith @@ Printf.sprintf "Register '%s' is unavailable" (string_of_register reg)
 ;;
 
 let alloc_register context =
-  match RS.choose_opt context.module_env.local_env.unused_registers with
+  match RS.choose_opt context.current_env.unused_registers with
   | Some h ->
-    (context.module_env.local_env).unused_registers
-    <- RS.remove h context.module_env.local_env.unused_registers;
+    (context.current_env).unused_registers
+    <- RS.remove h context.current_env.unused_registers;
     h
   | None -> failwith "Could not allocate register"
 ;;
 
 let free_register reg ctx =
-  if not (RS.mem reg ctx.module_env.local_env.unused_registers)
-  then
-    (ctx.module_env.local_env).unused_registers
-    <- RS.add reg ctx.module_env.local_env.unused_registers
+  if not (RS.mem reg ctx.current_env.unused_registers)
+  then (ctx.current_env).unused_registers <- RS.add reg ctx.current_env.unused_registers
 ;;
 
 let make_marked_int buf v =
@@ -204,9 +204,9 @@ let rec assign_to_stack ctx buf v stack =
 ;;
 
 let alloc_stack ctx =
-  let c = ctx.module_env.local_env.current_stack in
+  let c = ctx.current_env.current_stack in
   let s = Stack c in
-  (ctx.module_env.local_env).current_stack <- c - 8;
+  (ctx.current_env).current_stack <- c - 8;
   s
 ;;
 
@@ -290,7 +290,7 @@ let safe_call ctx buf name args =
   let arg_regs, free_fns = List.mapi aux args |> List.split in
   let filt x =
     not
-      ( RS.mem x ctx.module_env.local_env.unused_registers
+      ( RS.mem x ctx.current_env.unused_registers
       || List.mem x arg_regs
       || x = ret_register )
   in
@@ -315,11 +315,11 @@ let get_field_index ctx field = Hashtbl.find ctx.module_env.fields field
 let define_variable ctx buf ident v =
   (* TODO: Print warning when ident is accidentally "_" *)
   let s = turn_into_stack ctx buf v in
-  Hashtbl.add ctx.module_env.local_env.vars ident s
+  Hashtbl.add ctx.current_env.vars ident s
 ;;
 
-let undef_variable ctx ident = Hashtbl.remove ctx.module_env.local_env.vars ident
-let get_variable ctx ident = Hashtbl.find ctx.module_env.local_env.vars ident
+let undef_variable ctx ident = Hashtbl.remove ctx.current_env.vars ident
+let get_variable ctx ident = Hashtbl.find ctx.current_env.vars ident
 
 let label_ptr_to_register buf label reg =
   B.emit_inst_fmt

@@ -277,7 +277,7 @@ and emit_function_with ctx main_buf label fn =
   in
   fn ctx buf label ret_label;
   start_label buf ret_label;
-  let stack_used = ctx.module_env.local_env.current_stack in
+  let stack_used = ctx.current_env.current_stack in
   let restore (r, s) = assign_to_register buf (StackValue s) r in
   List.iter restore saved_stacks;
   B.emit_inst buf "movq %rbp, %rsp";
