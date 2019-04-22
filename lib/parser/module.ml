@@ -6,14 +6,23 @@ module Pat = Pattern
 module TyExpr = Type_expression
 module L = Lexer
 
-type type_def =
+type module_expr =
+  | Path of string list
+  | Struct of module_item list
+
+and type_def =
   | Variant of (string * TyExpr.t option) list
   | Record of (string * TyExpr.t) list
   | Alias of TyExpr.t
 
-type t =
+and definition =
   | LetAnd of bool * Expr.let_binding list
   | TypeDef of (string list * string * type_def) list
+  | Module of string * module_expr
+
+and module_item =
+  | Definition of definition
+  | Expression of Expr.t
 
 let parse_variant tokens =
   let rec aux = function
@@ -111,6 +120,22 @@ let parse_definition tokens =
   | [], None -> failwith "Empty input"
 ;;
 
+let rec parse_module_items = function
+  | L.DoubleSemicolon :: rest -> parse_module_items rest
+  | [] -> [], []
+  | tokens ->
+    let rest, def_opt = try_parse_definition tokens in
+    (match def_opt with
+    | Some def ->
+      let rest, items = parse_module_items rest in
+      rest, Definition def :: items
+    | None ->
+      (* may fail in parse_expression (OK because there's no other candidate) *)
+      let rest, expr = Expr.parse_expression rest in
+      let rest, items = parse_module_items rest in
+      rest, Expression expr :: items)
+;;
+
 let string_of_type_def = function
   | Variant variants ->
     let aux (ctor, param) =
@@ -127,7 +152,7 @@ let string_of_type_def = function
   | Alias ty -> TyExpr.string_of_type_expression ty
 ;;
 
-let string_of_definition = function
+let rec string_of_definition = function
   | LetAnd (is_rec, l) ->
     let l = List.map Expr.string_of_let_binding l |> String.concat " and " in
     Printf.sprintf "Let %s %s" (if is_rec then "rec" else "") l
@@ -137,6 +162,21 @@ let string_of_definition = function
       Printf.sprintf "%s %s = %s" params name (string_of_type_def def)
     in
     List.map aux l |> String.concat " and " |> Printf.sprintf "type %s"
-;;
+  | Module (name, mexp) ->
+    Printf.sprintf "module %s = (%s)" name (string_of_module_expression mexp)
 
-let f = parse_definition
+and string_of_module_expression = function
+  | Path l -> String.concat "." l
+  | Struct l ->
+    List.map string_of_module_item l
+    |> String.concat ";; "
+    |> Printf.sprintf "struct %s end"
+
+and string_of_module_item = function
+  | Definition def -> string_of_definition def
+  | Expression expr -> Expr.string_of_expression expr
+
+(* TODO: function composition can make this clearer *)
+and string_of_module_items items =
+  List.map string_of_module_item items |> String.concat ";; "
+;;

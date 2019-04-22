@@ -1,6 +1,6 @@
 module P = Parser
 module Expr = P.Expression
-module Def = P.Definition
+module Mod = P.Module
 module Pat = P.Pattern
 module SS = Set.Make (String)
 
@@ -166,10 +166,10 @@ and closure_conversion' i expr =
 
 and closure_conversion expr = closure_conversion' 0 expr
 
-let make_let_var_defn pat expr = Def.LetAnd (false, [Expr.VarBind (pat, expr)])
+let make_let_var_defn pat expr = Mod.LetAnd (false, [Expr.VarBind (pat, expr)])
 
 let free_variables_defn = function
-  | Def.LetAnd (is_rec, l) ->
+  | Mod.LetAnd (is_rec, l) ->
     let _, l = List.map (intros_and_free_of_binding is_rec) l |> List.split in
     List.fold_left SS.union SS.empty l
   | _ -> SS.empty
@@ -177,7 +177,7 @@ let free_variables_defn = function
 
 let closure_conversion_defn defn =
   match defn with
-  | Def.LetAnd (is_rec, l) ->
+  | Mod.LetAnd (is_rec, l) ->
     let fvs = free_variables_defn defn |> SS.elements in
     let evals, l = let_bindings_conversion 0 is_rec fvs l in
     (* Remove VarBind from l, and use body of VarBind in resulting_expr *)
@@ -194,5 +194,5 @@ let closure_conversion_defn defn =
     let resulting_pat = Pat.Tuple pats in
     let resulting_expr = Expr.Tuple values in
     make_let_var_defn resulting_pat (Expr.LetAnd (is_rec, funs, resulting_expr))
-  | Def.TypeDef _ -> defn
+  | Mod.TypeDef _ -> defn
 ;;

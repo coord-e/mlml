@@ -1,9 +1,9 @@
 module P = Parser
-module Item = P.Module_item
+module Mod = P.Module
 
 let conv_module_item = function
-  | Item.Expression expr -> Item.Expression (Closure.closure_conversion expr)
-  | Item.Definition defn -> Item.Definition (Closure.closure_conversion_defn defn)
+  | Mod.Expression expr -> Mod.Expression (Closure.closure_conversion expr)
+  | Mod.Definition defn -> Mod.Definition (Closure.closure_conversion_defn defn)
 ;;
 
 let f = List.map conv_module_item

@@ -1,8 +1,7 @@
 open Builder
 module P = Parser
 module Expr = P.Expression
-module Def = P.Definition
-module Item = P.Module_item
+module Mod = P.Module
 module B = Output_buffer
 
 let rec codegen_expr ctx buf = function
@@ -234,26 +233,26 @@ let rec codegen_expr ctx buf = function
     s
 
 and codegen_definition ctx buf = function
-  | Def.LetAnd (is_rec, l) ->
+  | Mod.LetAnd (is_rec, l) ->
     let _, values = emit_let_binding_values ctx buf is_rec l in
     let def (name, ptr) = define_variable ctx buf name ptr in
     List.iter def values
-  | Def.TypeDef l ->
+  | Mod.TypeDef l ->
     let aux (_, _, def) = codegen_type_def ctx buf def in
     List.iter aux l
 
 and codegen_type_def ctx _buf = function
-  | Def.Variant variants ->
+  | Mod.Variant variants ->
     let aux i (ctor, _) = define_ctor ctx ctor i in
     List.iteri aux variants
-  | Def.Record fields ->
+  | Mod.Record fields ->
     let aux i (name, _) = define_field ctx name i in
     List.iteri aux fields
-  | Def.Alias _ -> ()
+  | Mod.Alias _ -> ()
 
 and codegen_module_item ctx buf = function
-  | Item.Definition def -> codegen_definition ctx buf def
-  | Item.Expression expr ->
+  | Mod.Definition def -> codegen_definition ctx buf def
+  | Mod.Expression expr ->
     let _ = codegen_expr ctx buf expr in
     ()
 
