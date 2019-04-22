@@ -45,6 +45,9 @@ type token =
   | DoubleDot
   | Hat
   | Apostrophe
+  | Module
+  | Struct
+  | End
 
 let to_digit c = int_of_char c - int_of_char '0'
 
@@ -155,6 +158,9 @@ let rec tokenize_aux acc rest =
       | "when" -> tokenize_aux (When :: acc) rest
       | "fun" -> tokenize_aux (Fun :: acc) rest
       | "function" -> tokenize_aux (Function :: acc) rest
+      | "module" -> tokenize_aux (Module :: acc) rest
+      | "struct" -> tokenize_aux (Struct :: acc) rest
+      | "end" -> tokenize_aux (End :: acc) rest
       | _ ->
         (match ident_str.[0] with
         | 'A' .. 'Z' -> tokenize_aux (CapitalIdent ident_str :: acc) rest
@@ -247,6 +253,9 @@ let string_of_token = function
   | DoubleDot -> ".."
   | Hat -> "^"
   | Apostrophe -> "'"
+  | Module -> "module"
+  | Struct -> "struct"
+  | End -> "end"
 ;;
 
 let string_of_tokens tokens =

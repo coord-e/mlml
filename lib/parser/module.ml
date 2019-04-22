@@ -7,7 +7,7 @@ module TyExpr = Type_expression
 module L = Lexer
 
 type module_expr =
-  | Path of string list
+  | Path of Path.t
   | Struct of module_item list
 
 and type_def =
@@ -95,12 +95,15 @@ let rec try_parse_type_bindings tokens =
   | tokens -> tokens, None
 ;;
 
-let try_parse_let tokens =
+let rec try_parse_let tokens =
   match tokens with
   | L.Type :: rest ->
     (match try_parse_type_bindings rest with
     | rest, Some l -> rest, Some (TypeDef l)
     | rest, None -> rest, None)
+  | L.Module :: L.CapitalIdent ident :: L.Equal :: rest ->
+    let rest, expr = parse_module_expression rest in
+    rest, Some (Module (ident, expr))
   | L.Let :: rest ->
     let rest, is_rec = Expr.parse_rec rest in
     let rest, binds = Expr.parse_let_bindings rest in
@@ -108,21 +111,20 @@ let try_parse_let tokens =
     | L.In :: _ -> tokens, None
     | _ -> rest, Some (LetAnd (is_rec, binds)))
   | tokens -> tokens, None
-;;
 
-let try_parse_definition = try_parse_let
+and try_parse_definition x = try_parse_let x
 
-let parse_definition tokens =
+and parse_definition tokens =
   match try_parse_definition tokens with
   | rest, Some def -> rest, def
   | h :: _, None ->
     failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
   | [], None -> failwith "Empty input"
-;;
 
-let rec parse_module_items = function
+and parse_module_items = function
   | L.DoubleSemicolon :: rest -> parse_module_items rest
   | [] -> [], []
+  | L.End :: rest -> rest, []
   | tokens ->
     let rest, def_opt = try_parse_definition tokens in
     (match def_opt with
@@ -134,6 +136,14 @@ let rec parse_module_items = function
       let rest, expr = Expr.parse_expression rest in
       let rest, items = parse_module_items rest in
       rest, Expression expr :: items)
+
+and parse_module_expression = function
+  | L.Struct :: rest ->
+    let rest, l = parse_module_items rest in
+    rest, Struct l
+  | tokens ->
+    let rest, path = Path.parse_path tokens in
+    rest, Path path
 ;;
 
 let string_of_type_def = function
@@ -166,7 +176,7 @@ let rec string_of_definition = function
     Printf.sprintf "module %s = (%s)" name (string_of_module_expression mexp)
 
 and string_of_module_expression = function
-  | Path l -> String.concat "." l
+  | Path p -> Path.string_of_path p
   | Struct l ->
     List.map string_of_module_item l
     |> String.concat ";; "
