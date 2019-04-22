@@ -39,3 +39,11 @@ let parse_path tokens =
   let rest, l = aux tokens in
   rest, Path l
 ;;
+
+let is_empty = function Path [] -> true | _ -> false
+
+(* slow operation: extract the last element of path *)
+let last path =
+  let rec aux = function [h] -> h | _ :: t -> aux t | _ -> failwith "Empty" in
+  aux @@ extract path
+;;
