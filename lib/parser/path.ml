@@ -15,11 +15,11 @@ let common a b =
   let rec aux a b =
     match a, b with h1 :: t1, h2 :: t2 when h1 = h2 -> h1 :: aux t1 t2 | _ -> []
   in
-  aux (extract a) (extract b)
+  Path (aux (extract a) (extract b))
 ;;
 
 (* join two paths *)
-let join a b = Path (extract a @@ extract b)
+let join a b = Path (extract a @ extract b)
 
 (* check if b is under a *)
 let is_under a b =
