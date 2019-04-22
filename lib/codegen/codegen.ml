@@ -241,7 +241,14 @@ and codegen_definition ctx buf = function
   | Mod.TypeDef l ->
     let aux (_, _, def) = codegen_type_def ctx buf def in
     List.iter aux l
-  | Mod.Module _ -> failwith "mo"
+  | Mod.Module (name, expr) ->
+    let new_path = relative_path ctx (Path.single name) in
+    let old_path = use_path ctx new_path in
+    (match expr with
+    | Mod.Struct l -> List.iter (codegen_module_item ctx buf) l
+    | Mod.Path _ -> failwith "unimplemented");
+    let _ = use_path ctx old_path in
+    ()
 
 and codegen_type_def ctx _buf = function
   | Mod.Variant variants ->
