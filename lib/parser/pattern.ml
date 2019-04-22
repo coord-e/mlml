@@ -5,26 +5,27 @@ type t =
   | Int of int
   | String of string
   | Tuple of t list
-  | Ctor of string * t option
+  | Ctor of Path.t * t option
   | Or of t * t
   | Cons of t * t
   | Nil
-  | Record of (string * t) list
+  | Record of (Path.t * t) list
   | Range of char * char
 
 let rec parse_fields tokens =
-  let continue name expr = function
+  let continue path expr = function
     | L.Semicolon :: rest ->
       let rest, acc = parse_fields rest in
-      rest, (name, expr) :: acc
-    | rest -> rest, [name, expr]
+      rest, (path, expr) :: acc
+    | rest -> rest, [path, expr]
   in
-  match tokens with
-  | L.LowerIdent name :: L.Equal :: rest ->
+  let rest, path = Path.parse_path tokens in
+  match rest with
+  | L.Equal :: rest ->
     let rest, expr = parse_pattern rest in
-    continue name expr rest
-  | L.LowerIdent name :: rest -> continue name (Var name) rest
-  | rest -> rest, []
+    continue path expr rest
+  | rest when Path.is_empty path -> rest, []
+  | rest -> continue path (Var (Path.last path)) rest
 
 and try_parse_literal tokens =
   match tokens with
@@ -37,10 +38,11 @@ and try_parse_literal tokens =
   | L.CharLiteral c :: tokens -> tokens, Some (Int (Char.code c))
   | L.StringLiteral s :: tokens -> tokens, Some (String s)
   | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
-  | L.CapitalIdent ident :: tokens ->
-    (match try_parse_literal tokens with
-    | rest, Some p -> rest, Some (Ctor (ident, Some p))
-    | _, None -> tokens, Some (Ctor (ident, None)))
+  | L.CapitalIdent _ :: _ ->
+    let rest, path = Path.parse_path tokens in
+    (match try_parse_literal rest with
+    | rest, Some p -> rest, Some (Ctor (path, Some p))
+    | _, None -> tokens, Some (Ctor (path, None)))
   | L.LBrace :: rest ->
     let rest, fields = parse_fields rest in
     (match rest with
@@ -111,7 +113,8 @@ let rec string_of_pattern = function
   | String s -> Printf.sprintf "\"%s\"" s
   | Tuple values ->
     List.map string_of_pattern values |> String.concat ", " |> Printf.sprintf "(%s)"
-  | Ctor (name, rhs) ->
+  | Ctor (path, rhs) ->
+    let name = Path.string_of_path path in
     (match rhs with
     | Some rhs -> Printf.sprintf "%s (%s)" name (string_of_pattern rhs)
     | None -> name)
@@ -120,7 +123,9 @@ let rec string_of_pattern = function
     Printf.sprintf "(%s) :: (%s)" (string_of_pattern a) (string_of_pattern b)
   | Nil -> "[]"
   | Record fields ->
-    let aux (name, expr) = Printf.sprintf "%s = (%s)" name (string_of_pattern expr) in
+    let aux (path, expr) =
+      Printf.sprintf "%s = (%s)" (Path.string_of_path path) (string_of_pattern expr)
+    in
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
   | Range (from, to_) -> Printf.sprintf "'%c' .. '%c'" from to_
 ;;
