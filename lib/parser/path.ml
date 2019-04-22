@@ -41,7 +41,9 @@ let parse_path tokens =
   rest, Path l
 ;;
 
-let is_empty = function Path [] -> true | _ -> false
+let is_root = function Path [] -> true | _ -> false
+let is_empty = is_root
+let root = Path []
 
 (* slow operation: extract the last element of path *)
 let last path =
@@ -51,3 +53,4 @@ let last path =
 
 let last_path path = Path [last path]
 let compare = compare
+let is_capitalized path = match (last path).[0] with 'A' .. 'Z' -> true | _ -> false
