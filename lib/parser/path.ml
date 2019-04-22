@@ -1,3 +1,5 @@
+module L = Lexer
+
 type t = Path of string list
 
 let string_of_path = function Path l -> String.concat "." l
@@ -23,4 +25,17 @@ let join a b = Path (extract a @@ extract b)
 let is_under a b =
   let c = common a b in
   c = a
+;;
+
+(* parse path from token list *)
+let parse_path tokens =
+  let rec aux = function
+    | L.CapitalIdent ident :: L.Dot :: rest ->
+      let rest, acc = aux rest in
+      rest, ident :: acc
+    | L.CapitalIdent ident :: rest | L.LowerIdent ident :: rest -> rest, [ident]
+    | _ -> failwith "Failed to parse a path"
+  in
+  let rest, l = aux tokens in
+  rest, Path l
 ;;
