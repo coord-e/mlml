@@ -40,10 +40,12 @@ and try_parse_literal tokens =
   | L.StringLiteral s :: tokens -> tokens, Some (String s)
   | L.LowerIdent ident :: tokens -> tokens, Some (Var (Path.single ident))
   | L.CapitalIdent _ :: _ ->
-    let rest, path = Path.parse_path tokens in
-    (match try_parse_literal rest with
-    | rest, Some p -> rest, Some (Ctor (path, Some p))
-    | _, None -> tokens, Some (Ctor (path, None)))
+    (match Path.parse_path tokens with
+    | rest, Path [] -> rest, None
+    | rest, path ->
+      (match try_parse_literal rest with
+      | rest, Some p -> rest, Some (Ctor (path, Some p))
+      | _, None -> rest, Some (Ctor (path, None))))
   | L.LBrace :: rest ->
     let rest, fields = parse_fields rest in
     (match rest with

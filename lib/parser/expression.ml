@@ -154,13 +154,16 @@ and try_parse_literal tokens =
   | L.CharLiteral c :: tokens -> tokens, Some (Int (Char.code c))
   | L.StringLiteral s :: tokens -> tokens, Some (String s)
   | L.LowerIdent _ :: _ ->
-    let rest, path = Path.parse_path tokens in
-    rest, Some (Var path)
+    (match Path.parse_path tokens with
+    | rest, Path [] -> rest, None
+    | rest, path -> rest, Some (Var path))
   | L.CapitalIdent _ :: _ ->
-    let rest, path = Path.parse_path tokens in
-    (match try_parse_literal rest with
-    | rest, Some p -> rest, Some (Ctor (path, Some p))
-    | _, None -> tokens, Some (Ctor (path, None)))
+    (match Path.parse_path tokens with
+    | rest, Path [] -> rest, None
+    | rest, path ->
+      (match try_parse_literal rest with
+      | rest, Some p -> rest, Some (Ctor (path, Some p))
+      | _, None -> rest, Some (Ctor (path, None))))
   | L.LBrace :: rest ->
     let rest, r = parse_record rest in
     rest, Some r
