@@ -1,4 +1,5 @@
 module P = Parser
+module Path = P.Path
 module Pat = P.Pattern
 module B = Output_buffer
 
@@ -38,12 +39,12 @@ end)
 type local_env =
   { mutable unused_registers : RS.t
   ; mutable current_stack : int
-  ; mutable vars : (string, stack) Hashtbl.t }
+  ; mutable vars : (Path.t, stack) Hashtbl.t }
 
 type context =
   { mutable used_labels : LS.t
-  ; mutable ctors : (string, int) Hashtbl.t
-  ; mutable fields : (string, int) Hashtbl.t
+  ; mutable ctors : (Path.t, int) Hashtbl.t
+  ; mutable fields : (Path.t, int) Hashtbl.t
   ; mutable current_env : local_env }
 
 let usable_registers =
@@ -294,9 +295,9 @@ let safe_call ctx buf name args =
   ret_register
 ;;
 
-let define_ctor ctx ctor idx = Hashtbl.add ctx.ctors ctor idx
+let define_ctor ctx ctor_str idx = Hashtbl.add ctx.ctors (Path.single ctor_str) idx
 let get_ctor_index ctx ctor = Hashtbl.find ctx.ctors ctor
-let define_field ctx field idx = Hashtbl.add ctx.fields field idx
+let define_field ctx field_str idx = Hashtbl.add ctx.fields (Path.single field_str) idx
 let get_field_index ctx field = Hashtbl.find ctx.fields field
 
 let define_variable ctx buf ident v =
@@ -443,7 +444,7 @@ let string_value_to_content ctx buf v dest =
 
 let rec pattern_match ctx buf pat v fail_label =
   match pat with
-  | Pat.Var "_" -> ()
+  | Pat.Var (Path ["_"]) -> ()
   | Pat.Var x -> define_variable ctx buf x v
   | Pat.Tuple values ->
     (* assume v holds heap address *)

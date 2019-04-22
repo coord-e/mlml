@@ -47,12 +47,12 @@ let rec codegen_expr ctx buf = function
   | Expr.Follow (lhs, rhs) ->
     let _ = codegen_expr ctx buf lhs in
     codegen_expr ctx buf rhs
-  | Expr.Var ident ->
-    (match ident with
-    | "print_int" -> function_ptr ctx buf print_int_label
-    | "print_char" -> function_ptr ctx buf print_char_label
-    | "print_string" -> function_ptr ctx buf print_string_label
-    | _ -> StackValue (get_variable ctx ident))
+  | Expr.Var path ->
+    (match path with
+    | Path ["print_int"] -> function_ptr ctx buf print_int_label
+    | Path ["print_char"] -> function_ptr ctx buf print_char_label
+    | Path ["print_string"] -> function_ptr ctx buf print_string_label
+    | _ -> StackValue (get_variable ctx path))
   | Expr.LetAnd (is_rec, l, rhs) ->
     let pats, values = emit_let_binding_values ctx buf is_rec l in
     let def (name, ptr) = define_variable ctx buf name ptr in
@@ -62,7 +62,8 @@ let rec codegen_expr ctx buf = function
     List.iter undef values;
     List.iter (undef_variable_pattern ctx) pats;
     rhs
-  | Expr.Lambda (param, body) -> emit_function_value ctx buf false "_lambda" param body
+  | Expr.Lambda (param, body) ->
+    emit_function_value ctx buf false (Path.single "_lambda") param body
   | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
@@ -212,7 +213,7 @@ let rec codegen_expr ctx buf = function
     List.map trans fields |> List.sort cmp |> List.map snd |> make_tuple_const ctx buf
   | Expr.RecordField (v, field) ->
     let v = codegen_expr ctx buf v in
-    let idx = get_field_index ctx field in
+    let idx = get_field_index ctx @@ Path.single field in
     let reg = alloc_register ctx in
     read_from_address ctx buf v (RegisterValue reg) (-(idx + 1) * 8);
     let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
@@ -240,6 +241,7 @@ and codegen_definition ctx buf = function
   | Mod.TypeDef l ->
     let aux (_, _, def) = codegen_type_def ctx buf def in
     List.iter aux l
+  | Mod.Module _ -> failwith "mo"
 
 and codegen_type_def ctx _buf = function
   | Mod.Variant variants ->
@@ -295,7 +297,7 @@ and emit_let_bindings ctx buf is_rec l =
   let funs, vars = List.partition Expr.is_fun_bind l in
   let make_convenient_data = function
     | Expr.FunBind (name, param, body) ->
-      let label = new_label ctx name in
+      let label = new_label ctx (Path.string_of_path name) in
       (name, label), (label, param, body)
     | _ -> failwith "unreachable"
   in
@@ -330,8 +332,8 @@ and emit_let_bindings ctx buf is_rec l =
   List.iter aux_funs funs;
   pats, labels
 
-and emit_function ctx main_buf is_rec name param ast =
-  emit_let_bindings ctx main_buf is_rec [Expr.FunBind (name, param, ast)]
+and emit_function ctx main_buf is_rec path param ast =
+  emit_let_bindings ctx main_buf is_rec [Expr.FunBind (path, param, ast)]
   |> snd
   |> List.hd
   |> snd
@@ -341,8 +343,8 @@ and emit_let_binding_values ctx buf is_rec l =
   let conv (name, label) = name, function_ptr ctx buf label in
   pats, List.map conv labels
 
-and emit_function_value ctx buf is_rec name param ast =
-  let label = emit_function ctx buf is_rec name param ast in
+and emit_function_value ctx buf is_rec path param ast =
+  let label = emit_function ctx buf is_rec path param ast in
   function_ptr ctx buf label
 
 and emit_module ctx buf label items =
