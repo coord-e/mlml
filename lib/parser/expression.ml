@@ -77,8 +77,8 @@ let rec parse_match_arm tokens =
 and parse_let_fun_body params = function
   | L.Function :: L.Vertical :: rest | L.Function :: rest ->
     let rest, arms = parse_match_arm rest in
-    let anon_var = ".function_match" in
-    rest, params @ [Pat.Var anon_var], Match (Var anon_var, arms)
+    let anon_var = "_function_match" in
+    rest, params @ [Pat.Var anon_var], Match (Var (Path.single anon_var), arms)
   | rest ->
     let rest, body = parse_expression rest in
     rest, params, body
@@ -118,12 +118,12 @@ and parse_fields tokens =
     | rest -> rest, [path, expr]
   in
   let rest, path = Path.parse_path tokens in
-  match rest, path with
-  | L.Equal :: rest, _ ->
+  match rest with
+  | L.Equal :: rest ->
     let rest, expr = parse_let rest in
     continue path expr rest
   | rest when Path.is_empty path -> rest, []
-  | rest -> continue path (Var (Path.last path)) rest
+  | rest -> continue path (Var (Path.last_path path)) rest
 
 and parse_record tokens =
   let parse_value tokens =
