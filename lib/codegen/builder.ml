@@ -40,17 +40,10 @@ type local_env =
   ; mutable current_stack : int
   ; mutable vars : (string, stack) Hashtbl.t }
 
-(* module-local environment *)
-type module_env =
-  { mutable vars : (string, stack) Hashtbl.t
-  ; mutable ctors : (string, int) Hashtbl.t
-  ; mutable fields : (string, int) Hashtbl.t
-  ; mutable modules : (string, module_env) Hashtbl.t }
-
-(* global environment *)
 type context =
   { mutable used_labels : LS.t
-  ; mutable module_env : module_env
+  ; mutable ctors : (string, int) Hashtbl.t
+  ; mutable fields : (string, int) Hashtbl.t
   ; mutable current_env : local_env }
 
 let usable_registers =
@@ -102,16 +95,10 @@ let mlml_equal_label = Label "_mlml_equal"
 let append_string_label = Label "_append_string"
 let shallow_copy_label = Label "_shallow_copy"
 
-let new_module_env () =
-  { ctors = Hashtbl.create 32
-  ; fields = Hashtbl.create 32
-  ; vars = Hashtbl.create 32
-  ; modules = Hashtbl.create 32 }
-;;
-
 let new_context () =
   { used_labels = LS.of_list [print_int_label; match_fail_label]
-  ; module_env = new_module_env ()
+  ; ctors = Hashtbl.create 32
+  ; fields = Hashtbl.create 32
   ; current_env = new_local_env () }
 ;;
 
@@ -307,10 +294,10 @@ let safe_call ctx buf name args =
   ret_register
 ;;
 
-let define_ctor ctx ctor idx = Hashtbl.add ctx.module_env.ctors ctor idx
-let get_ctor_index ctx ctor = Hashtbl.find ctx.module_env.ctors ctor
-let define_field ctx field idx = Hashtbl.add ctx.module_env.fields field idx
-let get_field_index ctx field = Hashtbl.find ctx.module_env.fields field
+let define_ctor ctx ctor idx = Hashtbl.add ctx.ctors ctor idx
+let get_ctor_index ctx ctor = Hashtbl.find ctx.ctors ctor
+let define_field ctx field idx = Hashtbl.add ctx.fields field idx
+let get_field_index ctx field = Hashtbl.find ctx.fields field
 
 let define_variable ctx buf ident v =
   (* TODO: Print warning when ident is accidentally "_" *)
