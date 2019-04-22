@@ -6,7 +6,8 @@ module Pat = Pattern
 
 type let_binding =
   | VarBind of Pat.t * t
-  | FunBind of string * Pat.t * t
+  (* TODO: This should be string, not Path *)
+  | FunBind of Path.t * Pat.t * t
 
 and t =
   | Int of int
@@ -77,8 +78,8 @@ let rec parse_match_arm tokens =
 and parse_let_fun_body params = function
   | L.Function :: L.Vertical :: rest | L.Function :: rest ->
     let rest, arms = parse_match_arm rest in
-    let anon_var = "_function_match" in
-    rest, params @ [Pat.Var anon_var], Match (Var (Path.single anon_var), arms)
+    let anon_var = Path.single "_function_match" in
+    rest, params @ [Pat.Var anon_var], Match (Var anon_var, arms)
   | rest ->
     let rest, body = parse_expression rest in
     rest, params, body
@@ -343,7 +344,7 @@ let rec string_of_let_binding = function
   | FunBind (ident, param, expr) ->
     Printf.sprintf
       "%s (%s) = (%s)"
-      ident
+      (Path.string_of_path ident)
       (Pat.string_of_pattern param)
       (string_of_expression expr)
 

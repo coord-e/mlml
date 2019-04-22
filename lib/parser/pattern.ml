@@ -1,7 +1,8 @@
 module L = Lexer
 
 type t =
-  | Var of string
+  (* TODO: This should be string, not Path *)
+  | Var of Path.t
   | Int of int
   | String of string
   | Tuple of t list
@@ -25,7 +26,7 @@ let rec parse_fields tokens =
     let rest, expr = parse_pattern rest in
     continue path expr rest
   | rest when Path.is_empty path -> rest, []
-  | rest -> continue path (Var (Path.last path)) rest
+  | rest -> continue path (Var (Path.last_path path)) rest
 
 and try_parse_literal tokens =
   match tokens with
@@ -37,7 +38,7 @@ and try_parse_literal tokens =
     tokens, Some (Range (from, to_))
   | L.CharLiteral c :: tokens -> tokens, Some (Int (Char.code c))
   | L.StringLiteral s :: tokens -> tokens, Some (String s)
-  | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
+  | L.LowerIdent ident :: tokens -> tokens, Some (Var (Path.single ident))
   | L.CapitalIdent _ :: _ ->
     let rest, path = Path.parse_path tokens in
     (match try_parse_literal rest with
@@ -108,7 +109,7 @@ and parse_or tokens =
 and parse_pattern tokens = parse_or tokens
 
 let rec string_of_pattern = function
-  | Var x -> x
+  | Var x -> Path.string_of_path x
   | Int x -> string_of_int x
   | String s -> Printf.sprintf "\"%s\"" s
   | Tuple values ->
@@ -130,10 +131,10 @@ let rec string_of_pattern = function
   | Range (from, to_) -> Printf.sprintf "'%c' .. '%c'" from to_
 ;;
 
-module SS = Set.Make (String)
+module SS = Set.Make (Path)
 
 let rec introduced_idents = function
-  | Var "_" -> SS.empty
+  | Var (Path ["_"]) -> SS.empty
   | Var x -> SS.singleton x
   | Int _ | String _ -> SS.empty
   | Tuple values -> List.map introduced_idents values |> List.fold_left SS.union SS.empty

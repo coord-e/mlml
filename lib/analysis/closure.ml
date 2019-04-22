@@ -2,7 +2,8 @@ module P = Parser
 module Expr = P.Expression
 module Mod = P.Module
 module Pat = P.Pattern
-module SS = Set.Make (String)
+module Path = P.Path
+module SS = Set.Make (Path)
 
 (* TODO: Improve this function's name *)
 let rec intros_and_free_of_binding is_rec = function
@@ -123,14 +124,18 @@ and closure_conversion' i expr =
   | Expr.App (lhs, rhs) ->
     let lhs = aux i lhs in
     let rhs = aux (i + 1) rhs in
-    let f_name = Printf.sprintf "_f%d" i in
-    let fv_name = Printf.sprintf "_fv%d" i in
+    let f_name = Path.single @@ Printf.sprintf "_f%d" i in
+    let fv_name = Path.single @@ Printf.sprintf "_fv%d" i in
     let destruct = Pat.Tuple [Pat.Var f_name; Pat.Var fv_name] in
     let real_app = Expr.App (Expr.Var f_name, Expr.Tuple [rhs; Expr.Var fv_name]) in
     make_let_var destruct lhs real_app
-  | Expr.Var "print_int" -> Expr.Tuple [Expr.Var "print_int"; Expr.Tuple []]
-  | Expr.Var "print_char" -> Expr.Tuple [Expr.Var "print_char"; Expr.Tuple []]
-  | Expr.Var "print_string" -> Expr.Tuple [Expr.Var "print_string"; Expr.Tuple []]
+  (* TODO: Fixup these dirty code *)
+  | Expr.Var (Path ["print_int"]) ->
+    Expr.Tuple [Expr.Var (Path.single "print_int"); Expr.Tuple []]
+  | Expr.Var (Path ["print_char"]) ->
+    Expr.Tuple [Expr.Var (Path.single "print_char"); Expr.Tuple []]
+  | Expr.Var (Path ["print_string"]) ->
+    Expr.Tuple [Expr.Var (Path.single "print_string"); Expr.Tuple []]
   | Expr.Int _ | Expr.Var _ | Expr.String _ | Expr.Nil -> expr
   | Expr.Add (r, l) -> Expr.Add (aux i r, aux i l)
   | Expr.Sub (r, l) -> Expr.Sub (aux i r, aux i l)
@@ -175,7 +180,7 @@ let free_variables_defn = function
   | _ -> SS.empty
 ;;
 
-let closure_conversion_defn defn =
+let rec closure_conversion_defn defn =
   match defn with
   | Mod.LetAnd (is_rec, l) ->
     let fvs = free_variables_defn defn |> SS.elements in
@@ -195,4 +200,13 @@ let closure_conversion_defn defn =
     let resulting_expr = Expr.Tuple values in
     make_let_var_defn resulting_pat (Expr.LetAnd (is_rec, funs, resulting_expr))
   | Mod.TypeDef _ -> defn
+  | Mod.Module (name, expr) ->
+    (match expr with
+    | Mod.Path _ -> defn
+    | Mod.Struct l ->
+      Mod.Module (name, Mod.Struct (List.map closure_conversion_module_item l)))
+
+and closure_conversion_module_item = function
+  | Mod.Expression expr -> Mod.Expression (closure_conversion expr)
+  | Mod.Definition defn -> Mod.Definition (closure_conversion_defn defn)
 ;;

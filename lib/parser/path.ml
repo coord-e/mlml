@@ -50,3 +50,4 @@ let last path =
 ;;
 
 let last_path path = Path [last path]
+let compare = compare
