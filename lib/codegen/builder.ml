@@ -1,6 +1,5 @@
 module P = Parser
 module Pat = Tree.Pattern
-module PP = P.Pattern
 module B = Output_buffer
 
 type register = Register of string
@@ -366,7 +365,7 @@ let make_tuple_const ctx buf values =
 ;;
 
 let undef_variable_pattern ctx pat =
-  List.iter (undef_variable ctx) (PP.introduced_ident_list pat)
+  List.iter (undef_variable ctx) (Pat.introduced_ident_list pat)
 ;;
 
 let function_ptr ctx buf label =
@@ -496,8 +495,8 @@ let rec pattern_match ctx buf pat v fail_label =
     let ret = safe_call ctx buf (string_of_label mlml_equal_label) [v; sv] in
     branch_if_falsy ctx buf (RegisterValue ret) fail_label
   | Pat.Or (a, b) ->
-    let idents = PP.introduced_ident_list a in
-    if idents <> PP.introduced_ident_list b
+    let idents = Pat.introduced_ident_list a in
+    if idents <> Pat.introduced_ident_list b
     then failwith "introduced identifiers mismatch in | pattern";
     let resulting_area =
       List.map (fun _ -> push_to_stack ctx buf (ConstantValue 0)) idents

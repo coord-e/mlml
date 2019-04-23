@@ -32,3 +32,22 @@ let rec string_of_pattern f = function
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
   | Range (from, to_) -> Printf.sprintf "'%c' .. '%c'" from to_
 ;;
+
+module SS = Set.Make (String)
+
+let rec introduced_idents = function
+  | Var "_" -> SS.empty
+  | Var x -> SS.singleton x
+  | Int _ | String _ -> SS.empty
+  | Tuple values -> List.map introduced_idents values |> List.fold_left SS.union SS.empty
+  | Ctor (_, value) ->
+    (match value with Some value -> introduced_idents value | None -> SS.empty)
+  | Or (a, b) -> SS.union (introduced_idents a) (introduced_idents b)
+  | Cons (a, b) -> SS.union (introduced_idents a) (introduced_idents b)
+  | Nil | Range _ -> SS.empty
+  | Record fields ->
+    let aux (_, p) = introduced_idents p in
+    List.map aux fields |> List.fold_left SS.union SS.empty
+;;
+
+let introduced_ident_list p = introduced_idents p |> SS.elements

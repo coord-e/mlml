@@ -97,23 +97,3 @@ and parse_or tokens =
   aux lhs tokens
 
 and parse_pattern tokens = parse_or tokens
-
-module SS = Set.Make (String)
-
-let rec introduced_idents = function
-  | T.Var "_" -> SS.empty
-  | T.Var x -> SS.singleton x
-  | T.Int _ | T.String _ -> SS.empty
-  | T.Tuple values ->
-    List.map introduced_idents values |> List.fold_left SS.union SS.empty
-  | T.Ctor (_, value) ->
-    (match value with Some value -> introduced_idents value | None -> SS.empty)
-  | T.Or (a, b) -> SS.union (introduced_idents a) (introduced_idents b)
-  | T.Cons (a, b) -> SS.union (introduced_idents a) (introduced_idents b)
-  | T.Nil | T.Range _ -> SS.empty
-  | T.Record fields ->
-    let aux (_, p) = introduced_idents p in
-    List.map aux fields |> List.fold_left SS.union SS.empty
-;;
-
-let introduced_ident_list p = introduced_idents p |> SS.elements
