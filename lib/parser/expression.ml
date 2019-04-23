@@ -12,25 +12,15 @@ and t =
   | Int of int
   | Tuple of t list
   | String of string
-  | Add of t * t
-  | Sub of t * t
-  | Mul of t * t
-  | Follow of t * t
+  | BinOp of Binop.t * t * t
+  | App of t * t
   | LetAnd of bool * let_binding list * t
   | IfThenElse of t * t * t
-  | App of t * t
   | Ctor of string * t option
   | Var of string
-  | Equal of t * t
-  | NotEqual of t * t
-  | PhysicalEqual of t * t
-  | NotPhysicalEqual of t * t
   | Match of t * (Pat.t * t option * t) list
   | Lambda of Pat.t * t
-  | Cons of t * t
   | Nil
-  | StringIndex of t * t
-  | StringAppend of t * t
   | Record of (string * t) list
   | RecordField of t * string
   | RecordUpdate of t * (string * t) list
@@ -166,7 +156,7 @@ and try_parse_literal tokens =
       | tokens ->
         let rest, lhs = parse_let tokens in
         let rest, rhs = aux rest in
-        rest, Cons (lhs, rhs)
+        rest, BinOp (Binop.Cons, lhs, rhs)
     in
     let rest, l = aux rest in
     rest, Some l
@@ -184,7 +174,7 @@ and try_parse_dot tokens =
     | L.Dot :: L.LBracket :: rest ->
       let rest, rhs = parse_expression rest in
       (match rest with
-      | L.RBracket :: rest -> rest, Some (StringIndex (lhs, rhs))
+      | L.RBracket :: rest -> rest, Some (BinOp (Binop.StringIndex, lhs, rhs))
       | _ -> tokens, None)
     | _ -> rest, Some lhs)
   | None -> tokens, None
@@ -211,7 +201,7 @@ and parse_mult tokens =
     match tokens with
     | L.Star :: rest ->
       let rest, rhs = parse_app rest in
-      aux (Mul (lhs, rhs)) rest
+      aux (BinOp (Binop.Mul, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -222,10 +212,10 @@ and parse_add tokens =
     match tokens with
     | L.Plus :: rest ->
       let rest, rhs = parse_mult rest in
-      aux (Add (lhs, rhs)) rest
+      aux (BinOp (Binop.Add, lhs, rhs)) rest
     | L.Minus :: rest ->
       let rest, rhs = parse_mult rest in
-      aux (Sub (lhs, rhs)) rest
+      aux (BinOp (Binop.Sub, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -235,7 +225,7 @@ and parse_cons tokens =
   match tokens with
   | L.DoubleColon :: tokens ->
     let tokens, rhs = parse_cons tokens in
-    tokens, Cons (lhs, rhs)
+    tokens, BinOp (Binop.Cons, lhs, rhs)
   | _ -> tokens, lhs
 
 and parse_append tokens =
@@ -244,7 +234,7 @@ and parse_append tokens =
     match tokens with
     | L.Hat :: rest ->
       let rest, rhs = parse_cons rest in
-      aux (StringAppend (lhs, rhs)) rest
+      aux (BinOp (Binop.StringAppend, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -255,16 +245,16 @@ and parse_equal tokens =
     match tokens with
     | L.Equal :: rest ->
       let rest, rhs = parse_append rest in
-      aux (Equal (lhs, rhs)) rest
+      aux (BinOp (Binop.Equal, lhs, rhs)) rest
     | L.DoubleEqual :: rest ->
       let rest, rhs = parse_append rest in
-      aux (PhysicalEqual (lhs, rhs)) rest
+      aux (BinOp (Binop.PhysicalEqual, lhs, rhs)) rest
     | L.LtGt :: rest ->
       let rest, rhs = parse_append rest in
-      aux (NotEqual (lhs, rhs)) rest
+      aux (BinOp (Binop.NotEqual, lhs, rhs)) rest
     | L.NotEqual :: rest ->
       let rest, rhs = parse_append rest in
-      aux (NotPhysicalEqual (lhs, rhs)) rest
+      aux (BinOp (Binop.NotPhysicalEqual, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -326,7 +316,7 @@ and parse_follow tokens =
     match tokens with
     | L.Semicolon :: rest ->
       let rest, rhs = parse_let rest in
-      aux (Follow (lhs, rhs)) rest
+      aux (BinOp (Binop.Follow, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -349,34 +339,14 @@ and string_of_expression = function
     let p = List.map string_of_expression values |> String.concat ", " in
     Printf.sprintf "Tuple (%s)" p
   | String s -> Printf.sprintf "String \"%s\"" s
-  | Add (lhs, rhs) ->
-    Printf.sprintf "Add (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
-  | Sub (lhs, rhs) ->
-    Printf.sprintf "Sub (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
-  | Mul (lhs, rhs) ->
-    Printf.sprintf "Mul (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
-  | Follow (lhs, rhs) ->
-    Printf.sprintf "(%s); (%s)" (string_of_expression lhs) (string_of_expression rhs)
-  | Equal (lhs, rhs) ->
+  | BinOp (op, lhs, rhs) ->
     Printf.sprintf
-      "Equal (%s) (%s)"
+      "%s (%s) (%s)"
+      (Binop.string_of_binop op)
       (string_of_expression lhs)
       (string_of_expression rhs)
-  | NotEqual (lhs, rhs) ->
-    Printf.sprintf
-      "NotEqual (%s) (%s)"
-      (string_of_expression lhs)
-      (string_of_expression rhs)
-  | PhysicalEqual (lhs, rhs) ->
-    Printf.sprintf
-      "PhysicalEqual (%s) (%s)"
-      (string_of_expression lhs)
-      (string_of_expression rhs)
-  | NotPhysicalEqual (lhs, rhs) ->
-    Printf.sprintf
-      "NotPhysicalEqual (%s) (%s)"
-      (string_of_expression lhs)
-      (string_of_expression rhs)
+  | App (lhs, rhs) ->
+    Printf.sprintf "App (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | LetAnd (is_rec, l, rhs) ->
     let l = List.map string_of_let_binding l |> String.concat " and " in
     Printf.sprintf
@@ -384,8 +354,6 @@ and string_of_expression = function
       (if is_rec then "rec" else "")
       l
       (string_of_expression rhs)
-  | App (lhs, rhs) ->
-    Printf.sprintf "App (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | Ctor (name, rhs) ->
     (match rhs with
     | Some rhs -> Printf.sprintf "Ctor (%s) (%s)" name (string_of_expression rhs)
@@ -414,19 +382,7 @@ and string_of_expression = function
   | Lambda (param, body) ->
     let p = Pat.string_of_pattern param in
     Printf.sprintf "(%s) -> (%s)" p (string_of_expression body)
-  | Cons (lhs, rhs) ->
-    Printf.sprintf "Cons (%s) (%s)" (string_of_expression lhs) (string_of_expression rhs)
   | Nil -> "Nil"
-  | StringIndex (lhs, rhs) ->
-    Printf.sprintf
-      "StringIndex (%s) (%s)"
-      (string_of_expression lhs)
-      (string_of_expression rhs)
-  | StringAppend (lhs, rhs) ->
-    Printf.sprintf
-      "StringAppend (%s) (%s)"
-      (string_of_expression lhs)
-      (string_of_expression rhs)
   | Record fields ->
     let aux (name, expr) = Printf.sprintf "%s = (%s)" name (string_of_expression expr) in
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"

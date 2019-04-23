@@ -19,18 +19,8 @@ let rec intros_and_free_of_binding is_rec = function
 
 and free_variables = function
   | Expr.Int _ | Expr.String _ | Expr.Nil -> SS.empty
-  | Expr.Add (l, r)
-  | Expr.Sub (l, r)
-  | Expr.Mul (l, r)
-  | Expr.Follow (l, r)
-  | Expr.App (l, r)
-  | Expr.Equal (l, r)
-  | Expr.NotEqual (l, r)
-  | Expr.PhysicalEqual (l, r)
-  | Expr.NotPhysicalEqual (l, r)
-  | Expr.StringIndex (l, r)
-  | Expr.StringAppend (l, r)
-  | Expr.Cons (l, r) -> SS.union (free_variables l) (free_variables r)
+  | Expr.App (l, r) | Expr.BinOp (_, l, r) ->
+    SS.union (free_variables l) (free_variables r)
   | Expr.Tuple values ->
     List.map free_variables values |> List.fold_left SS.union SS.empty
   | Expr.LetAnd (is_rec, l, in_) ->
@@ -133,17 +123,7 @@ and convert_expr' i expr =
   | Expr.Var "print_char" -> Expr.Tuple [Expr.Var "print_char"; Expr.Tuple []]
   | Expr.Var "print_string" -> Expr.Tuple [Expr.Var "print_string"; Expr.Tuple []]
   | Expr.Int _ | Expr.Var _ | Expr.String _ | Expr.Nil -> expr
-  | Expr.Add (r, l) -> Expr.Add (aux i r, aux i l)
-  | Expr.Sub (r, l) -> Expr.Sub (aux i r, aux i l)
-  | Expr.Mul (r, l) -> Expr.Mul (aux i r, aux i l)
-  | Expr.Follow (r, l) -> Expr.Follow (aux i r, aux i l)
-  | Expr.Equal (r, l) -> Expr.Equal (aux i r, aux i l)
-  | Expr.NotEqual (r, l) -> Expr.NotEqual (aux i r, aux i l)
-  | Expr.PhysicalEqual (r, l) -> Expr.PhysicalEqual (aux i r, aux i l)
-  | Expr.NotPhysicalEqual (r, l) -> Expr.NotPhysicalEqual (aux i r, aux i l)
-  | Expr.Cons (r, l) -> Expr.Cons (aux i r, aux i l)
-  | Expr.StringIndex (r, l) -> Expr.StringIndex (aux i r, aux i l)
-  | Expr.StringAppend (r, l) -> Expr.StringAppend (aux i r, aux i l)
+  | Expr.BinOp (op, r, l) -> Expr.BinOp (op, aux i r, aux i l)
   | Expr.IfThenElse (c, t, e) -> Expr.IfThenElse (aux i c, aux i t, aux i e)
   | Expr.Ctor (name, param) ->
     (match param with
