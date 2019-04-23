@@ -1,19 +1,20 @@
-module P = Parser
-module Expr = P.Expression
-module Def = P.Definition
-module Pat = P.Pattern
-module Item = P.Module_item
+module Expr = Tree.Expression
+module Def = Tree.Definition
+module Pat = Tree.Pattern
+module Item = Tree.Module_item
+module PP = Parser.Pattern
+module PExpr = Parser.Expression
 module SS = Set.Make (String)
 
 (* TODO: Improve this function's name *)
 let rec intros_and_free_of_binding is_rec = function
   | Expr.FunBind (ident, param, body) ->
-    let param = Pat.introduced_idents param in
+    let param = PP.introduced_idents param in
     let param = if is_rec then SS.add ident param else param in
     let body = free_variables body in
     [ident], SS.diff body param
   | Expr.VarBind (pat, body) ->
-    let intros = Pat.introduced_ident_list pat in
+    let intros = PP.introduced_ident_list pat in
     let body = free_variables body in
     intros, body
 
@@ -35,7 +36,7 @@ and free_variables = function
   | Expr.Match (expr, arms) ->
     let expr = free_variables expr in
     let aux (pat, when_, v) =
-      let pat_intros = Pat.introduced_idents pat in
+      let pat_intros = PP.introduced_idents pat in
       let v = free_variables v in
       match when_ with
       | Some when_ ->
@@ -46,7 +47,7 @@ and free_variables = function
     let arms = List.map aux arms |> List.fold_left SS.union SS.empty in
     SS.union expr arms
   | Expr.Lambda (param, body) ->
-    let param = Pat.introduced_idents param in
+    let param = PP.introduced_idents param in
     let body = free_variables body in
     SS.diff body param
   | Expr.Var x -> SS.singleton x

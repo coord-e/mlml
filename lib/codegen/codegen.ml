@@ -1,9 +1,9 @@
 open Builder
 module P = Parser
-module Expr = P.Expression
-module Def = P.Definition
-module Item = P.Module_item
-module Binop = P.Binop
+module Expr = Tree.Expression
+module Def = Tree.Definition
+module Item = Tree.Module_item
+module Binop = Tree.Binop
 module B = Output_buffer
 
 let rec codegen_binop ctx buf lhs rhs = function
