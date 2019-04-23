@@ -443,7 +443,7 @@ let string_value_to_content ctx buf v dest =
 
 let rec pattern_match ctx buf pat v fail_label =
   match pat with
-  | Pat.Var "_" -> ()
+  | Pat.Wildcard -> ()
   | Pat.Var x -> define_variable ctx buf x v
   | Pat.Tuple values ->
     (* assume v holds heap address *)

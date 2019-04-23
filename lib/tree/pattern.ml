@@ -1,5 +1,6 @@
 type 'a t =
   | Var of 'a
+  | Wildcard
   | Int of int
   | String of string
   | Tuple of 'a t list
@@ -12,6 +13,7 @@ type 'a t =
 
 let rec string_of_pattern f = function
   | Var x -> f x
+  | Wildcard -> "_"
   | Int x -> string_of_int x
   | String s -> Printf.sprintf "\"%s\"" s
   | Tuple values ->
@@ -36,8 +38,8 @@ let rec string_of_pattern f = function
 module SS = Set.Make (String)
 
 let rec introduced_idents = function
-  | Var "_" -> SS.empty
   | Var x -> SS.singleton x
+  | Wildcard -> SS.empty
   | Int _ | String _ -> SS.empty
   | Tuple values -> List.map introduced_idents values |> List.fold_left SS.union SS.empty
   | Ctor (_, value) ->

@@ -29,6 +29,7 @@ and try_parse_literal tokens =
     tokens, Some (T.Range (from, to_))
   | L.CharLiteral c :: tokens -> tokens, Some (T.Int (Char.code c))
   | L.StringLiteral s :: tokens -> tokens, Some (T.String s)
+  | L.LowerIdent "_" :: tokens -> tokens, Some Wildcard
   | L.LowerIdent ident :: tokens -> tokens, Some (T.Var ident)
   | L.CapitalIdent ident :: tokens ->
     (match try_parse_literal tokens with
