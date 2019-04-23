@@ -2,6 +2,7 @@ module P = Parser
 module Expr = P.Expression
 module Def = P.Definition
 module Pat = P.Pattern
+module Item = P.Module_item
 module SS = Set.Make (String)
 
 (* TODO: Improve this function's name *)
@@ -75,7 +76,7 @@ let make_let_fun is_rec ident param body in_ =
   Expr.LetAnd (is_rec, [Expr.FunBind (ident, param, body)], in_)
 ;;
 
-let rec let_bindings_conversion i is_rec fvs l =
+let rec convert_let_bindings i is_rec fvs l =
   let fv_tuple = Expr.Tuple (List.map (fun x -> Expr.Var x) fvs) in
   let fv_pat = Pat.Tuple (List.map (fun x -> Pat.Var x) fvs) in
   let folder_body_rec acc = function
@@ -85,21 +86,21 @@ let rec let_bindings_conversion i is_rec fvs l =
   in
   let aux = function
     | Expr.FunBind (ident, param, body) ->
-      let body = closure_conversion' i body in
+      let body = convert_expr' i body in
       let real_body = if is_rec then List.fold_left folder_body_rec body l else body in
       let real_param = Pat.Tuple [param; fv_pat] in
       let evalto = Expr.Tuple [Expr.Var ident; fv_tuple] in
       (Pat.Var ident, Some evalto), Expr.FunBind (ident, real_param, real_body)
     | Expr.VarBind (pat, body) ->
-      let body = closure_conversion' i body in
+      let body = convert_expr' i body in
       (pat, None), Expr.VarBind (pat, body)
   in
   List.map aux l |> List.split
 
 (* TODO: simplify application to subexpr *)
-and closure_conversion' i expr =
+and convert_expr' i expr =
   (* define an alias because it's a long name *)
-  let aux = closure_conversion' in
+  let aux = convert_expr' in
   match expr with
   | Expr.LetAnd (is_rec, l, in_) ->
     let in_ = aux i in_ in
@@ -109,7 +110,7 @@ and closure_conversion' i expr =
       | pat, Some evalto -> make_let_var pat evalto acc
       | _, None -> acc
     in
-    let evals, l = let_bindings_conversion i is_rec fvs l in
+    let evals, l = convert_let_bindings i is_rec fvs l in
     let wrap = List.fold_left folder_wrap in_ evals in
     Expr.LetAnd (is_rec, l, wrap)
   | Expr.Lambda (param, body) ->
@@ -164,7 +165,7 @@ and closure_conversion' i expr =
     let aux' (name, expr) = name, aux i expr in
     Expr.RecordUpdate (aux i e, List.map aux' fields)
 
-and closure_conversion expr = closure_conversion' 0 expr
+and convert_expr expr = convert_expr' 0 expr
 
 let make_let_var_defn pat expr = Def.LetAnd (false, [Expr.VarBind (pat, expr)])
 
@@ -175,11 +176,11 @@ let free_variables_defn = function
   | _ -> SS.empty
 ;;
 
-let closure_conversion_defn defn =
+let convert_defn defn =
   match defn with
   | Def.LetAnd (is_rec, l) ->
     let fvs = free_variables_defn defn |> SS.elements in
-    let evals, l = let_bindings_conversion 0 is_rec fvs l in
+    let evals, l = convert_let_bindings 0 is_rec fvs l in
     (* Remove VarBind from l, and use body of VarBind in resulting_expr *)
     let funs, vars = List.partition Expr.is_fun_bind l in
     let aux = function
@@ -196,3 +197,10 @@ let closure_conversion_defn defn =
     make_let_var_defn resulting_pat (Expr.LetAnd (is_rec, funs, resulting_expr))
   | Def.TypeDef _ -> defn
 ;;
+
+let convert_module_item = function
+  | Item.Expression expr -> Item.Expression (convert_expr expr)
+  | Item.Definition defn -> Item.Definition (convert_defn defn)
+;;
+
+let f = List.map convert_module_item
