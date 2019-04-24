@@ -39,8 +39,8 @@ and string_of_module_expression f = function
   | Path p -> Path.string_of_path p
   | Struct l ->
     List.map (string_of_module_item f) l
-      |> String.concat ";; "
-      |> Printf.sprintf "struct %s end"
+    |> String.concat ";; "
+    |> Printf.sprintf "struct %s end"
 
 and string_of_definition f = function
   | LetAnd (is_rec, l) ->
@@ -53,9 +53,7 @@ and string_of_definition f = function
     in
     List.map aux l |> String.concat " and " |> Printf.sprintf "type %s"
   | Module (name, mexp) ->
-   Printf.sprintf "module %s = (%s)" name (string_of_module_expression f mexp)
-
-;;
+    Printf.sprintf "module %s = (%s)" name (string_of_module_expression f mexp)
 
 and string_of_module_item f = function
   | Definition def -> Def.string_of_definition f def
