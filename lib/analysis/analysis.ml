@@ -1,1 +1,1 @@
-let f = List.map Closure.closure_conversion_module_item
+let f x = Alpha.f x |> Closure.f

@@ -3,45 +3,15 @@
 
 module L = Lexer
 module Pat = Pattern
+module Binop = Tree.Binop
+module T = Tree.Expression
 
-type let_binding =
-  | VarBind of Pat.t * t
-  (* TODO: This should be string, not Path *)
-  | FunBind of Path.t * Pat.t * t
-
-and t =
-  | Int of int
-  | Tuple of t list
-  | String of string
-  | Add of t * t
-  | Sub of t * t
-  | Mul of t * t
-  | Follow of t * t
-  | LetAnd of bool * let_binding list * t
-  | IfThenElse of t * t * t
-  | App of t * t
-  | Ctor of Path.t * t option
-  | Var of Path.t
-  | Equal of t * t
-  | NotEqual of t * t
-  | PhysicalEqual of t * t
-  | NotPhysicalEqual of t * t
-  | Match of t * (Pat.t * t option * t) list
-  | Lambda of Pat.t * t
-  | Cons of t * t
-  | Nil
-  | StringIndex of t * t
-  | StringAppend of t * t
-  | Record of (Path.t * t) list
-  | RecordField of t * string
-  | RecordUpdate of t * (Path.t * t) list
-
-let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
+type t = Path.t T.t
 
 (* fun x y z -> expr                      *)
 (* => fun x -> (fun y -> (fun z -> expr)) *)
 let rec params_to_lambdas expr = function
-  | h :: t -> Lambda (h, params_to_lambdas expr t)
+  | h :: t -> T.Lambda (h, params_to_lambdas expr t)
   | [] -> expr
 ;;
 
@@ -79,7 +49,7 @@ and parse_let_fun_body params = function
   | L.Function :: L.Vertical :: rest | L.Function :: rest ->
     let rest, arms = parse_match_arm rest in
     let anon_var = Path.single "_function_match" in
-    rest, params @ [Pat.Var anon_var], Match (Var anon_var, arms)
+    rest, params @ [Tree.Pattern.Var anon_var], T.Match (T.Var anon_var, arms)
   | rest ->
     let rest, body = parse_expression rest in
     rest, params, body
@@ -98,9 +68,9 @@ and parse_let_bindings rest =
     match params with
     | h :: t ->
       (match bind with
-      | Pat.Var ident -> FunBind (ident, h, params_to_lambdas lhs t)
+      | Tree.Pattern.Var ident -> T.FunBind (ident, h, params_to_lambdas lhs t)
       | _ -> failwith "only variables are allowed to bind functions")
-    | [] -> VarBind (bind, lhs)
+    | [] -> T.VarBind (bind, lhs)
   in
   let rest, acc = parse_until_in rest in
   rest, List.map conv_params acc
@@ -124,18 +94,18 @@ and parse_fields tokens =
     let rest, expr = parse_let rest in
     continue path expr rest
   | rest when Path.is_empty path -> rest, []
-  | rest -> continue path (Var (Path.last_path path)) rest
+  | rest -> continue path (T.Var (Path.last_path path)) rest
 
 and parse_record tokens =
   let parse_value tokens =
     let rest, fields = parse_fields tokens in
-    rest, Record fields
+    rest, T.Record fields
   and try_parse_with tokens =
     let rest, expr = parse_let tokens in
     match rest with
     | L.With :: rest ->
       let rest, fields = parse_fields rest in
-      rest, Some (RecordUpdate (expr, fields))
+      rest, Some (T.RecordUpdate (expr, fields))
     | _ -> tokens, None
   in
   let aux tokens =
@@ -147,32 +117,32 @@ and parse_record tokens =
 
 and try_parse_literal tokens =
   match tokens with
-  | L.IntLiteral num :: tokens -> tokens, Some (Int num)
+  | L.IntLiteral num :: tokens -> tokens, Some (T.Int num)
   (* TODO: Add boolean value *)
-  | L.BoolLiteral b :: tokens -> tokens, Some (Int (if b then 1 else 0))
+  | L.BoolLiteral b :: tokens -> tokens, Some (T.Int (if b then 1 else 0))
   (* TODO: Add char value *)
-  | L.CharLiteral c :: tokens -> tokens, Some (Int (Char.code c))
-  | L.StringLiteral s :: tokens -> tokens, Some (String s)
-  | L.LowerIdent ident :: rest -> rest, Some (Var (Path.single ident))
+  | L.CharLiteral c :: tokens -> tokens, Some (T.Int (Char.code c))
+  | L.StringLiteral s :: tokens -> tokens, Some (T.String s)
+  | L.LowerIdent ident :: rest -> rest, Some (T.Var (Path.single ident))
   | L.CapitalIdent _ :: _ ->
     (match Path.parse_path tokens with
     | rest, Path [] -> rest, None
     | rest, path when Path.is_capitalized path ->
       (match try_parse_literal rest with
-      | rest, Some p -> rest, Some (Ctor (path, Some p))
-      | _, None -> rest, Some (Ctor (path, None)))
-    | rest, path -> rest, Some (Var path))
+      | rest, Some p -> rest, Some (T.Ctor (path, Some p))
+      | _, None -> rest, Some (T.Ctor (path, None)))
+    | rest, path -> rest, Some (T.Var path))
   | L.LBrace :: rest ->
     let rest, r = parse_record rest in
     rest, Some r
   | L.LBracket :: rest ->
     let rec aux = function
-      | L.RBracket :: rest -> rest, Nil
+      | L.RBracket :: rest -> rest, T.Nil
       | L.Semicolon :: rest -> aux rest
       | tokens ->
         let rest, lhs = parse_let tokens in
         let rest, rhs = aux rest in
-        rest, Cons (lhs, rhs)
+        rest, T.BinOp (Binop.Cons, lhs, rhs)
     in
     let rest, l = aux rest in
     rest, Some l
@@ -186,11 +156,11 @@ and try_parse_dot tokens =
   match lhs_opt with
   | Some lhs ->
     (match rest with
-    | L.Dot :: L.LowerIdent ident :: rest -> rest, Some (RecordField (lhs, ident))
+    | L.Dot :: L.LowerIdent ident :: rest -> rest, Some (T.RecordField (lhs, ident))
     | L.Dot :: L.LBracket :: rest ->
       let rest, rhs = parse_expression rest in
       (match rest with
-      | L.RBracket :: rest -> rest, Some (StringIndex (lhs, rhs))
+      | L.RBracket :: rest -> rest, Some (T.BinOp (Binop.StringIndex, lhs, rhs))
       | _ -> tokens, None)
     | _ -> rest, Some lhs)
   | None -> tokens, None
@@ -206,7 +176,7 @@ and parse_app tokens =
   let rest, f = parse_dot tokens in
   let rec aux lhs tokens =
     match try_parse_dot tokens with
-    | rest, Some p -> aux (App (lhs, p)) rest
+    | rest, Some p -> aux (T.App (lhs, p)) rest
     | rest, None -> rest, lhs
   in
   aux f rest
@@ -217,7 +187,7 @@ and parse_mult tokens =
     match tokens with
     | L.Star :: rest ->
       let rest, rhs = parse_app rest in
-      aux (Mul (lhs, rhs)) rest
+      aux (T.BinOp (Binop.Mul, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -228,10 +198,10 @@ and parse_add tokens =
     match tokens with
     | L.Plus :: rest ->
       let rest, rhs = parse_mult rest in
-      aux (Add (lhs, rhs)) rest
+      aux (T.BinOp (Binop.Add, lhs, rhs)) rest
     | L.Minus :: rest ->
       let rest, rhs = parse_mult rest in
-      aux (Sub (lhs, rhs)) rest
+      aux (T.BinOp (Binop.Sub, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -241,7 +211,7 @@ and parse_cons tokens =
   match tokens with
   | L.DoubleColon :: tokens ->
     let tokens, rhs = parse_cons tokens in
-    tokens, Cons (lhs, rhs)
+    tokens, T.BinOp (Binop.Cons, lhs, rhs)
   | _ -> tokens, lhs
 
 and parse_append tokens =
@@ -250,7 +220,7 @@ and parse_append tokens =
     match tokens with
     | L.Hat :: rest ->
       let rest, rhs = parse_cons rest in
-      aux (StringAppend (lhs, rhs)) rest
+      aux (T.BinOp (Binop.StringAppend, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -261,16 +231,16 @@ and parse_equal tokens =
     match tokens with
     | L.Equal :: rest ->
       let rest, rhs = parse_append rest in
-      aux (Equal (lhs, rhs)) rest
+      aux (T.BinOp (Binop.Equal, lhs, rhs)) rest
     | L.DoubleEqual :: rest ->
       let rest, rhs = parse_append rest in
-      aux (PhysicalEqual (lhs, rhs)) rest
+      aux (T.BinOp (Binop.PhysicalEqual, lhs, rhs)) rest
     | L.LtGt :: rest ->
       let rest, rhs = parse_append rest in
-      aux (NotEqual (lhs, rhs)) rest
+      aux (T.BinOp (Binop.NotEqual, lhs, rhs)) rest
     | L.NotEqual :: rest ->
       let rest, rhs = parse_append rest in
-      aux (NotPhysicalEqual (lhs, rhs)) rest
+      aux (T.BinOp (Binop.NotPhysicalEqual, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -288,7 +258,7 @@ and parse_tuple tokens =
   match values with
   | [] -> failwith "unreachable"
   | [value] -> rest, value
-  | _ -> rest, Tuple values
+  | _ -> rest, T.Tuple values
 
 and parse_if = function
   | L.If :: rest ->
@@ -299,7 +269,7 @@ and parse_if = function
       (match rest with
       | L.Else :: rest ->
         let rest, else_ = parse_expression rest in
-        rest, IfThenElse (cond, then_, else_)
+        rest, T.IfThenElse (cond, then_, else_)
       | _ -> failwith "could not find 'else'")
     | _ -> failwith "could not find 'then'")
   | tokens -> parse_tuple tokens
@@ -310,7 +280,7 @@ and parse_match = function
     (match rest with
     | L.With :: L.Vertical :: rest | L.With :: rest ->
       let rest, arms = parse_match_arm rest in
-      rest, Match (expr, arms)
+      rest, T.Match (expr, arms)
     | _ -> failwith "could not find 'with'")
   | tokens -> parse_if tokens
 
@@ -323,7 +293,7 @@ and parse_let = function
     let rest, is_rec = parse_rec rest in
     let rest, binds = parse_let_bindings rest in
     let rest, rhs = parse_in rest in
-    rest, LetAnd (is_rec, binds, rhs)
+    rest, T.LetAnd (is_rec, binds, rhs)
   | tokens -> parse_match tokens
 
 and parse_follow tokens =
@@ -332,13 +302,14 @@ and parse_follow tokens =
     match tokens with
     | L.Semicolon :: rest ->
       let rest, rhs = parse_let rest in
-      aux (Follow (lhs, rhs)) rest
+      aux (T.BinOp (Binop.Follow, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
 
 and parse_expression tokens = parse_follow tokens
 
+<<<<<<< HEAD
 let rec string_of_let_binding = function
   | VarBind (pat, expr) ->
     Printf.sprintf "(%s) = (%s)" (Pat.string_of_pattern pat) (string_of_expression expr)

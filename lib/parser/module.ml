@@ -5,24 +5,11 @@ module Expr = Expression
 module Pat = Pattern
 module TyExpr = Type_expression
 module L = Lexer
+module T = Tree.Definition
 
-type module_expr =
-  | Path of Path.t
-  | Struct of module_item list
+type t = Path.t T.t
 
-and type_def =
-  | Variant of (string * TyExpr.t option) list
-  | Record of (string * TyExpr.t) list
-  | Alias of TyExpr.t
-
-and definition =
-  | LetAnd of bool * Expr.let_binding list
-  | TypeDef of (string list * string * type_def) list
-  | Module of string * module_expr
-
-and module_item =
-  | Definition of definition
-  | Expression of Expr.t
+let string_of_definition = T.string_of_definition Path.string_of_path
 
 let parse_variant tokens =
   let rec aux = function
@@ -40,7 +27,7 @@ let parse_variant tokens =
     | rest -> rest, []
   in
   let rest, ctors = match tokens with L.Vertical :: rest | rest -> aux rest in
-  rest, Variant ctors
+  rest, T.Variant ctors
 ;;
 
 let parse_record tokens =
@@ -56,7 +43,7 @@ let parse_record tokens =
   in
   let rest, fields = match tokens with L.LBrace :: rest | rest -> aux rest in
   match rest with
-  | L.RBrace :: rest -> rest, Record fields
+  | L.RBrace :: rest -> rest, T.Record fields
   | _ -> failwith "record definition is not terminated"
 ;;
 
@@ -84,7 +71,7 @@ let rec try_parse_type_bindings tokens =
       | L.Vertical :: _ | L.CapitalIdent _ :: _ -> parse_variant rest
       | _ ->
         let rest, ty = TyExpr.parse_type_expression rest in
-        rest, Alias ty
+        rest, T.Alias ty
     in
     (match rest with
     | L.And :: rest ->
@@ -99,7 +86,7 @@ let rec try_parse_let tokens =
   match tokens with
   | L.Type :: rest ->
     (match try_parse_type_bindings rest with
-    | rest, Some l -> rest, Some (TypeDef l)
+    | rest, Some l -> rest, Some (T.TypeDef l)
     | rest, None -> rest, None)
   | L.Module :: L.CapitalIdent ident :: L.Equal :: rest ->
     let rest, expr = parse_module_expression rest in
@@ -109,7 +96,7 @@ let rec try_parse_let tokens =
     let rest, binds = Expr.parse_let_bindings rest in
     (match rest with
     | L.In :: _ -> tokens, None
-    | _ -> rest, Some (LetAnd (is_rec, binds)))
+    | _ -> rest, Some (T.LetAnd (is_rec, binds)))
   | tokens -> tokens, None
 
 and try_parse_definition x = try_parse_let x
@@ -146,6 +133,7 @@ and parse_module_expression = function
     rest, Path path
 ;;
 
+<<<<<<< HEAD:lib/parser/module.ml
 let string_of_type_def = function
   | Variant variants ->
     let aux (ctor, param) =
@@ -190,3 +178,5 @@ and string_of_module_item = function
 and string_of_module_items items =
   List.map string_of_module_item items |> String.concat ";; "
 ;;
+
+let f = parse_definition
