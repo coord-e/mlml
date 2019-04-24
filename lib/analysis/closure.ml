@@ -1,9 +1,7 @@
-module P = Parser
-module Expr = P.Expression
-module Mod = P.Module
-module Pat = P.Pattern
-module Path = P.Path
-module SS = Set.Make (Path)
+module Expr = Tree.Expression
+module Mod = Tree.Module
+module Pat = Tree.Pattern
+module SS = Set.Make (String)
 
 (* TODO: Improve this function's name *)
 let rec intros_and_free_of_binding is_rec = function
@@ -114,18 +112,15 @@ and convert_expr' i expr =
   | Expr.App (lhs, rhs) ->
     let lhs = aux i lhs in
     let rhs = aux (i + 1) rhs in
-    let f_name = Path.single @@ Printf.sprintf "_f%d" i in
-    let fv_name = Path.single @@ Printf.sprintf "_fv%d" i in
+    let f_name = Printf.sprintf "_f%d" i in
+    let fv_name = Printf.sprintf "_fv%d" i in
     let destruct = Pat.Tuple [Pat.Var f_name; Pat.Var fv_name] in
     let real_app = Expr.App (Expr.Var f_name, Expr.Tuple [rhs; Expr.Var fv_name]) in
     make_let_var destruct lhs real_app
   (* TODO: Fixup these dirty code *)
-  | Expr.Var (Path ["print_int"]) ->
-    Expr.Tuple [Expr.Var (Path.single "print_int"); Expr.Tuple []]
-  | Expr.Var (Path ["print_char"]) ->
-    Expr.Tuple [Expr.Var (Path.single "print_char"); Expr.Tuple []]
-  | Expr.Var (Path ["print_string"]) ->
-    Expr.Tuple [Expr.Var (Path.single "print_string"); Expr.Tuple []]
+  | Expr.Var "print_int" -> Expr.Tuple [Expr.Var "print_int"; Expr.Tuple []]
+  | Expr.Var "print_char" -> Expr.Tuple [Expr.Var "print_char"; Expr.Tuple []]
+  | Expr.Var "print_string" -> Expr.Tuple [Expr.Var "print_string"; Expr.Tuple []]
   | Expr.Int _ | Expr.Var _ | Expr.String _ | Expr.Nil -> expr
   | Expr.BinOp (op, r, l) -> Expr.BinOp (op, aux i r, aux i l)
   | Expr.IfThenElse (c, t, e) -> Expr.IfThenElse (aux i c, aux i t, aux i e)
@@ -186,8 +181,8 @@ let rec convert_defn defn =
     | Mod.Struct l -> Mod.Module (name, Mod.Struct (List.map convert_module_item l)))
 
 and convert_module_item = function
-  | Item.Expression expr -> Item.Expression (convert_expr expr)
-  | Item.Definition defn -> Item.Definition (convert_defn defn)
+  | Mod.Expression expr -> Mod.Expression (convert_expr expr)
+  | Mod.Definition defn -> Mod.Definition (convert_defn defn)
 ;;
 
 let f = List.map convert_module_item

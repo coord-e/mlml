@@ -1,5 +1,6 @@
 (* resolve paths and convert them into string *)
 
+module Path = Tree.Path
 module SS = Set.Make (String)
 
 type module_env =
@@ -7,29 +8,24 @@ type module_env =
   ; types : SS.t
   ; ctors : SS.t
   ; fields : SS.t
-  ; modules : (string, module_env) Hashtbl.t }
-
-type ctx =
-  { env : module_env
-  ; current : Path.t }
+  ; modules : (string, module_env) Hashtbl.t
+  ; path : Path.t }
 
 let create_module_env () =
   { vars = SS.empty
   ; types = SS.empty
   ; ctors = SS.empty
   ; fields = SS.empty
-  ; modules = Hashtbl.create 32 }
+  ; modules = Hashtbl.create 32
+  ; path = Path.root }
 ;;
 
-let create_ctx () = {env = create_module_env (); current = Path.root}
-
-(* context-independent operations *)
 let rec mem env path =
   match Path.extract path with
   | [head] ->
-    (match Path.is_capitalized head with
-    | true -> Hashtbl.mem env.modules head
-    | false -> List.mem env.vars head)
+    (match Path.is_capitalized path with
+    | true -> Hashtbl.mem env.modules head || SS.mem env.ctors head
+    | false -> SS.mem env.vars head || SS.mem env.fields head)
   | head :: tail ->
     (match Hashtbl.find_opt env.modules head with
     | Some v -> mem v (Path.of_list tail)

@@ -2,6 +2,7 @@ open Builder
 module P = Parser
 module Expr = Tree.Expression
 module Mod = Tree.Module
+module Binop = Tree.Binop
 module B = Output_buffer
 
 let rec codegen_binop ctx buf lhs rhs = function
@@ -243,6 +244,7 @@ and codegen_definition ctx buf = function
   | Mod.TypeDef l ->
     let aux (_, _, def) = codegen_type_def ctx buf def in
     List.iter aux l
+  | Mod.Module _ -> failwith "Module is left!"
 
 and codegen_type_def ctx _buf = function
   | Mod.Variant variants ->
