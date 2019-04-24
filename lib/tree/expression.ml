@@ -2,7 +2,7 @@ module Pat = Pattern
 
 type 'a let_binding =
   | VarBind of 'a Pat.t * 'a t
-  | FunBind of 'a * 'a Pat.t * 'a t
+  | FunBind of string * 'a Pat.t * 'a t
 
 and 'a t =
   | Int of int
@@ -32,7 +32,7 @@ let rec string_of_let_binding f = function
   | FunBind (name, param, expr) ->
     Printf.sprintf
       "%s (%s) = (%s)"
-      (f name)
+      name
       (Pat.string_of_pattern f param)
       (string_of_expression f expr)
 

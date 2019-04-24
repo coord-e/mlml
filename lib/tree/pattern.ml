@@ -1,5 +1,5 @@
 type 'a t =
-  | Var of 'a
+  | Var of string
   | Wildcard
   | Int of int
   | String of string
@@ -12,7 +12,7 @@ type 'a t =
   | Range of char * char
 
 let rec string_of_pattern f = function
-  | Var x -> f x
+  | Var x -> x
   | Wildcard -> "_"
   | Int x -> string_of_int x
   | String s -> Printf.sprintf "\"%s\"" s
