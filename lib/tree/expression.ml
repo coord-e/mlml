@@ -27,7 +27,9 @@ let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 let rec apply_on_names f g e =
   let apply = apply_on_names f g in
   match e with
-  | Int _ | String _ | Nil -> e
+  | Int i -> Int i
+  | String s -> String s
+  | Nil -> Nil
   | Tuple l -> Tuple (List.map apply l)
   | BinOp (op, l, r) -> BinOp (op, apply l, apply r)
   | LetAnd (is_rec, l, in_) ->

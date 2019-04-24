@@ -16,7 +16,11 @@ let rec apply_on_names f g p =
   let apply = apply_on_names f g in
   match p with
   | Var bind -> Var (g bind)
-  | Wildcard | Int _ | String _ | Nil | Range _ -> p
+  | Wildcard -> Wildcard
+  | Int i -> Int i
+  | String s -> String s
+  | Nil -> Nil
+  | Range (f, t) -> Range (f, t)
   | Tuple l -> Tuple (List.map apply l)
   | Ctor (name, None) -> Ctor (f name, None)
   | Ctor (name, Some v) -> Ctor (f name, Some (apply v))

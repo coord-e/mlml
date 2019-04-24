@@ -1,6 +1,8 @@
 (* resolve paths and convert them into string *)
 
 module Path = Tree.Path
+module Expr = Tree.Expression
+module Mod = Tree.Module
 module SS = Set.Make (String)
 
 type module_env =
@@ -24,8 +26,8 @@ let rec mem env path =
   match Path.extract path with
   | [head] ->
     (match Path.is_capitalized path with
-    | true -> Hashtbl.mem env.modules head || SS.mem env.ctors head
-    | false -> SS.mem env.vars head || SS.mem env.fields head)
+    | true -> Hashtbl.mem env.modules head || SS.mem head env.ctors
+    | false -> SS.mem head env.vars || SS.mem head env.fields)
   | head :: tail ->
     (match Hashtbl.find_opt env.modules head with
     | Some v -> mem v (Path.of_list tail)
@@ -36,8 +38,8 @@ let rec mem env path =
 let rec find_module_opt env path =
   let head, tail = Path.head_tail path in
   match tail, Hashtbl.find_opt env.modules head with
-  | [], Some v -> v
-  | _, Some v -> mem v (Path.of_list tail)
+  | [], Some v -> Some v
+  | _, Some v -> find_module_opt v (Path.of_list tail)
   | _, None -> None
 ;;
 
@@ -52,21 +54,37 @@ let rec insert_module env path m =
   | [] -> failwith "Inserting module to a empty path"
 ;;
 
-(* context-dependent operations *)
+let canonical env path = Path.join env.path path
 
-(* obtain a path of newly-defining name *)
-let new_name_path ctx name = Path.join ctx.current (Path.single name)
-
-(* obtain a canonical path from raw path *)
-let resolve ctx path =
-  let abs = Path.join ctx.current path in
-  match mem ctx.env abs with true -> abs | false -> path
+let resolve env path =
+  match mem env path with
+  (* the path is relative *)
+  | true -> canonical env path
+  (* the path is absolute *)
+  | false -> path
 ;;
 
-(* create an alias of `path` in current module *)
-let alias ctx name path =
-  let target_path = new_name_path ctx name in
-  let alias_path = resolve ctx path in
-  let alias_module = find_module ctx.env alias_path in
-  insert_module ctx.env target_path alias_module
+(* the main conversion *)
+let convert_expr' local_env env expr =
+  let binds x =
+    Hashtbl.add local_env x ();
+    x
+  and refs path =
+    let path =
+      if Path.is_single path && (not @@ Hashtbl.mem local_env (Path.head path))
+      then resolve env path
+      else path
+    in
+    Path.string_of_path path
+  in
+  Expr.apply_on_names refs binds expr
 ;;
+
+let convert_expr env expr = convert_expr' (Hashtbl.create 32) env expr
+
+let convert_module_item env = function
+  | Mod.Expression expr -> [Mod.Expression (convert_expr env expr)]
+  | Mod.Definition _defn -> failwith "unimplemented"
+;;
+
+let f l = List.map (convert_module_item @@ create_module_env ()) l |> List.flatten

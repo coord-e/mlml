@@ -2,7 +2,8 @@ type t = Path of string list
 
 let string_of_path = function Path l -> String.concat "." l
 let path_of_string s = Path (String.split_on_char '.' s)
-let single s = Path [s]
+let of_list l = Path l
+let single s = of_list [s]
 let length = function Path l -> List.length l
 
 (* return a list of strings from path *)
@@ -15,11 +16,11 @@ let common a b =
   let rec aux a b =
     match a, b with h1 :: t1, h2 :: t2 when h1 = h2 -> h1 :: aux t1 t2 | _ -> []
   in
-  Path (aux (extract a) (extract b))
+  of_list (aux (extract a) (extract b))
 ;;
 
 (* join two paths *)
-let join a b = Path (extract a @ extract b)
+let join a b = of_list (extract a @ extract b)
 
 (* check if b is under a *)
 let is_under a b =
@@ -29,7 +30,7 @@ let is_under a b =
 
 let is_root = function Path [] -> true | _ -> false
 let is_empty = is_root
-let root = Path []
+let root = of_list []
 
 (* slow operation: extract the last element of path *)
 let last path =
@@ -43,3 +44,4 @@ let head path = head_tail path |> fst
 let tail path = head_tail path |> snd
 let compare = compare
 let is_capitalized path = match (last path).[0] with 'A' .. 'Z' -> true | _ -> false
+let is_single path = length path == 1
