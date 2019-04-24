@@ -1,3 +1,5 @@
+module NS = Namespace
+
 type 'a t =
   | Var of string
   | Wildcard
@@ -15,19 +17,19 @@ type 'a t =
 let rec apply_on_names f g p =
   let apply = apply_on_names f g in
   match p with
-  | Var bind -> Var (g bind)
+  | Var bind -> Var (g bind NS.Var)
   | Wildcard -> Wildcard
   | Int i -> Int i
   | String s -> String s
   | Nil -> Nil
   | Range (f, t) -> Range (f, t)
   | Tuple l -> Tuple (List.map apply l)
-  | Ctor (name, None) -> Ctor (f name, None)
-  | Ctor (name, Some v) -> Ctor (f name, Some (apply v))
+  | Ctor (name, None) -> Ctor (f name NS.Ctor, None)
+  | Ctor (name, Some v) -> Ctor (f name NS.Ctor, Some (apply v))
   | Or (a, b) -> Or (apply a, apply b)
   | Cons (a, b) -> Cons (apply a, apply b)
   | Record l ->
-    let aux (name, p) = f name, apply p in
+    let aux (name, p) = f name NS.Field, apply p in
     Record (List.map aux l)
 ;;
 

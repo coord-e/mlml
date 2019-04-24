@@ -1,4 +1,5 @@
 module Pat = Pattern
+module NS = Namespace
 
 type 'a let_binding =
   | VarBind of 'a Pat.t * 'a t
@@ -35,14 +36,15 @@ let rec apply_on_names f g e =
   | LetAnd (is_rec, l, in_) ->
     let aux = function
       | VarBind (p, body) -> VarBind (Pat.apply_on_names f g p, apply body)
-      | FunBind (bind, p, body) -> FunBind (g bind, Pat.apply_on_names f g p, apply body)
+      | FunBind (bind, p, body) ->
+        FunBind (g bind NS.Var, Pat.apply_on_names f g p, apply body)
     in
     LetAnd (is_rec, List.map aux l, apply in_)
   | IfThenElse (c, t, e) -> IfThenElse (apply c, apply t, apply e)
   | App (l, r) -> App (apply l, apply r)
-  | Ctor (name, None) -> Ctor (f name, None)
-  | Ctor (name, Some v) -> Ctor (f name, Some (apply v))
-  | Var name -> Var (f name)
+  | Ctor (name, None) -> Ctor (f name NS.Ctor, None)
+  | Ctor (name, Some v) -> Ctor (f name NS.Ctor, Some (apply v))
+  | Var name -> Var (f name NS.Var)
   | Match (expr, l) ->
     let aux (p, when_, arm) =
       let when_ = match when_ with Some when_ -> Some (apply when_) | None -> None in
@@ -53,11 +55,11 @@ let rec apply_on_names f g e =
     Match (apply expr, List.map aux l)
   | Lambda (p, expr) -> Lambda (Pat.apply_on_names f g p, apply expr)
   | Record l ->
-    let aux (field, expr) = f field, apply expr in
+    let aux (field, expr) = f field NS.Field, apply expr in
     Record (List.map aux l)
   | RecordField (expr, field_name) -> RecordField (apply expr, field_name)
   | RecordUpdate (expr, l) ->
-    let aux (field, expr) = f field, apply expr in
+    let aux (field, expr) = f field NS.Field, apply expr in
     RecordUpdate (apply expr, List.map aux l)
 ;;
 

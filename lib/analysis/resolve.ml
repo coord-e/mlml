@@ -66,10 +66,10 @@ let resolve env path =
 
 (* the main conversion *)
 let convert_expr' local_env env expr =
-  let binds x =
+  let binds x _ns =
     Hashtbl.add local_env x ();
     x
-  and refs path =
+  and refs path _ns =
     let path =
       if Path.is_single path && (not @@ Hashtbl.mem local_env (Path.head path))
       then resolve env path
