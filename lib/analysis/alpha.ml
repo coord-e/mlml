@@ -63,10 +63,8 @@ let rec replace_pattern env p =
 let rec convert_let_binding env = function
   | Expr.VarBind (p, body) ->
     let body = convert_expr env body in
-    let p = replace_pattern env p in
     Expr.VarBind (p, body)
   | Expr.FunBind (name, p, body) ->
-    let name = rename env name in
     let inner_env = copy_env env in
     let p = replace_pattern inner_env p in
     let body = convert_expr inner_env body in
@@ -75,8 +73,27 @@ let rec convert_let_binding env = function
 and convert_expr env e =
   match e with
   | Expr.LetAnd (is_rec, l, in_) ->
+    let replace_intros env =
+      let aux = function
+        | Expr.VarBind (p, body) ->
+          let p = replace_pattern env p in
+          Expr.VarBind (p, body)
+        | Expr.FunBind (name, p, body) ->
+          let name = rename env name in
+          Expr.FunBind (name, p, body)
+      in
+      List.map aux
+    in
     let new_env = copy_env env in
-    let l = List.map (convert_let_binding new_env) l in
+    let l =
+      match is_rec with
+      | true ->
+        let l = replace_intros new_env l in
+        List.map (convert_let_binding new_env) l
+      | false ->
+        let l = List.map (convert_let_binding new_env) l in
+        replace_intros new_env l
+    in
     let in_ = convert_expr new_env in_ in
     Expr.LetAnd (is_rec, l, in_)
   | Expr.Var name -> Expr.Var (find env name)
