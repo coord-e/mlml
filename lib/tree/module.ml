@@ -34,7 +34,6 @@ let rec string_of_type_def = function
     in
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
   | Alias ty -> TyExpr.string_of_type_expression ty
-;;
 
 and string_of_module_expression f = function
   | Path p -> Path.string_of_path p
