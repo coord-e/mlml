@@ -22,6 +22,8 @@ let find env s =
   make_name s idx
 ;;
 
+let copy_env env = Hashtbl.copy env
+
 let rec replace_pattern env p =
   match p with
   | Pat.Var name -> Pat.Var (rename env name)
@@ -53,36 +55,39 @@ let rec replace_pattern env p =
 let rec convert_expr env e =
   match e with
   | Expr.LetAnd (is_rec, l, in_) ->
-    let aux = function
+    let aux env = function
       | Expr.VarBind (p, body) ->
-        let p = replace_pattern env p in
         let body = convert_expr env body in
+        let p = replace_pattern env p in
         Expr.VarBind (p, body)
       | Expr.FunBind (name, p, body) ->
-        let name = rename env name in
         let p = replace_pattern env p in
         let body = convert_expr env body in
+        let name = rename env name in
         Expr.FunBind (name, p, body)
     in
-    let l = List.map aux l in
-    let in_ = convert_expr env in_ in
+    let new_env = copy_env env in
+    let l = List.map (aux new_env) l in
+    let in_ = convert_expr new_env in_ in
     Expr.LetAnd (is_rec, l, in_)
   | Expr.Var name -> Expr.Var (find env name)
   | Expr.Lambda (p, body) ->
-    let p = replace_pattern env p in
-    let body = convert_expr env body in
+    let new_env = copy_env env in
+    let p = replace_pattern new_env p in
+    let body = convert_expr new_env body in
     Expr.Lambda (p, body)
   | Expr.Match (expr, l) ->
     let aux (p, when_, arm) =
-      let p = replace_pattern env p in
+      let new_env = copy_env env in
+      let p = replace_pattern new_env p in
       let when_ =
-        match when_ with Some when_ -> Some (convert_expr env when_) | None -> None
+        match when_ with Some when_ -> Some (convert_expr new_env when_) | None -> None
       in
-      let arm = convert_expr env arm in
+      let arm = convert_expr new_env arm in
       p, when_, arm
     in
-    let l = List.map aux l in
     let expr = convert_expr env expr in
+    let l = List.map aux l in
     Expr.Match (expr, l)
   | Expr.Nil | Expr.Int _ | Expr.String _ -> e
   | Expr.Tuple l -> Expr.Tuple (List.map (convert_expr env) l)
