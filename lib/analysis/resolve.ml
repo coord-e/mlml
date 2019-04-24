@@ -1,17 +1,27 @@
 (* resolve paths and convert them into string *)
 
-type SS = Set.Make(String)
+module SS = Set.Make (String)
 
 type module_env =
   { vars : SS.t
+  ; types : SS.t
+  ; ctors : SS.t
+  ; fields : SS.t
   ; modules : (string, module_env) Hashtbl.t }
 
 type ctx =
   { env : module_env
   ; current : Path.t }
 
-let create_module_env () = { vars = SS.empty; modules = Hashtbl.create 32 }
-let create_ctx () = { env = create_module_env (); current = Path.root }
+let create_module_env () =
+  { vars = SS.empty
+  ; types = SS.empty
+  ; ctors = SS.empty
+  ; fields = SS.empty
+  ; modules = Hashtbl.create 32 }
+;;
+
+let create_ctx () = {env = create_module_env (); current = Path.root}
 
 (* context-independent operations *)
 let rec mem env path =
