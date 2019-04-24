@@ -4,9 +4,9 @@
 module L = Lexer
 module T = Tree.Type_expression
 
-type t = T.t
+type t = Tree.Path.t T.t
 
-let string_of_type_expression = T.string_of_type_expression
+let string_of_type_expression = T.string_of_type_expression Tree.Path.string_of_path
 
 let rec try_parse_primary = function
   | L.LowerIdent ident :: rest -> rest, Some (T.Ident ident)

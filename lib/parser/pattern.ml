@@ -1,9 +1,9 @@
 module L = Lexer
 module T = Tree.Pattern
 
-type t = Path.t T.t
+type t = Tree.Path.t T.t
 
-let string_of_pattern = T.string_of_pattern Path.string_of_path
+let string_of_pattern = T.string_of_pattern Tree.Path.string_of_path
 
 let rec parse_fields tokens =
   let continue path expr = function
@@ -17,8 +17,8 @@ let rec parse_fields tokens =
   | L.Equal :: rest ->
     let rest, expr = parse_pattern rest in
     continue path expr rest
-  | rest when Path.is_empty path -> rest, []
-  | rest -> continue path (T.Var (Path.last_path path)) rest
+  | rest when Tree.Path.is_empty path -> rest, []
+  | rest -> continue path (T.Var (Tree.Path.last_path path)) rest
 
 and try_parse_literal tokens =
   match tokens with
@@ -30,10 +30,10 @@ and try_parse_literal tokens =
     tokens, Some (T.Range (from, to_))
   | L.CharLiteral c :: tokens -> tokens, Some (T.Int (Char.code c))
   | L.StringLiteral s :: tokens -> tokens, Some (T.String s)
-  | L.LowerIdent ident :: tokens -> tokens, Some (T.Var (Path.single ident))
+  | L.LowerIdent ident :: tokens -> tokens, Some (T.Var (Tree.Path.single ident))
   | L.CapitalIdent _ :: _ ->
     (match Path.parse_path tokens with
-    | rest, Path.Path [] -> rest, None
+    | rest, Tree.Path.Path [] -> rest, None
     | rest, path ->
       (match try_parse_literal rest with
       | rest, Some p -> rest, Some (T.Ctor (path, Some p))

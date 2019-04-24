@@ -2,10 +2,9 @@
 (* https://caml.inria.fr/pub/docs/manual-ocaml/modules.html#definition *)
 
 module L = Lexer
-module T = Tree.Definition
-module Expr = Tree.Expression
-module Pat = Tree.Pattern
-module TyExpr = Tree.Type_expression
+module T = Tree.Module
+module Expr = Expression
+module TyExpr = Type_expression
 
 let parse_variant tokens =
   let rec aux = function

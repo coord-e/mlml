@@ -6,7 +6,7 @@ module Pat = Pattern
 module Binop = Tree.Binop
 module T = Tree.Expression
 
-type t = Path.t T.t
+type t = Tree.Path.t T.t
 
 (* fun x y z -> expr                      *)
 (* => fun x -> (fun y -> (fun z -> expr)) *)
@@ -48,7 +48,7 @@ let rec parse_match_arm tokens =
 and parse_let_fun_body params = function
   | L.Function :: L.Vertical :: rest | L.Function :: rest ->
     let rest, arms = parse_match_arm rest in
-    let anon_var = Path.single "_function_match" in
+    let anon_var = Tree.Path.single "_function_match" in
     rest, params @ [Tree.Pattern.Var anon_var], T.Match (T.Var anon_var, arms)
   | rest ->
     let rest, body = parse_expression rest in
@@ -93,8 +93,8 @@ and parse_fields tokens =
   | L.Equal :: rest ->
     let rest, expr = parse_let rest in
     continue path expr rest
-  | rest when Path.is_empty path -> rest, []
-  | rest -> continue path (T.Var (Path.last_path path)) rest
+  | rest when Tree.Path.is_empty path -> rest, []
+  | rest -> continue path (T.Var (Tree.Path.last_path path)) rest
 
 and parse_record tokens =
   let parse_value tokens =
@@ -123,11 +123,11 @@ and try_parse_literal tokens =
   (* TODO: Add char value *)
   | L.CharLiteral c :: tokens -> tokens, Some (T.Int (Char.code c))
   | L.StringLiteral s :: tokens -> tokens, Some (T.String s)
-  | L.LowerIdent ident :: rest -> rest, Some (T.Var (Path.single ident))
+  | L.LowerIdent ident :: rest -> rest, Some (T.Var (Tree.Path.single ident))
   | L.CapitalIdent _ :: _ ->
     (match Path.parse_path tokens with
-    | rest, Path [] -> rest, None
-    | rest, path when Path.is_capitalized path ->
+    | rest, Tree.Path.Path [] -> rest, None
+    | rest, path when Tree.Path.is_capitalized path ->
       (match try_parse_literal rest with
       | rest, Some p -> rest, Some (T.Ctor (path, Some p))
       | _, None -> rest, Some (T.Ctor (path, None)))
