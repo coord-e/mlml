@@ -1,13 +1,15 @@
 (* Parse the module items.                                               *)
 (* https://caml.inria.fr/pub/docs/manual-ocaml/modules.html#module-items *)
 
+module T = Tree.Module_item
 module Def = Definition
 module Expr = Expression
 module L = Lexer
 
-type module_item =
-  | Definition of Def.t
-  | Expression of Expr.t
+type module_item = string T.t
+
+let string_of_module_item = T.string_of_module_item (fun x -> x)
+let string_of_module_items = T.string_of_module_items (fun x -> x)
 
 let rec parse_module_items = function
   | L.DoubleSemicolon :: rest -> parse_module_items rest
@@ -17,20 +19,10 @@ let rec parse_module_items = function
     (match def_opt with
     | Some def ->
       let rest, items = parse_module_items rest in
-      rest, Definition def :: items
+      rest, T.Definition def :: items
     | None ->
       (* may fail in parse_expression (OK because there's no other candidate) *)
       let rest, expr = Expr.parse_expression rest in
       let rest, items = parse_module_items rest in
-      rest, Expression expr :: items)
-;;
-
-let string_of_module_item = function
-  | Definition def -> Def.string_of_definition def
-  | Expression expr -> Expr.string_of_expression expr
-;;
-
-(* TODO: function composition can make this clearer *)
-let string_of_module_items items =
-  List.map string_of_module_item items |> String.concat ";; "
+      rest, T.Expression expr :: items)
 ;;

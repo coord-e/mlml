@@ -1,14 +1,13 @@
 open Builder
 module P = Parser
-module Expr = P.Expression
-module Def = P.Definition
-module Item = P.Module_item
+module Expr = Tree.Expression
+module Def = Tree.Definition
+module Item = Tree.Module_item
+module Binop = Tree.Binop
 module B = Output_buffer
 
-let rec codegen_expr ctx buf = function
-  | Expr.Int num -> make_marked_const num
-  | Expr.String s -> make_string_const ctx buf s
-  | Expr.Add (lhs, rhs) ->
+let rec codegen_binop ctx buf lhs rhs = function
+  | Binop.Add ->
     (* make(a) + make(b)     *)
     (* = (2a + 1) + (2b + 1) *)
     (* = 2(a + b) + 2        *)
@@ -20,7 +19,7 @@ let rec codegen_expr ctx buf = function
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free ctx;
     StackValue s
-  | Expr.Sub (lhs, rhs) ->
+  | Binop.Sub ->
     (* make(a) - make(b)     *)
     (* = (2a + 1) - (2b + 1) *)
     (* = 2(a - b) *)
@@ -32,7 +31,7 @@ let rec codegen_expr ctx buf = function
     let s = turn_into_stack ctx buf (RegisterValue lhs) in
     free ctx;
     StackValue s
-  | Expr.Mul (lhs, rhs) ->
+  | Binop.Mul ->
     (* make(a*b)                           *)
     (* = 1/2 * (make(a) - 1) * make(b) + 1 *)
     let lhs, free_l = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
@@ -45,9 +44,81 @@ let rec codegen_expr ctx buf = function
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free_r ctx;
     StackValue s
-  | Expr.Follow (lhs, rhs) ->
+  | Binop.Follow ->
     let _ = codegen_expr ctx buf lhs in
     codegen_expr ctx buf rhs
+  | Binop.PhysicalEqual ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    comparison_to_value ctx buf Eq lhs rhs
+  | Binop.NotPhysicalEqual ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    comparison_to_value ctx buf Ne lhs rhs
+  | Binop.Equal ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    let ret = safe_call ctx buf (string_of_label mlml_equal_label) [lhs; rhs] in
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
+  | Binop.NotEqual ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    let ret = safe_call ctx buf (string_of_label mlml_equal_label) [lhs; rhs] in
+    (* marked bool inversion *)
+    (* 11 -> 01              *)
+    (* 01 -> 11              *)
+    B.emit_inst_fmt buf "xorq $2, %s" (string_of_register ret);
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
+  | Binop.Cons ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    let reg = alloc_register ctx in
+    let reg_value = RegisterValue reg in
+    (* size, flag, lhs, rhs -> 8 * 4 *)
+    alloc_heap_ptr_constsize ctx buf 32 reg_value;
+    (* data size *)
+    assign_to_address ctx buf (ConstantValue (24 * 2)) reg_value 0;
+    (* nil -> 0, cons -> 1 *)
+    assign_to_address ctx buf (make_marked_const 1) reg_value (-8);
+    (* actual data *)
+    assign_to_address ctx buf lhs reg_value (-16);
+    assign_to_address ctx buf rhs reg_value (-24);
+    let s = StackValue (turn_into_stack ctx buf reg_value) in
+    free_register reg ctx;
+    s
+  | Binop.StringIndex ->
+    let lhs = codegen_expr ctx buf lhs |> assign_to_new_register ctx buf in
+    let rhs = codegen_expr ctx buf rhs |> assign_to_new_register ctx buf in
+    restore_marked_int buf (RegisterValue rhs);
+    (* assume lhs holds pointer to a string *)
+    string_value_to_content ctx buf (RegisterValue lhs) (RegisterValue lhs);
+    B.emit_inst_fmt buf "addq %s, %s" (string_of_register rhs) (string_of_register lhs);
+    free_register rhs ctx;
+    (* take one byte (one character) *)
+    B.emit_inst_fmt
+      buf
+      "movzbq (%s), %s"
+      (string_of_register lhs)
+      (string_of_register lhs);
+    make_marked_int buf (RegisterValue lhs);
+    let s = StackValue (turn_into_stack ctx buf (RegisterValue lhs)) in
+    free_register lhs ctx;
+    s
+  | Binop.StringAppend ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    let ret = safe_call ctx buf (string_of_label append_string_label) [lhs; rhs] in
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
+
+and codegen_expr ctx buf = function
+  | Expr.Int num -> make_marked_const num
+  | Expr.String s -> make_string_const ctx buf s
+  | Expr.BinOp (op, lhs, rhs) -> codegen_binop ctx buf lhs rhs op
+  | Expr.App (lhs, rhs) ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    let ret = safe_call ctx buf (Printf.sprintf "*%s" (string_of_value lhs)) [rhs] in
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.Var ident ->
     (match ident with
     | "print_int" -> function_ptr ctx buf print_int_label
@@ -64,11 +135,6 @@ let rec codegen_expr ctx buf = function
     List.iter (undef_variable_pattern ctx) pats;
     rhs
   | Expr.Lambda (param, body) -> emit_function_value ctx buf false "_lambda" param body
-  | Expr.App (lhs, rhs) ->
-    let lhs = codegen_expr ctx buf lhs in
-    let rhs = codegen_expr ctx buf rhs in
-    let ret = safe_call ctx buf (Printf.sprintf "*%s" (string_of_value lhs)) [rhs] in
-    StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.IfThenElse (cond, then_, else_) ->
     let cond = codegen_expr ctx buf cond in
     let eval_stack = push_to_stack ctx buf (ConstantValue 0) in
@@ -85,28 +151,6 @@ let rec codegen_expr ctx buf = function
     assign_to_stack ctx buf else_ eval_stack;
     start_label buf join_label;
     StackValue eval_stack
-  | Expr.PhysicalEqual (lhs, rhs) ->
-    let lhs = codegen_expr ctx buf lhs in
-    let rhs = codegen_expr ctx buf rhs in
-    comparison_to_value ctx buf Eq lhs rhs
-  | Expr.NotPhysicalEqual (lhs, rhs) ->
-    let lhs = codegen_expr ctx buf lhs in
-    let rhs = codegen_expr ctx buf rhs in
-    comparison_to_value ctx buf Ne lhs rhs
-  | Expr.Equal (lhs, rhs) ->
-    let lhs = codegen_expr ctx buf lhs in
-    let rhs = codegen_expr ctx buf rhs in
-    let ret = safe_call ctx buf (string_of_label mlml_equal_label) [lhs; rhs] in
-    StackValue (turn_into_stack ctx buf (RegisterValue ret))
-  | Expr.NotEqual (lhs, rhs) ->
-    let lhs = codegen_expr ctx buf lhs in
-    let rhs = codegen_expr ctx buf rhs in
-    let ret = safe_call ctx buf (string_of_label mlml_equal_label) [lhs; rhs] in
-    (* marked bool inversion *)
-    (* 11 -> 01              *)
-    (* 01 -> 11              *)
-    B.emit_inst_fmt buf "xorq $2, %s" (string_of_register ret);
-    StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.Tuple values ->
     let values = List.map (codegen_expr ctx buf) values in
     make_tuple_const ctx buf values
@@ -167,46 +211,6 @@ let rec codegen_expr ctx buf = function
     let s = StackValue (turn_into_stack ctx buf reg_value) in
     free_register reg ctx;
     s
-  | Expr.Cons (lhs, rhs) ->
-    let lhs = codegen_expr ctx buf lhs in
-    let rhs = codegen_expr ctx buf rhs in
-    let reg = alloc_register ctx in
-    let reg_value = RegisterValue reg in
-    (* size, flag, lhs, rhs -> 8 * 4 *)
-    alloc_heap_ptr_constsize ctx buf 32 reg_value;
-    (* data size *)
-    assign_to_address ctx buf (ConstantValue (24 * 2)) reg_value 0;
-    (* nil -> 0, cons -> 1 *)
-    assign_to_address ctx buf (make_marked_const 1) reg_value (-8);
-    (* actual data *)
-    assign_to_address ctx buf lhs reg_value (-16);
-    assign_to_address ctx buf rhs reg_value (-24);
-    let s = StackValue (turn_into_stack ctx buf reg_value) in
-    free_register reg ctx;
-    s
-  | Expr.StringIndex (lhs, rhs) ->
-    let lhs = codegen_expr ctx buf lhs |> assign_to_new_register ctx buf in
-    let rhs = codegen_expr ctx buf rhs |> assign_to_new_register ctx buf in
-    restore_marked_int buf (RegisterValue rhs);
-    (* assume lhs holds pointer to a string *)
-    string_value_to_content ctx buf (RegisterValue lhs) (RegisterValue lhs);
-    B.emit_inst_fmt buf "addq %s, %s" (string_of_register rhs) (string_of_register lhs);
-    free_register rhs ctx;
-    (* take one byte (one character) *)
-    B.emit_inst_fmt
-      buf
-      "movzbq (%s), %s"
-      (string_of_register lhs)
-      (string_of_register lhs);
-    make_marked_int buf (RegisterValue lhs);
-    let s = StackValue (turn_into_stack ctx buf (RegisterValue lhs)) in
-    free_register lhs ctx;
-    s
-  | Expr.StringAppend (lhs, rhs) ->
-    let lhs = codegen_expr ctx buf lhs in
-    let rhs = codegen_expr ctx buf rhs in
-    let ret = safe_call ctx buf (string_of_label append_string_label) [lhs; rhs] in
-    StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Expr.Record fields ->
     let trans (name, expr) = get_field_index ctx name, codegen_expr ctx buf expr in
     let cmp (i1, _) (i2, _) = compare i1 i2 in

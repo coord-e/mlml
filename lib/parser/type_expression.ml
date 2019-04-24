@@ -2,16 +2,15 @@
 (* https://caml.inria.fr/pub/docs/manual-ocaml/types.html *)
 
 module L = Lexer
+module T = Tree.Type_expression
 
-type t =
-  | Ident of string
-  | Tuple of t list
-  | Var of string
-  | Ctor of t list * string
+type t = T.t
+
+let string_of_type_expression = T.string_of_type_expression
 
 let rec try_parse_primary = function
-  | L.LowerIdent ident :: rest -> rest, Some (Ident ident)
-  | L.Apostrophe :: L.LowerIdent ident :: rest -> rest, Some (Var ident)
+  | L.LowerIdent ident :: rest -> rest, Some (T.Ident ident)
+  | L.Apostrophe :: L.LowerIdent ident :: rest -> rest, Some (T.Var ident)
   | L.LParen :: rest ->
     let rest, v = parse_type_expression rest in
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
@@ -44,7 +43,7 @@ and parse_app tokens =
   let rest, l = parse_type_params tokens in
   let rec aux l tokens =
     match tokens, l with
-    | L.LowerIdent ident :: rest, l -> aux [Ctor (l, ident)] rest
+    | L.LowerIdent ident :: rest, l -> aux [T.Ctor (l, ident)] rest
     | rest, [t] -> rest, t
     | _ -> failwith "could not parse type"
   in
@@ -63,17 +62,6 @@ and parse_tuple tokens =
   match values with
   | [] -> failwith "unreachable"
   | [value] -> rest, value
-  | _ -> rest, Tuple values
+  | _ -> rest, T.Tuple values
 
 and parse_type_expression tokens = parse_tuple tokens
-
-let rec string_of_type_expression = function
-  | Ident ident -> Printf.sprintf "Ident %s" ident
-  | Var ident -> Printf.sprintf "Var %s" ident
-  | Ctor (tys, ident) ->
-    let tys = List.map string_of_type_expression tys |> String.concat ", " in
-    Printf.sprintf "Ctor (%s) %s" tys ident
-  | Tuple ts ->
-    let ts = List.map string_of_type_expression ts |> String.concat " * " in
-    Printf.sprintf "Tuple (%s)" ts
-;;
