@@ -11,6 +11,22 @@ type 'a t =
   | Record of ('a * 'a t) list
   | Range of char * char
 
+(* apply `f` on reference names, apply `g` on binding names *)
+let rec apply_on_names f g p =
+  let apply = apply_on_names f g in
+  match p with
+  | Var bind -> Var (g bind)
+  | Wildcard | Int _ | String _ | Nil | Range _ -> p
+  | Tuple l -> Tuple (List.map apply l)
+  | Ctor (name, None) -> Ctor (f name, None)
+  | Ctor (name, Some v) -> Ctor (f name, Some (apply v))
+  | Or (a, b) -> Or (apply a, apply b)
+  | Cons (a, b) -> Cons (apply a, apply b)
+  | Recprd l ->
+    let aux (name, p) = f name, apply p in
+    Record (List.map aux l)
+;;
+
 let rec string_of_pattern f = function
   | Var x -> x
   | Wildcard -> "_"

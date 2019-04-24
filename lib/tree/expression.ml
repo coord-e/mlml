@@ -23,6 +23,42 @@ and 'a t =
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
+(* apply `f` on reference names, apply `g` on binding names *)
+let rec apply_on_names f g e =
+  let apply = apply_on_names f g in
+  match e with
+  | Int _ | String _ | Nil -> e
+  | Tuple l -> Tuple (List.map apply l)
+  | BinOp (op, l, r) -> BinOp (op, apply l, apply r)
+  | LetAnd (is_rec, l, in_) ->
+    let aux = function
+      | VarBind (p, body) -> VarBind (Pat.apply p, apply body)
+      | FunBind (bind, p, body) -> VarBind (g bind, Pat.apply p, apply body)
+    in
+    LetAnd (is_rec, List.map aux l, apply in_)
+  | IfThenElse (c, t, e) -> IfThenElse (apply c, apply t, apply e)
+  | App (l, r) -> App (apply l, apply r)
+  | Ctor (name, None) -> Ctor (f name, None)
+  | Ctor (name, Some v) -> Ctor (f name, Some (apply v))
+  | Var name -> Var (f name)
+  | Match (expr, l) ->
+    let aux (p, when_, arm) =
+      let when_ = match when_ with Some when_ -> Some (apply when_) | None -> None in
+      let p = Pat.apply p in
+      let arm = apply arm in
+      p, when_, arm
+    in
+    Match (apply_on_name f expr, List.map aux l)
+  | Lambda (p, expr) -> Lambda (Pat.apply p, apply expr)
+  | Record l ->
+    let aux (field, expr) = f field, apply expr in
+    Record (List.map aux l)
+  | RecordField (expr, field_name) -> RecordField (apply expr, field_name)
+  | RecordUpdate (expr, l) ->
+    let aux (field, expr) = f field, apply expr in
+    RecordUpdate (apply expr, List.map aux l)
+;;
+
 let rec string_of_let_binding f = function
   | VarBind (pat, expr) ->
     Printf.sprintf
