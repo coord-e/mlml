@@ -78,6 +78,15 @@ let mem_name env name = function
   | NS.Field -> SS.mem name env.fields
 ;;
 
+let in_new_module env name f =
+  let path = canonical env (Path.single name) in
+  let old_path = env.path in
+  env.path <- path;
+  let res = f path in
+  env.path <- old_path;
+  res
+;;
+
 (* the main conversion *)
 let apply_binds local_env x ns =
   add_name local_env x ns;
@@ -99,7 +108,7 @@ let convert_expr' local_env env expr =
 
 let convert_expr env expr = convert_expr' (create_module_env ()) env expr
 
-let convert_defn env defn =
+let rec convert_defn env defn =
   match defn with
   | Mod.LetAnd (is_rec, l) ->
     let aux = function
@@ -125,14 +134,16 @@ let convert_defn env defn =
         let bind = canonical env (Path.single bind) in
         Expr.FunBind (Path.string_of_path bind, p, body)
     in
-    [Mod.LetAnd (is_rec, List.map aux l)]
+    [Mod.Definition (Mod.LetAnd (is_rec, List.map aux l))]
   | Mod.TypeDef _ -> failwith "unimplemented"
-  | Mod.Module _ -> failwith "unimplemeneted"
-;;
+  | Mod.Module (_name, Mod.Path _) -> failwith "unimplemented"
+  | Mod.Module (name, Mod.Struct l) ->
+    let f _path = List.map (convert_module_item env) l |> List.flatten in
+    in_new_module env name f
 
-let convert_module_item env = function
+and convert_module_item env = function
   | Mod.Expression expr -> [Mod.Expression (convert_expr env expr)]
-  | Mod.Definition defn -> convert_defn env defn |> List.map (fun x -> Mod.Definition x)
+  | Mod.Definition defn -> convert_defn env defn
 ;;
 
 let f l = List.map (convert_module_item @@ create_module_env ()) l |> List.flatten
