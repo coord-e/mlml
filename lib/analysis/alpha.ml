@@ -1,6 +1,7 @@
 module Pat = Tree.Pattern
 module Expr = Tree.Expression
 module Item = Tree.Module_item
+module Def = Tree.Definition
 
 let make_name = Printf.sprintf "%s%d"
 
@@ -56,23 +57,23 @@ let rec replace_pattern env p =
     Pat.Record l
 ;;
 
-let rec convert_expr env e =
+let rec convert_let_binding env = function
+  | Expr.VarBind (p, body) ->
+    let body = convert_expr env body in
+    let p = replace_pattern env p in
+    Expr.VarBind (p, body)
+  | Expr.FunBind (name, p, body) ->
+    let name = rename env name in
+    let inner_env = copy_env env in
+    let p = replace_pattern inner_env p in
+    let body = convert_expr inner_env body in
+    Expr.FunBind (name, p, body)
+
+and convert_expr env e =
   match e with
   | Expr.LetAnd (is_rec, l, in_) ->
-    let aux env = function
-      | Expr.VarBind (p, body) ->
-        let body = convert_expr env body in
-        let p = replace_pattern env p in
-        Expr.VarBind (p, body)
-      | Expr.FunBind (name, p, body) ->
-        let name = rename env name in
-        let inner_env = copy_env env in
-        let p = replace_pattern inner_env p in
-        let body = convert_expr inner_env body in
-        Expr.FunBind (name, p, body)
-    in
     let new_env = copy_env env in
-    let l = List.map (aux new_env) l in
+    let l = List.map (convert_let_binding new_env) l in
     let in_ = convert_expr new_env in_ in
     Expr.LetAnd (is_rec, l, in_)
   | Expr.Var name -> Expr.Var (find env name)
@@ -112,9 +113,17 @@ let rec convert_expr env e =
     Expr.RecordUpdate (convert_expr env e, List.map aux' fields)
 ;;
 
+let convert_defn env defn =
+  match defn with
+  | Def.LetAnd (is_rec, l) ->
+    let l = List.map (convert_let_binding env) l in
+    Def.LetAnd (is_rec, l)
+  | Def.TypeDef _ -> defn
+;;
+
 let convert_module_item env = function
   | Item.Expression expr -> Item.Expression (convert_expr env expr)
-  | Item.Definition _defn -> failwith "unimplemented"
+  | Item.Definition defn -> Item.Definition (convert_defn env defn)
 ;;
 
 let f = List.map (convert_module_item @@ Hashtbl.create 32)
