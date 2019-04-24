@@ -1,7 +1,6 @@
 module Pat = Tree.Pattern
+module Mod = Tree.Module
 module Expr = Tree.Expression
-module Item = Tree.Module_item
-module Def = Tree.Definition
 
 let make_name = Printf.sprintf "%s%d"
 
@@ -135,15 +134,16 @@ and convert_expr env e =
 
 let convert_defn env defn =
   match defn with
-  | Def.LetAnd (is_rec, l) ->
+  | Mod.LetAnd (is_rec, l) ->
     let l = List.map (convert_let_binding env) l in
-    Def.LetAnd (is_rec, l)
-  | Def.TypeDef _ -> defn
+    Mod.LetAnd (is_rec, l)
+  | Mod.TypeDef _ -> defn
+  | Mod.Module _ -> defn
 ;;
 
 let convert_module_item env = function
-  | Item.Expression expr -> Item.Expression (convert_expr env expr)
-  | Item.Definition defn -> Item.Definition (convert_defn env defn)
+  | Mod.Expression expr -> Mod.Expression (convert_expr env expr)
+  | Mod.Definition defn -> Mod.Definition (convert_defn env defn)
 ;;
 
 let f = List.map (convert_module_item @@ Hashtbl.create 32)
