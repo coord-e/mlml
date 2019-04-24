@@ -5,12 +5,12 @@ type 'a t =
   | Ctor of 'a t list * 'a
 
 let rec string_of_type_expression f = function
-  | Name ident -> Printf.sprintf "Ident %s" (f ident)
+  | Ident ident -> Printf.sprintf "Ident %s" (f ident)
   | Var ident -> Printf.sprintf "Var %s" ident
   | Ctor (tys, ident) ->
-    let tys = List.map string_of_type_expression tys |> String.concat ", " in
+    let tys = List.map (string_of_type_expression f) tys |> String.concat ", " in
     Printf.sprintf "Ctor (%s) %s" tys (f ident)
   | Tuple ts ->
-    let ts = List.map string_of_type_expression ts |> String.concat " * " in
+    let ts = List.map (string_of_type_expression f) ts |> String.concat " * " in
     Printf.sprintf "Tuple (%s)" ts
 ;;

@@ -32,8 +32,8 @@ let rec apply_on_names f g e =
   | BinOp (op, l, r) -> BinOp (op, apply l, apply r)
   | LetAnd (is_rec, l, in_) ->
     let aux = function
-      | VarBind (p, body) -> VarBind (Pat.apply p, apply body)
-      | FunBind (bind, p, body) -> VarBind (g bind, Pat.apply p, apply body)
+      | VarBind (p, body) -> VarBind (Pat.apply_on_names f g p, apply body)
+      | FunBind (bind, p, body) -> FunBind (g bind, Pat.apply_on_names f g p, apply body)
     in
     LetAnd (is_rec, List.map aux l, apply in_)
   | IfThenElse (c, t, e) -> IfThenElse (apply c, apply t, apply e)
@@ -44,12 +44,12 @@ let rec apply_on_names f g e =
   | Match (expr, l) ->
     let aux (p, when_, arm) =
       let when_ = match when_ with Some when_ -> Some (apply when_) | None -> None in
-      let p = Pat.apply p in
+      let p = Pat.apply_on_names f g p in
       let arm = apply arm in
       p, when_, arm
     in
-    Match (apply_on_name f expr, List.map aux l)
-  | Lambda (p, expr) -> Lambda (Pat.apply p, apply expr)
+    Match (apply expr, List.map aux l)
+  | Lambda (p, expr) -> Lambda (Pat.apply_on_names f g p, apply expr)
   | Record l ->
     let aux (field, expr) = f field, apply expr in
     Record (List.map aux l)

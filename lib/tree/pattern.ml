@@ -22,7 +22,7 @@ let rec apply_on_names f g p =
   | Ctor (name, Some v) -> Ctor (f name, Some (apply v))
   | Or (a, b) -> Or (apply a, apply b)
   | Cons (a, b) -> Cons (apply a, apply b)
-  | Recprd l ->
+  | Record l ->
     let aux (name, p) = f name, apply p in
     Record (List.map aux l)
 ;;
