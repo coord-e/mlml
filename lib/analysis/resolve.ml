@@ -3,6 +3,7 @@
 module Path = Tree.Path
 module Expr = Tree.Expression
 module Mod = Tree.Module
+module Pat = Tree.Pattern
 module NS = Tree.Namespace
 module SS = Set.Make (String)
 
@@ -78,31 +79,53 @@ let mem_name env name = function
 ;;
 
 (* the main conversion *)
-let convert_expr' local_env env expr =
-  let binds x ns =
-    add_name local_env x ns;
-    x
-  and refs path ns =
-    let path =
-      if Path.is_single path && (not @@ mem_name local_env (Path.head path) ns)
-      then resolve env path
-      else path
-    in
-    Path.string_of_path path
+let apply_binds local_env x ns =
+  add_name local_env x ns;
+  x
+;;
+
+let apply_vars local_env env path ns =
+  let path =
+    if Path.is_single path && (not @@ mem_name local_env (Path.head path) ns)
+    then resolve env path
+    else path
   in
-  Expr.apply_on_names refs binds expr
+  Path.string_of_path path
+;;
+
+let convert_expr' local_env env expr =
+  Expr.apply_on_names (apply_vars local_env env) (apply_binds local_env) expr
 ;;
 
 let convert_expr env expr = convert_expr' (create_module_env ()) env expr
 
-let convert_defn _env defn =
+let convert_defn env defn =
   match defn with
-  | Mod.LetAnd (_is_rec, _l) -> failwith "unimplemented"
-  (* let aux = function                  *)
-  (*   | Expr.VarBind (p, body) ->       *)
-  (*   | Expr.FunBind (bind, p, body) -> *)
-  (* in                                  *)
-  (* [LetAnd (is_rec, List.map aux l)]   *)
+  | Mod.LetAnd (is_rec, l) ->
+    let aux = function
+      | Expr.VarBind (p, body) ->
+        let binds x ns =
+          add_name env x ns;
+          let path = canonical env (Path.single x) in
+          Path.string_of_path path
+        and vars x _ns =
+          let path = resolve env x in
+          Path.string_of_path path
+        in
+        let p = Pat.apply_on_names vars binds p in
+        let body = convert_expr env body in
+        Expr.VarBind (p, body)
+      | Expr.FunBind (bind, p, body) ->
+        let inner_env = create_module_env () in
+        let f = apply_vars inner_env env in
+        let g = apply_binds inner_env in
+        let p = Pat.apply_on_names f g p in
+        let body = Expr.apply_on_names f g body in
+        add_name env bind NS.Var;
+        let bind = canonical env (Path.single bind) in
+        Expr.FunBind (Path.string_of_path bind, p, body)
+    in
+    [Mod.LetAnd (is_rec, List.map aux l)]
   | Mod.TypeDef _ -> failwith "unimplemented"
   | Mod.Module _ -> failwith "unimplemeneted"
 ;;
