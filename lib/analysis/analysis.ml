@@ -1,1 +1,1 @@
-let f x = Alpha.f x |> Closure.f
+let f x = Resolve.f x |> Alpha.f |> Closure.f
