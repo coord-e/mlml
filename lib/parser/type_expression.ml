@@ -12,9 +12,9 @@ let rec try_parse_primary tokens =
   match tokens with
   | L.LowerIdent ident :: rest -> rest, Some (T.Ident (Tree.Path.single ident))
   | L.CapitalIdent _ :: _ ->
-    (match Path.parse_path tokens with
-    | rest, p when not @@ Tree.Path.is_empty p -> rest, Some (T.Ident p)
-    | rest, _ -> rest, None)
+    (match Path.try_parse_path tokens with
+    | rest, Some p -> rest, Some (T.Ident p)
+    | rest, None -> rest, None)
   | L.Apostrophe :: L.LowerIdent ident :: rest -> rest, Some (T.Var ident)
   | L.LParen :: rest ->
     let rest, v = parse_type_expression rest in
@@ -47,10 +47,10 @@ and parse_type_params = function
 and parse_app tokens =
   let rest, l = parse_type_params tokens in
   let rec aux l tokens =
-    let rest, path = Path.parse_path tokens in
-    match Tree.Path.is_empty path, l with
-    | false, l -> aux [T.Ctor (l, path)] rest
-    | true, [t] -> rest, t
+    let rest, path_opt = Path.try_parse_path tokens in
+    match path_opt, l with
+    | Some path, l -> aux [T.Ctor (l, path)] rest
+    | None, [t] -> rest, t
     | _ -> failwith "could not parse type"
   in
   aux l rest

@@ -12,13 +12,12 @@ let rec parse_fields tokens =
       rest, (path, expr) :: acc
     | rest -> rest, [path, expr]
   in
-  let rest, path = Path.parse_path tokens in
-  match rest with
-  | L.Equal :: rest ->
+  match Path.try_parse_path tokens with
+  | L.Equal :: rest, Some path ->
     let rest, expr = parse_pattern rest in
     continue path expr rest
-  | rest when Tree.Path.is_empty path -> rest, []
-  | rest -> continue path (T.Var (Tree.Path.last path)) rest
+  | rest, None -> rest, []
+  | rest, Some path -> continue path (T.Var (Tree.Path.last path)) rest
 
 and try_parse_literal tokens =
   match tokens with
@@ -32,9 +31,9 @@ and try_parse_literal tokens =
   | L.StringLiteral s :: tokens -> tokens, Some (T.String s)
   | L.LowerIdent ident :: tokens -> tokens, Some (T.Var ident)
   | L.CapitalIdent _ :: _ ->
-    (match Path.parse_path tokens with
-    | rest, Tree.Path.Path [] -> rest, None
-    | rest, path ->
+    (match Path.try_parse_path tokens with
+    | rest, None -> rest, None
+    | rest, Some path ->
       (match try_parse_literal rest with
       | rest, Some p -> rest, Some (T.Ctor (path, Some p))
       | _, None -> rest, Some (T.Ctor (path, None))))
