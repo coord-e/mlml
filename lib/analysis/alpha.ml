@@ -61,9 +61,10 @@ let rec convert_expr env e =
         let p = replace_pattern env p in
         Expr.VarBind (p, body)
       | Expr.FunBind (name, p, body) ->
-        let p = replace_pattern env p in
-        let body = convert_expr env body in
         let name = rename env name in
+        let inner_env = copy_env env in
+        let p = replace_pattern inner_env p in
+        let body = convert_expr inner_env body in
         Expr.FunBind (name, p, body)
     in
     let new_env = copy_env env in
