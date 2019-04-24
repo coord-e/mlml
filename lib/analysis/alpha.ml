@@ -41,7 +41,10 @@ let rec replace_pattern env p =
     let param = replace_pattern env param in
     Pat.Ctor (name, Some param)
   | Pat.Or (a, b) ->
-    let a = replace_pattern env a in
+    (* `a` and `b` should introduce the same names                *)
+    (* So we can ignore the introductions from a and use b's ones *)
+    let dummy_env = copy_env env in
+    let a = replace_pattern dummy_env a in
     let b = replace_pattern env b in
     Pat.Or (a, b)
   | Pat.Cons (a, b) ->
