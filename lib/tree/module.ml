@@ -14,7 +14,7 @@ type 'a module_expr =
 and 'a definition =
   | LetAnd of bool * 'a Expr.let_binding list
   | TypeDef of (string list * string * type_def) list
-  | Module of string * module_expr
+  | Module of string * 'a module_expr
 
 and 'a module_item =
   | Definition of 'a definition
@@ -49,14 +49,14 @@ and string_of_definition f = function
   | TypeDef l ->
     let aux (params, name, def) =
       let params = String.concat ", '" params |> Printf.sprintf "('%s)" in
-      Printf.sprintf "%s %s = %s" params name (string_of_type_def f def)
+      Printf.sprintf "%s %s = %s" params name (string_of_type_def def)
     in
     List.map aux l |> String.concat " and " |> Printf.sprintf "type %s"
   | Module (name, mexp) ->
     Printf.sprintf "module %s = (%s)" name (string_of_module_expression f mexp)
 
 and string_of_module_item f = function
-  | Definition def -> Def.string_of_definition f def
+  | Definition def -> string_of_definition f def
   | Expression expr -> Expr.string_of_expression f expr
 ;;
 
