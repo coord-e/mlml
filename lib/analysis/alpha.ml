@@ -19,8 +19,11 @@ let rename env s =
 ;;
 
 let find env s =
-  let idx = Hashtbl.find env s in
-  make_name s idx
+  match Hashtbl.find_opt env s with
+  | Some idx -> make_name s idx
+  (* keep the unbound name (for external ones) *)
+  (* TODO: Remove this bahavior in support of `external` *)
+  | None -> s
 ;;
 
 let copy_env env = Hashtbl.copy env
