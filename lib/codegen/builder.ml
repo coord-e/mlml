@@ -45,7 +45,6 @@ type context =
   { mutable used_labels : LS.t
   ; mutable ctors : (Path.t, int) Hashtbl.t
   ; mutable fields : (Path.t, int) Hashtbl.t
-  ; mutable current_path : Path.t
   ; mutable current_env : local_env }
 
 let usable_registers =
@@ -101,7 +100,6 @@ let new_context () =
   { used_labels = LS.of_list [print_int_label; match_fail_label]
   ; ctors = Hashtbl.create 32
   ; fields = Hashtbl.create 32
-  ; current_path = Path.root
   ; current_env = new_local_env () }
 ;;
 
@@ -109,12 +107,6 @@ let use_env ctx env =
   let old_env = ctx.current_env in
   ctx.current_env <- env;
   old_env
-;;
-
-let use_path ctx path =
-  let old_path = ctx.current_path in
-  ctx.current_path <- path;
-  old_path
 ;;
 
 let new_label ctx name =
@@ -303,40 +295,19 @@ let safe_call ctx buf name args =
   ret_register
 ;;
 
-let relative_path ctx path = Path.join ctx.current_path path
-
-let define_ctor ctx ctor_str idx =
-  (* TODO: Slow operation *)
-  let path = Path.join ctx.current_path (Path.single ctor_str) in
-  Hashtbl.add ctx.ctors path idx
-;;
-
+let define_ctor ctx ctor_str idx = Hashtbl.add ctx.ctors (Path.single ctor_str) idx
 let get_ctor_index ctx ctor = Hashtbl.find ctx.ctors ctor
-
-let define_field ctx field_str idx =
-  (* TODO: Slow operation *)
-  let path = Path.join ctx.current_path (Path.single field_str) in
-  Hashtbl.add ctx.fields path idx
-;;
-
+let define_field ctx field_str idx = Hashtbl.add ctx.fields (Path.single field_str) idx
 let get_field_index ctx field = Hashtbl.find ctx.fields field
 
-let define_variable ctx buf path v =
-  (* TODO: Print warning when path is accidentally "_" *)
+let define_variable ctx buf ident v =
+  (* TODO: Print warning when ident is accidentally "_" *)
   let s = turn_into_stack ctx buf v in
-  match path with
-  | Path.Path [_] ->
-    let path = relative_path ctx path in
-    Hashtbl.add ctx.current_env.vars path s
-  | _ -> Hashtbl.add ctx.current_env.vars path s
+  Hashtbl.add ctx.current_env.vars ident s
 ;;
 
 let undef_variable ctx ident = Hashtbl.remove ctx.current_env.vars ident
-
-let get_variable ctx path =
-  let path = relative_path ctx path in
-  Hashtbl.find ctx.current_env.vars path
-;;
+let get_variable ctx ident = Hashtbl.find ctx.current_env.vars ident
 
 let label_ptr_to_register buf label reg =
   B.emit_inst_fmt
