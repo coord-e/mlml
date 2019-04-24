@@ -8,10 +8,11 @@ let rename env s =
   let idx =
     match Hashtbl.find_opt env s with
     | Some c ->
-      Hashtbl.replace env s (c + 1);
-      c
+      let next = c + 1 in
+      Hashtbl.replace env s next;
+      next
     | None ->
-      Hashtbl.add env s 1;
+      Hashtbl.add env s 0;
       0
   in
   make_name s idx
