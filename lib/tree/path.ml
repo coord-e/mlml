@@ -3,6 +3,7 @@ type t = Path of string list
 let string_of_path = function Path l -> String.concat "." l
 let path_of_string s = Path (String.split_on_char '.' s)
 let single s = Path [s]
+let length = function Path l -> List.length l
 
 (* return a list of strings from path *)
 let extract = function Path l -> l
@@ -36,6 +37,9 @@ let last path =
   aux @@ extract path
 ;;
 
-let last_path path = Path [last path]
+let last_path path = single @@ last path
+let head_tail = function Path (h :: t) -> h, t | Path [] -> failwith "Empty"
+let head path = head_tail path |> fst
+let tail path = head_tail path |> snd
 let compare = compare
 let is_capitalized path = match (last path).[0] with 'A' .. 'Z' -> true | _ -> false
