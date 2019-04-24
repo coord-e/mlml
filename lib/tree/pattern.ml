@@ -37,7 +37,7 @@ let rec string_of_pattern f = function
   | Ctor (name, rhs) ->
     (match rhs with
     | Some rhs -> Printf.sprintf "%s (%s)" (f name) (string_of_pattern f rhs)
-    | None -> name)
+    | None -> f name)
   | Or (a, b) ->
     Printf.sprintf "(%s) | (%s)" (string_of_pattern f a) (string_of_pattern f b)
   | Cons (a, b) ->

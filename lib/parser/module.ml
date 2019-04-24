@@ -6,6 +6,10 @@ module T = Tree.Module
 module Expr = Expression
 module TyExpr = Type_expression
 
+type module_item = Tree.Path.t T.module_item
+
+let string_of_module_items = T.string_of_module_items Tree.Path.string_of_path
+
 let parse_variant tokens =
   let rec aux = function
     | L.CapitalIdent name :: L.Of :: rest ->
@@ -112,12 +116,12 @@ and parse_module_items = function
     (match def_opt with
     | Some def ->
       let rest, items = parse_module_items rest in
-      rest, Definition def :: items
+      rest, T.Definition def :: items
     | None ->
       (* may fail in parse_expression (OK because there's no other candidate) *)
       let rest, expr = Expr.parse_expression rest in
       let rest, items = parse_module_items rest in
-      rest, Expression expr :: items)
+      rest, T.Expression expr :: items)
 
 and parse_module_expression = function
   | L.Struct :: rest ->

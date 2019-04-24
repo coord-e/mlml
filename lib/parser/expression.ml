@@ -48,8 +48,10 @@ let rec parse_match_arm tokens =
 and parse_let_fun_body params = function
   | L.Function :: L.Vertical :: rest | L.Function :: rest ->
     let rest, arms = parse_match_arm rest in
-    let anon_var = Tree.Path.single "_function_match" in
-    rest, params @ [Tree.Pattern.Var anon_var], T.Match (T.Var anon_var, arms)
+    let anon_var = "_function_match" in
+    ( rest
+    , params @ [Tree.Pattern.Var anon_var]
+    , T.Match (T.Var (Tree.Path.single anon_var), arms) )
   | rest ->
     let rest, body = parse_expression rest in
     rest, params, body
