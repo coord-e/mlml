@@ -3,15 +3,16 @@
 module Path = Tree.Path
 module Expr = Tree.Expression
 module Mod = Tree.Module
+module NS = Tree.Namespace
 module SS = Set.Make (String)
 
 type module_env =
-  { vars : SS.t
-  ; types : SS.t
-  ; ctors : SS.t
-  ; fields : SS.t
+  { mutable vars : SS.t
+  ; mutable types : SS.t
+  ; mutable ctors : SS.t
+  ; mutable fields : SS.t
   ; modules : (string, module_env) Hashtbl.t
-  ; path : Path.t }
+  ; mutable path : Path.t }
 
 let create_module_env () =
   { vars = SS.empty
@@ -64,14 +65,26 @@ let resolve env path =
   | false -> path
 ;;
 
+let add_name env name = function
+  | NS.Var -> env.vars <- SS.add name env.vars
+  | NS.Ctor -> env.ctors <- SS.add name env.ctors
+  | NS.Field -> env.fields <- SS.add name env.fields
+;;
+
+let mem_name env name = function
+  | NS.Var -> SS.mem name env.vars
+  | NS.Ctor -> SS.mem name env.ctors
+  | NS.Field -> SS.mem name env.fields
+;;
+
 (* the main conversion *)
 let convert_expr' local_env env expr =
-  let binds x _ns =
-    Hashtbl.add local_env x ();
+  let binds x ns =
+    add_name local_env x ns;
     x
-  and refs path _ns =
+  and refs path ns =
     let path =
-      if Path.is_single path && (not @@ Hashtbl.mem local_env (Path.head path))
+      if Path.is_single path && (not @@ mem_name local_env (Path.head path) ns)
       then resolve env path
       else path
     in
@@ -80,11 +93,23 @@ let convert_expr' local_env env expr =
   Expr.apply_on_names refs binds expr
 ;;
 
-let convert_expr env expr = convert_expr' (Hashtbl.create 32) env expr
+let convert_expr env expr = convert_expr' (create_module_env ()) env expr
+
+let convert_defn _env defn =
+  match defn with
+  | Mod.LetAnd (_is_rec, _l) -> failwith "unimplemented"
+  (* let aux = function                  *)
+  (*   | Expr.VarBind (p, body) ->       *)
+  (*   | Expr.FunBind (bind, p, body) -> *)
+  (* in                                  *)
+  (* [LetAnd (is_rec, List.map aux l)]   *)
+  | Mod.TypeDef _ -> failwith "unimplemented"
+  | Mod.Module _ -> failwith "unimplemeneted"
+;;
 
 let convert_module_item env = function
   | Mod.Expression expr -> [Mod.Expression (convert_expr env expr)]
-  | Mod.Definition _defn -> failwith "unimplemented"
+  | Mod.Definition defn -> convert_defn env defn |> List.map (fun x -> Mod.Definition x)
 ;;
 
 let f l = List.map (convert_module_item @@ create_module_env ()) l |> List.flatten
