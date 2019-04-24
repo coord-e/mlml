@@ -46,7 +46,7 @@ let rec replace_pattern env p =
   | Pat.Cons (a, b) ->
     let a = replace_pattern env a in
     let b = replace_pattern env b in
-    Pat.Or (a, b)
+    Pat.Cons (a, b)
   | Pat.Record l ->
     let aux (field, pat) =
       let pat = replace_pattern env pat in
