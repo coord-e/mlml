@@ -16,19 +16,9 @@ let rec parse_fields tokens =
   match rest with
   | L.Equal :: rest ->
     let rest, expr = parse_pattern rest in
-<<<<<<< HEAD
     continue path expr rest
   | rest when Path.is_empty path -> rest, []
-  | rest -> continue path (Var (Path.last_path path)) rest
-||||||| merged common ancestors
-    continue name expr rest
-  | L.LowerIdent name :: rest -> continue name (Var name) rest
-  | rest -> rest, []
-=======
-    continue name expr rest
-  | L.LowerIdent name :: rest -> continue name (T.Var name) rest
-  | rest -> rest, []
->>>>>>> develop
+  | rest -> continue path (T.Var (Path.last_path path)) rest
 
 and try_parse_literal tokens =
   match tokens with
@@ -37,38 +27,17 @@ and try_parse_literal tokens =
   | L.BoolLiteral b :: tokens -> tokens, Some (T.Int (if b then 1 else 0))
   (* TODO: Add char value *)
   | L.CharLiteral from :: L.DoubleDot :: L.CharLiteral to_ :: tokens ->
-<<<<<<< HEAD
-    tokens, Some (Range (from, to_))
-  | L.CharLiteral c :: tokens -> tokens, Some (Int (Char.code c))
-  | L.StringLiteral s :: tokens -> tokens, Some (String s)
-  | L.LowerIdent ident :: tokens -> tokens, Some (Var (Path.single ident))
-  | L.CapitalIdent _ :: _ ->
-    (match Path.parse_path tokens with
-    | rest, Path [] -> rest, None
-    | rest, path ->
-      (match try_parse_literal rest with
-      | rest, Some p -> rest, Some (Ctor (path, Some p))
-      | _, None -> rest, Some (Ctor (path, None))))
-||||||| merged common ancestors
-    tokens, Some (Range (from, to_))
-  | L.CharLiteral c :: tokens -> tokens, Some (Int (Char.code c))
-  | L.StringLiteral s :: tokens -> tokens, Some (String s)
-  | L.LowerIdent ident :: tokens -> tokens, Some (Var ident)
-  | L.CapitalIdent ident :: tokens ->
-    (match try_parse_literal tokens with
-    | rest, Some p -> rest, Some (Ctor (ident, Some p))
-    | _, None -> tokens, Some (Ctor (ident, None)))
-=======
     tokens, Some (T.Range (from, to_))
   | L.CharLiteral c :: tokens -> tokens, Some (T.Int (Char.code c))
   | L.StringLiteral s :: tokens -> tokens, Some (T.String s)
-  | L.LowerIdent "_" :: tokens -> tokens, Some Wildcard
-  | L.LowerIdent ident :: tokens -> tokens, Some (T.Var ident)
-  | L.CapitalIdent ident :: tokens ->
-    (match try_parse_literal tokens with
-    | rest, Some p -> rest, Some (T.Ctor (ident, Some p))
-    | _, None -> tokens, Some (T.Ctor (ident, None)))
->>>>>>> develop
+  | L.LowerIdent ident :: tokens -> tokens, Some (T.Var (Path.single ident))
+  | L.CapitalIdent _ :: _ ->
+    (match Path.parse_path tokens with
+    | rest, Path.Path [] -> rest, None
+    | rest, path ->
+      (match try_parse_literal rest with
+      | rest, Some p -> rest, Some (T.Ctor (path, Some p))
+      | _, None -> rest, Some (T.Ctor (path, None))))
   | L.LBrace :: rest ->
     let rest, fields = parse_fields rest in
     (match rest with

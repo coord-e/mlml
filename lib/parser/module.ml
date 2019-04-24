@@ -1,15 +1,11 @@
 (* Parse the definition.                                               *)
 (* https://caml.inria.fr/pub/docs/manual-ocaml/modules.html#definition *)
 
-module Expr = Expression
-module Pat = Pattern
-module TyExpr = Type_expression
 module L = Lexer
 module T = Tree.Definition
-
-type t = Path.t T.t
-
-let string_of_definition = T.string_of_definition Path.string_of_path
+module Expr = Tree.Expression
+module Pat = Tree.Pattern
+module TyExpr = Tree.Type_expression
 
 let parse_variant tokens =
   let rec aux = function
@@ -131,52 +127,6 @@ and parse_module_expression = function
   | tokens ->
     let rest, path = Path.parse_path tokens in
     rest, Path path
-;;
-
-<<<<<<< HEAD:lib/parser/module.ml
-let string_of_type_def = function
-  | Variant variants ->
-    let aux (ctor, param) =
-      match param with
-      | Some p -> Printf.sprintf "%s (%s)" ctor (TyExpr.string_of_type_expression p)
-      | None -> ctor
-    in
-    List.map aux variants |> String.concat " | "
-  | Record fields ->
-    let aux (name, ty) =
-      Printf.sprintf "%s: %s" name (TyExpr.string_of_type_expression ty)
-    in
-    List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
-  | Alias ty -> TyExpr.string_of_type_expression ty
-;;
-
-let rec string_of_definition = function
-  | LetAnd (is_rec, l) ->
-    let l = List.map Expr.string_of_let_binding l |> String.concat " and " in
-    Printf.sprintf "Let %s %s" (if is_rec then "rec" else "") l
-  | TypeDef l ->
-    let aux (params, name, def) =
-      let params = String.concat ", '" params |> Printf.sprintf "('%s)" in
-      Printf.sprintf "%s %s = %s" params name (string_of_type_def def)
-    in
-    List.map aux l |> String.concat " and " |> Printf.sprintf "type %s"
-  | Module (name, mexp) ->
-    Printf.sprintf "module %s = (%s)" name (string_of_module_expression mexp)
-
-and string_of_module_expression = function
-  | Path p -> Path.string_of_path p
-  | Struct l ->
-    List.map string_of_module_item l
-    |> String.concat ";; "
-    |> Printf.sprintf "struct %s end"
-
-and string_of_module_item = function
-  | Definition def -> string_of_definition def
-  | Expression expr -> Expr.string_of_expression expr
-
-(* TODO: function composition can make this clearer *)
-and string_of_module_items items =
-  List.map string_of_module_item items |> String.concat ";; "
 ;;
 
 let f = parse_definition
