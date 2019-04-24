@@ -13,15 +13,15 @@ type module_env =
   ; mutable ctors : SS.t
   ; mutable fields : SS.t
   ; modules : (string, module_env) Hashtbl.t
-  ; mutable path : Path.t }
+  ; path : Path.t }
 
-let create_module_env () =
+let create_module_env path =
   { vars = SS.empty
   ; types = SS.empty
   ; ctors = SS.empty
   ; fields = SS.empty
   ; modules = Hashtbl.create 32
-  ; path = Path.root }
+  ; path }
 ;;
 
 let rec mem env path =
@@ -80,10 +80,9 @@ let mem_name env name = function
 
 let in_new_module env name f =
   let path = canonical env (Path.single name) in
-  let old_path = env.path in
-  env.path <- path;
-  let res = f path in
-  env.path <- old_path;
+  let new_env = create_module_env path in
+  let res = f new_env in
+  Hashtbl.add env.modules name new_env;
   res
 ;;
 
@@ -106,7 +105,7 @@ let convert_expr' local_env env expr =
   Expr.apply_on_names (apply_vars local_env env) (apply_binds local_env) expr
 ;;
 
-let convert_expr env expr = convert_expr' (create_module_env ()) env expr
+let convert_expr env expr = convert_expr' (create_module_env Path.root) env expr
 
 let rec convert_defn env defn =
   match defn with
@@ -121,11 +120,11 @@ let rec convert_defn env defn =
           let path = resolve env x in
           Path.string_of_path path
         in
-        let p = Pat.apply_on_names vars binds p in
         let body = convert_expr env body in
+        let p = Pat.apply_on_names vars binds p in
         Expr.VarBind (p, body)
       | Expr.FunBind (bind, p, body) ->
-        let inner_env = create_module_env () in
+        let inner_env = create_module_env Path.root in
         let f = apply_vars inner_env env in
         let g = apply_binds inner_env in
         let p = Pat.apply_on_names f g p in
@@ -138,7 +137,7 @@ let rec convert_defn env defn =
   | Mod.TypeDef _ -> failwith "unimplemented"
   | Mod.Module (_name, Mod.Path _) -> failwith "unimplemented"
   | Mod.Module (name, Mod.Struct l) ->
-    let f _path = List.map (convert_module_item env) l |> List.flatten in
+    let f env = List.map (convert_module_item env) l |> List.flatten in
     in_new_module env name f
 
 and convert_module_item env = function
@@ -146,4 +145,4 @@ and convert_module_item env = function
   | Mod.Definition defn -> convert_defn env defn
 ;;
 
-let f l = List.map (convert_module_item @@ create_module_env ()) l |> List.flatten
+let f l = List.map (convert_module_item @@ create_module_env Path.root) l |> List.flatten
