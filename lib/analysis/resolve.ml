@@ -94,9 +94,9 @@ let apply_binds local_env x ns =
 
 let apply_vars local_env env path ns =
   let path =
-    if Path.is_single path && (not @@ mem_name local_env (Path.head path) ns)
-    then resolve env path
-    else path
+    if Path.is_single path && mem_name local_env (Path.head path) ns
+    then path
+    else resolve env path
   in
   Path.string_of_path path
 ;;
