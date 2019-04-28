@@ -33,11 +33,19 @@ let is_empty = is_root
 let root = of_list []
 
 (* slow operation: extract the last element of path *)
-let last path =
-  let rec aux = function [h] -> h | _ :: t -> aux t | _ -> failwith "Empty" in
+let init_last path =
+  let rec aux = function
+    | [h] -> [], h
+    | h :: t ->
+      let acc, last = aux t in
+      h :: acc, last
+    | _ -> failwith "Empty"
+  in
   aux @@ extract path
 ;;
 
+let init path = init_last path |> fst
+let last path = init_last path |> snd
 let last_path path = single @@ last path
 let head_tail = function Path (h :: t) -> h, t | Path [] -> failwith "Empty"
 let head path = head_tail path |> fst
