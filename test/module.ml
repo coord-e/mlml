@@ -20,9 +20,10 @@ end
 
 module L = Long_name
 module S = L.So_long_name
+module A = S
 ;;
 
-print_int (L.f (S.f 42))
+print_int (L.f (A.f 42))
   |};
   Tester.f
     {|
@@ -38,6 +39,27 @@ open M ;;
 
 print_int (f v)
   |};
+  Tester.f
+    {|
+let f x = x + 30
+
+module M = struct
+  let f x = x + 1
+  let v = 42
+end
+
+module L = struct
+  (* will be overwritten *)
+  let f x = x * 10
+
+  module M = struct
+    let f x = x * 1
+  end
+
+  ;;
+  print_int (M.f 10)
+end
+|};
   Tester.f
     {|
 module M = struct
@@ -64,20 +86,20 @@ f (A {M.a = M.A; M.b = 10})
   |};
   Tester.f
     {|
-    module M = struct
-      type t =
-        | A
-        | B
-        | C
-    end
+module M = struct
+  type t =
+    | A
+    | B
+    | C
+end
 
-      open M
+  open M
 
-      ;;
-      let f = function
-        | A -> 1
-        | B -> 2
-        | C -> 3
-      in print_int (f A)
+  ;;
+  let f = function
+    | A -> 1
+    | B -> 2
+    | C -> 3
+  in print_int (f A)
   |}
 ;;
