@@ -3,6 +3,7 @@
 module Path = Tree.Path
 module Expr = Tree.Expression
 module Mod = Tree.Module
+module TyExpr = Tree.Type_expression
 module Pat = Tree.Pattern
 module NS = Tree.Namespace
 module SS = Set.Make (String)
@@ -125,6 +126,7 @@ let add_local_with_ns env name = function
   | NS.Var -> env.vars <- SS.add name env.vars
   | NS.Ctor -> env.ctors <- SS.add name env.ctors
   | NS.Field -> env.fields <- SS.add name env.fields
+  | NS.Type -> env.types <- SS.add name env.types
 ;;
 
 let add_with_ns env path ns =
@@ -136,6 +138,7 @@ let mem_local_with_ns env name = function
   | NS.Var -> SS.mem name env.vars
   | NS.Ctor -> SS.mem name env.ctors
   | NS.Field -> SS.mem name env.fields
+  | NS.Type -> SS.mem name env.types
 ;;
 
 let mem_with_ns env path ns =
@@ -185,6 +188,38 @@ let convert_expr' local_env env ctx expr =
 
 let convert_expr env ctx expr = convert_expr' (create_local_env ()) env ctx expr
 
+let convert_type_def env ctx defn =
+  let binds x _ = x in
+  let vars x _ =
+    let path = resolve env ctx x in
+    Path.string_of_path path
+  in
+  match defn with
+  | Mod.Variant l ->
+    let aux (ctor_name, expr_opt) =
+      let ctor_name = absolute_name ctx ctor_name in
+      add_with_ns env ctor_name NS.Ctor;
+      let expr_opt =
+        match expr_opt with
+        | Some e -> Some (TyExpr.apply_on_names vars binds e)
+        | None -> None
+      in
+      Path.string_of_path ctor_name, expr_opt
+    in
+    Mod.Variant (List.map aux l)
+  | Mod.Record l ->
+    let aux (field_name, expr) =
+      let field_name = absolute_name ctx field_name in
+      add_with_ns env field_name NS.Field;
+      let expr = TyExpr.apply_on_names vars binds expr in
+      Path.string_of_path field_name, expr
+    in
+    Mod.Record (List.map aux l)
+  | Mod.Alias expr ->
+    let expr = TyExpr.apply_on_names vars binds expr in
+    Mod.Alias expr
+;;
+
 let rec convert_defn env ctx defn =
   match defn with
   | Mod.LetAnd (is_rec, l) ->
@@ -212,7 +247,13 @@ let rec convert_defn env ctx defn =
         Expr.FunBind (Path.string_of_path bind, p, body)
     in
     [Mod.Definition (Mod.LetAnd (is_rec, List.map aux l))]
-  | Mod.TypeDef _ -> failwith "unimplemented"
+  | Mod.TypeDef l ->
+    let aux (tyvars, bind, def) =
+      let bind = absolute_name ctx bind in
+      let def = convert_type_def env ctx def in
+      tyvars, Path.string_of_path bind, def
+    in
+    [Mod.Definition (Mod.TypeDef (List.map aux l))]
   | Mod.Module (name, Mod.Path path) ->
     let t = absolute_name ctx name in
     insert_alias env t path;
