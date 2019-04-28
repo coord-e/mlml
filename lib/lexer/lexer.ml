@@ -48,6 +48,7 @@ type token =
   | Module
   | Struct
   | End
+  | Open
 
 let to_digit c = int_of_char c - int_of_char '0'
 
@@ -161,6 +162,7 @@ let rec tokenize_aux acc rest =
       | "module" -> tokenize_aux (Module :: acc) rest
       | "struct" -> tokenize_aux (Struct :: acc) rest
       | "end" -> tokenize_aux (End :: acc) rest
+      | "open" -> tokenize_aux (Open :: acc) rest
       | _ ->
         (match ident_str.[0] with
         | 'A' .. 'Z' -> tokenize_aux (CapitalIdent ident_str :: acc) rest
@@ -256,6 +258,7 @@ let string_of_token = function
   | Module -> "module"
   | Struct -> "struct"
   | End -> "end"
+  | Open -> "open"
 ;;
 
 let string_of_tokens tokens =

@@ -90,6 +90,9 @@ let rec try_parse_let tokens =
   | L.Module :: L.CapitalIdent ident :: L.Equal :: rest ->
     let rest, expr = parse_module_expression rest in
     rest, Some (Module (ident, expr))
+  | L.Open :: rest ->
+    let rest, path = Path.parse_path rest in
+    rest, Some (T.Open path)
   | L.Let :: rest ->
     let rest, is_rec = Expr.parse_rec rest in
     let rest, binds = Expr.parse_let_bindings rest in
