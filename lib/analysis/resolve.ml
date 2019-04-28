@@ -136,9 +136,8 @@ let insert_alias env path target =
 let in_new_module env current name f =
   let path = Path.join current (Path.single name) in
   let new_env = create_module_env () in
-  let res = f new_env path in
   Hashtbl.add env.modules name (Env new_env);
-  res
+  f env path
 ;;
 
 (* expression-local environment *)
