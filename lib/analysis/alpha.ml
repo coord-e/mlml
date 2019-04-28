@@ -139,6 +139,7 @@ let convert_defn env defn =
     Mod.LetAnd (is_rec, l)
   | Mod.TypeDef _ -> defn
   | Mod.Module _ -> defn
+  | Mod.Open _ -> defn
 ;;
 
 let convert_module_item env = function

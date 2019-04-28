@@ -245,6 +245,7 @@ and codegen_definition ctx buf = function
     let aux (_, _, def) = codegen_type_def ctx buf def in
     List.iter aux l
   | Mod.Module _ -> failwith "Module is left!"
+  | Mod.Open _ -> failwith "Open is left!"
 
 and codegen_type_def ctx _buf = function
   | Mod.Variant variants ->

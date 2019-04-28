@@ -179,6 +179,7 @@ let rec convert_defn defn =
     (match expr with
     | Mod.Path _ -> defn
     | Mod.Struct l -> Mod.Module (name, Mod.Struct (List.map convert_module_item l)))
+  | Mod.Open _ -> defn
 
 and convert_module_item = function
   | Mod.Expression expr -> Mod.Expression (convert_expr expr)

@@ -89,14 +89,27 @@ let canonical env path =
 (* `mem env path` checks if `path` is reachable in `env` *)
 let mem env path = match find_aux env path with Some _ -> true | None -> false
 
-let resolve env current path =
+(* conversion context *)
+(* TODO: Replace list with some other generic mutable set type *)
+type context =
+  { primary : Path.t
+  ; mutable opened_paths : Path.t list }
+
+let create_context () = {primary = Path.root; opened_paths = []}
+let open_path ctx path = ctx.opened_paths <- path :: ctx.opened_paths
+let absolute current path = Path.join current.primary path
+let absolute_name current name = absolute current (Path.single name)
+
+let resolve env ctx path =
   (* resolve aliases first *)
   let path = canonical env path in
-  match mem env path with
-  (* the path is absolute *)
-  | true -> path
+  let candidates = ctx.opened_paths @ [ctx.primary; Path.root] in
+  let make_abs c = Path.join c path in
+  match List.find_opt (mem env) (List.map make_abs candidates) with
   (* the path is relative *)
-  | false -> Path.join current path
+  | Some p -> p
+  (* the path is absolute *)
+  | None -> path
 ;;
 
 (* convert a path to a pair of `module_env` and local name in returned env *)
@@ -135,11 +148,11 @@ let insert_alias env path target =
   Hashtbl.add m.modules name (Alias target)
 ;;
 
-let in_new_module env current name f =
-  let path = Path.join current (Path.single name) in
+let in_new_module env ctx name f =
+  let path = absolute_name ctx name in
   let m, name = to_env_and_name env path in
   Hashtbl.add m.modules name (Env (create_module_env ()));
-  f env path
+  f {ctx with primary = path}
 ;;
 
 (* expression-local environment *)
@@ -178,7 +191,7 @@ let rec convert_defn env current defn =
     let aux = function
       | Expr.VarBind (p, body) ->
         let binds x ns =
-          let path = Path.join current (Path.single x) in
+          let path = absolute_name current x in
           add_with_ns env path ns;
           Path.string_of_path path
         and vars x _ns =
@@ -194,19 +207,23 @@ let rec convert_defn env current defn =
         let g = apply_binds inner_env in
         let p = Pat.apply_on_names f g p in
         let body = Expr.apply_on_names f g body in
-        let bind = Path.join current (Path.single bind) in
+        let bind = absolute_name current bind in
         add_with_ns env bind NS.Var;
         Expr.FunBind (Path.string_of_path bind, p, body)
     in
     [Mod.Definition (Mod.LetAnd (is_rec, List.map aux l))]
   | Mod.TypeDef _ -> failwith "unimplemented"
   | Mod.Module (name, Mod.Path path) ->
-    let t = Path.join current (Path.single name) in
+    let t = absolute_name current name in
     insert_alias env t path;
     []
   | Mod.Module (name, Mod.Struct l) ->
-    let f env current = List.map (convert_module_item env current) l |> List.flatten in
+    let f ctx = List.map (convert_module_item env ctx) l |> List.flatten in
     in_new_module env current name f
+  | Mod.Open path ->
+    let path = resolve env current path in
+    open_path current path;
+    []
 
 and convert_module_item env current = function
   | Mod.Expression expr -> [Mod.Expression (convert_expr env current expr)]
@@ -214,5 +231,7 @@ and convert_module_item env current = function
 ;;
 
 let f l =
-  List.map (convert_module_item (create_module_env ()) Path.root) l |> List.flatten
+  let env = create_module_env () in
+  let current = create_context () in
+  List.map (convert_module_item env current) l |> List.flatten
 ;;
