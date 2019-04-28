@@ -79,7 +79,9 @@ let find_module env path =
 
 (* `canonical env path` returns canonical form of `path` in `env` *)
 let canonical env path =
-  match find_aux env path with Some (p, _) -> p | None -> failwith "NotFound"
+  (* Keep the original form when not found to support external functions *)
+  (* TODO: Remove this behavior after an implementation of "external"    *)
+  match find_aux env path with Some (p, _) -> p | None -> path
 ;;
 
 (* `mem env path` checks if `path` is reachable in `env` *)
