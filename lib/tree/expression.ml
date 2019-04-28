@@ -32,18 +32,33 @@ let rec apply_on_names f g e =
   | String s -> String s
   | Nil -> Nil
   | Tuple l -> Tuple (List.map apply l)
-  | BinOp (op, l, r) -> BinOp (op, apply l, apply r)
+  | BinOp (op, l, r) ->
+    let l = apply l in
+    let r = apply r in
+    BinOp (op, l, r)
   | LetAnd (is_rec, l, in_) ->
     let aux = function
       | VarBind (p, body) -> VarBind (Pat.apply_on_names f g p, apply body)
       | FunBind (bind, p, body) ->
         FunBind (g bind NS.Var, Pat.apply_on_names f g p, apply body)
     in
-    LetAnd (is_rec, List.map aux l, apply in_)
-  | IfThenElse (c, t, e) -> IfThenElse (apply c, apply t, apply e)
-  | App (l, r) -> App (apply l, apply r)
+    let l = List.map aux l in
+    let in_ = apply in_ in
+    LetAnd (is_rec, l, in_)
+  | IfThenElse (c, t, e) ->
+    let c = apply c in
+    let t = apply t in
+    let e = apply e in
+    IfThenElse (c, t, e)
+  | App (l, r) ->
+    let l = apply l in
+    let r = apply r in
+    App (l, r)
   | Ctor (name, None) -> Ctor (f name NS.Ctor, None)
-  | Ctor (name, Some v) -> Ctor (f name NS.Ctor, Some (apply v))
+  | Ctor (name, Some v) ->
+    let name = f name NS.Ctor in
+    let v = apply v in
+    Ctor (name, Some v)
   | Var name -> Var (f name NS.Var)
   | Match (expr, l) ->
     let aux (p, when_, arm) =
@@ -52,15 +67,22 @@ let rec apply_on_names f g e =
       let arm = apply arm in
       p, when_, arm
     in
-    Match (apply expr, List.map aux l)
-  | Lambda (p, expr) -> Lambda (Pat.apply_on_names f g p, apply expr)
+    let expr = apply expr in
+    let l = List.map aux l in
+    Match (expr, l)
+  | Lambda (p, expr) ->
+    let p = Pat.apply_on_names f g p in
+    let expr = apply expr in
+    Lambda (p, expr)
   | Record l ->
     let aux (field, expr) = f field NS.Field, apply expr in
     Record (List.map aux l)
   | RecordField (expr, field_name) -> RecordField (apply expr, field_name)
   | RecordUpdate (expr, l) ->
     let aux (field, expr) = f field NS.Field, apply expr in
-    RecordUpdate (apply expr, List.map aux l)
+    let expr = apply expr in
+    let l = List.map aux l in
+    RecordUpdate (expr, l)
 ;;
 
 let rec string_of_let_binding f = function

@@ -25,9 +25,18 @@ let rec apply_on_names f g p =
   | Range (f, t) -> Range (f, t)
   | Tuple l -> Tuple (List.map apply l)
   | Ctor (name, None) -> Ctor (f name NS.Ctor, None)
-  | Ctor (name, Some v) -> Ctor (f name NS.Ctor, Some (apply v))
-  | Or (a, b) -> Or (apply a, apply b)
-  | Cons (a, b) -> Cons (apply a, apply b)
+  | Ctor (name, Some v) ->
+    let name = f name NS.Ctor in
+    let v = apply v in
+    Ctor (name, Some v)
+  | Or (a, b) ->
+    let a = apply a in
+    let b = apply b in
+    Or (a, b)
+  | Cons (a, b) ->
+    let a = apply a in
+    let b = apply b in
+    Cons (a, b)
   | Record l ->
     let aux (name, p) = f name NS.Field, apply p in
     Record (List.map aux l)
