@@ -97,8 +97,8 @@ type context =
 
 let create_context () = {primary = Path.root; opened_paths = []}
 let open_path ctx path = ctx.opened_paths <- path :: ctx.opened_paths
-let absolute current path = Path.join current.primary path
-let absolute_name current name = absolute current (Path.single name)
+let absolute ctx path = Path.join ctx.primary path
+let absolute_name ctx name = absolute ctx (Path.single name)
 
 let resolve env ctx path =
   (* resolve aliases first *)
@@ -169,69 +169,69 @@ let apply_binds local_env x = function
   | _ -> failwith "unexpected binding"
 ;;
 
-let apply_vars local_env env current path ns =
+let apply_vars local_env env ctx path ns =
   let path =
     match ns, Path.extract path with
     (* locally-bound variables *)
     | NS.Var, [head] when SS.mem head local_env.local_vars -> path
-    | _ -> resolve env current path
+    | _ -> resolve env ctx path
   in
   Path.string_of_path path
 ;;
 
-let convert_expr' local_env env current expr =
-  Expr.apply_on_names (apply_vars local_env env current) (apply_binds local_env) expr
+let convert_expr' local_env env ctx expr =
+  Expr.apply_on_names (apply_vars local_env env ctx) (apply_binds local_env) expr
 ;;
 
-let convert_expr env current expr = convert_expr' (create_local_env ()) env current expr
+let convert_expr env ctx expr = convert_expr' (create_local_env ()) env ctx expr
 
-let rec convert_defn env current defn =
+let rec convert_defn env ctx defn =
   match defn with
   | Mod.LetAnd (is_rec, l) ->
     let aux = function
       | Expr.VarBind (p, body) ->
         let binds x ns =
-          let path = absolute_name current x in
+          let path = absolute_name ctx x in
           add_with_ns env path ns;
           Path.string_of_path path
         and vars x _ns =
-          let path = resolve env current x in
+          let path = resolve env ctx x in
           Path.string_of_path path
         in
-        let body = convert_expr env current body in
+        let body = convert_expr env ctx body in
         let p = Pat.apply_on_names vars binds p in
         Expr.VarBind (p, body)
       | Expr.FunBind (bind, p, body) ->
         let inner_env = create_local_env () in
-        let f = apply_vars inner_env env current in
+        let f = apply_vars inner_env env ctx in
         let g = apply_binds inner_env in
         let p = Pat.apply_on_names f g p in
         let body = Expr.apply_on_names f g body in
-        let bind = absolute_name current bind in
+        let bind = absolute_name ctx bind in
         add_with_ns env bind NS.Var;
         Expr.FunBind (Path.string_of_path bind, p, body)
     in
     [Mod.Definition (Mod.LetAnd (is_rec, List.map aux l))]
   | Mod.TypeDef _ -> failwith "unimplemented"
   | Mod.Module (name, Mod.Path path) ->
-    let t = absolute_name current name in
+    let t = absolute_name ctx name in
     insert_alias env t path;
     []
   | Mod.Module (name, Mod.Struct l) ->
     let f ctx = List.map (convert_module_item env ctx) l |> List.flatten in
-    in_new_module env current name f
+    in_new_module env ctx name f
   | Mod.Open path ->
-    let path = resolve env current path in
-    open_path current path;
+    let path = resolve env ctx path in
+    open_path ctx path;
     []
 
-and convert_module_item env current = function
-  | Mod.Expression expr -> [Mod.Expression (convert_expr env current expr)]
-  | Mod.Definition defn -> convert_defn env current defn
+and convert_module_item env ctx = function
+  | Mod.Expression expr -> [Mod.Expression (convert_expr env ctx expr)]
+  | Mod.Definition defn -> convert_defn env ctx defn
 ;;
 
 let f l =
   let env = create_module_env () in
-  let current = create_context () in
-  List.map (convert_module_item env current) l |> List.flatten
+  let ctx = create_context () in
+  List.map (convert_module_item env ctx) l |> List.flatten
 ;;
