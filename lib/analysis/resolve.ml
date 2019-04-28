@@ -7,21 +7,24 @@ module Pat = Tree.Pattern
 module NS = Tree.Namespace
 module SS = Set.Make (String)
 
+let module_value =
+  | Env of module_env
+  (* absolute path *)
+  | Alias of Path.t
+
 type module_env =
   { mutable vars : SS.t
   ; mutable types : SS.t
   ; mutable ctors : SS.t
   ; mutable fields : SS.t
-  ; modules : (string, module_env) Hashtbl.t
-  ; path : Path.t }
+  ; modules : (string, module_value) Hashtbl.t }
 
-let create_module_env path =
+let create_module_env =
   { vars = SS.empty
   ; types = SS.empty
   ; ctors = SS.empty
   ; fields = SS.empty
-  ; modules = Hashtbl.create 32
-  ; path }
+  ; modules = Hashtbl.create 32 }
 ;;
 
 let rec mem env path =
