@@ -30,8 +30,11 @@ This compiler takes a source string as input, and produces x86\_64 assembly.
   - [x] string
   - [x] list
   - [ ] bytes
-- [ ] module system
-  - [ ] functor
+- [ ] modules
+  - [x] definition
+  - [x] aliases
+  - [x] `open`
+  - [ ] importing from other files
 - [ ] type checker & type inference
 - [ ] ... and more ...
 - [ ] **self-hosting!**
