@@ -93,10 +93,10 @@ let resolve env current path =
   (* resolve aliases first *)
   let path = canonical env path in
   match mem env path with
-  (* the path is relative *)
-  | true -> Path.join current path
   (* the path is absolute *)
-  | false -> path
+  | true -> path
+  (* the path is relative *)
+  | false -> Path.join current path
 ;;
 
 (* convert a path to a pair of `module_env` and local name in returned env *)
