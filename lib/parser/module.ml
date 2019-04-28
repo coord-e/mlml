@@ -1,15 +1,14 @@
 (* Parse the definition.                                               *)
 (* https://caml.inria.fr/pub/docs/manual-ocaml/modules.html#definition *)
 
-module Expr = Expression
-module Pat = Pattern
-module TyExpr = Type_expression
 module L = Lexer
-module T = Tree.Definition
+module T = Tree.Module
+module Expr = Expression
+module TyExpr = Type_expression
 
-type t = string T.t
+type module_item = Tree.Path.t T.module_item
 
-let string_of_definition = T.string_of_definition (fun x -> x)
+let string_of_module_items = T.string_of_module_items Tree.Path.string_of_path
 
 let parse_variant tokens =
   let rec aux = function
@@ -82,12 +81,18 @@ let rec try_parse_type_bindings tokens =
   | tokens -> tokens, None
 ;;
 
-let try_parse_let tokens =
+let rec try_parse_let tokens =
   match tokens with
   | L.Type :: rest ->
     (match try_parse_type_bindings rest with
     | rest, Some l -> rest, Some (T.TypeDef l)
     | rest, None -> rest, None)
+  | L.Module :: L.CapitalIdent ident :: L.Equal :: rest ->
+    let rest, expr = parse_module_expression rest in
+    rest, Some (Module (ident, expr))
+  | L.Open :: rest ->
+    let rest, path = Path.parse_path rest in
+    rest, Some (T.Open path)
   | L.Let :: rest ->
     let rest, is_rec = Expr.parse_rec rest in
     let rest, binds = Expr.parse_let_bindings rest in
@@ -95,16 +100,39 @@ let try_parse_let tokens =
     | L.In :: _ -> tokens, None
     | _ -> rest, Some (T.LetAnd (is_rec, binds)))
   | tokens -> tokens, None
-;;
 
-let try_parse_definition = try_parse_let
+and try_parse_definition x = try_parse_let x
 
-let parse_definition tokens =
+and parse_definition tokens =
   match try_parse_definition tokens with
   | rest, Some def -> rest, def
   | h :: _, None ->
     failwith @@ Printf.sprintf "unexpected token: '%s'" (L.string_of_token h)
   | [], None -> failwith "Empty input"
+
+and parse_module_items = function
+  | L.DoubleSemicolon :: rest -> parse_module_items rest
+  | [] -> [], []
+  | L.End :: rest -> rest, []
+  | tokens ->
+    let rest, def_opt = try_parse_definition tokens in
+    (match def_opt with
+    | Some def ->
+      let rest, items = parse_module_items rest in
+      rest, T.Definition def :: items
+    | None ->
+      (* may fail in parse_expression (OK because there's no other candidate) *)
+      let rest, expr = Expr.parse_expression rest in
+      let rest, items = parse_module_items rest in
+      rest, T.Expression expr :: items)
+
+and parse_module_expression = function
+  | L.Struct :: rest ->
+    let rest, l = parse_module_items rest in
+    rest, Struct l
+  | tokens ->
+    let rest, path = Path.parse_path tokens in
+    rest, Path path
 ;;
 
 let f = parse_definition

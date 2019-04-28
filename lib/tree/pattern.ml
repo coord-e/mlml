@@ -1,5 +1,7 @@
+module NS = Namespace
+
 type 'a t =
-  | Var of 'a
+  | Var of string
   | Wildcard
   | Int of int
   | String of string
@@ -11,8 +13,37 @@ type 'a t =
   | Record of ('a * 'a t) list
   | Range of char * char
 
+(* apply `f` on reference names, apply `g` on binding names *)
+let rec apply_on_names f g p =
+  let apply = apply_on_names f g in
+  match p with
+  | Var bind -> Var (g bind NS.Var)
+  | Wildcard -> Wildcard
+  | Int i -> Int i
+  | String s -> String s
+  | Nil -> Nil
+  | Range (f, t) -> Range (f, t)
+  | Tuple l -> Tuple (List.map apply l)
+  | Ctor (name, None) -> Ctor (f name NS.Ctor, None)
+  | Ctor (name, Some v) ->
+    let name = f name NS.Ctor in
+    let v = apply v in
+    Ctor (name, Some v)
+  | Or (a, b) ->
+    let a = apply a in
+    let b = apply b in
+    Or (a, b)
+  | Cons (a, b) ->
+    let a = apply a in
+    let b = apply b in
+    Cons (a, b)
+  | Record l ->
+    let aux (name, p) = f name NS.Field, apply p in
+    Record (List.map aux l)
+;;
+
 let rec string_of_pattern f = function
-  | Var x -> f x
+  | Var x -> x
   | Wildcard -> "_"
   | Int x -> string_of_int x
   | String s -> Printf.sprintf "\"%s\"" s
@@ -21,7 +52,7 @@ let rec string_of_pattern f = function
   | Ctor (name, rhs) ->
     (match rhs with
     | Some rhs -> Printf.sprintf "%s (%s)" (f name) (string_of_pattern f rhs)
-    | None -> name)
+    | None -> f name)
   | Or (a, b) ->
     Printf.sprintf "(%s) | (%s)" (string_of_pattern f a) (string_of_pattern f b)
   | Cons (a, b) ->

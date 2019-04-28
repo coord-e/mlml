@@ -4,12 +4,17 @@
 module L = Lexer
 module T = Tree.Type_expression
 
-type t = T.t
+type t = Tree.Path.t T.t
 
-let string_of_type_expression = T.string_of_type_expression
+let string_of_type_expression = T.string_of_type_expression Tree.Path.string_of_path
 
-let rec try_parse_primary = function
-  | L.LowerIdent ident :: rest -> rest, Some (T.Ident ident)
+let rec try_parse_primary tokens =
+  match tokens with
+  | L.LowerIdent ident :: rest -> rest, Some (T.Ident (Tree.Path.single ident))
+  | L.CapitalIdent _ :: _ ->
+    (match Path.try_parse_path tokens with
+    | rest, Some p -> rest, Some (T.Ident p)
+    | rest, None -> rest, None)
   | L.Apostrophe :: L.LowerIdent ident :: rest -> rest, Some (T.Var ident)
   | L.LParen :: rest ->
     let rest, v = parse_type_expression rest in
@@ -42,9 +47,10 @@ and parse_type_params = function
 and parse_app tokens =
   let rest, l = parse_type_params tokens in
   let rec aux l tokens =
-    match tokens, l with
-    | L.LowerIdent ident :: rest, l -> aux [T.Ctor (l, ident)] rest
-    | rest, [t] -> rest, t
+    let rest, path_opt = Path.try_parse_path tokens in
+    match path_opt, l with
+    | Some path, l -> aux [T.Ctor (l, path)] rest
+    | None, [t] -> rest, t
     | _ -> failwith "could not parse type"
   in
   aux l rest

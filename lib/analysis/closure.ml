@@ -1,7 +1,6 @@
 module Expr = Tree.Expression
-module Def = Tree.Definition
+module Mod = Tree.Module
 module Pat = Tree.Pattern
-module Item = Tree.Module_item
 module SS = Set.Make (String)
 
 (* TODO: Improve this function's name *)
@@ -118,6 +117,7 @@ and convert_expr' i expr =
     let destruct = Pat.Tuple [Pat.Var f_name; Pat.Var fv_name] in
     let real_app = Expr.App (Expr.Var f_name, Expr.Tuple [rhs; Expr.Var fv_name]) in
     make_let_var destruct lhs real_app
+  (* TODO: Fixup these dirty code *)
   | Expr.Var "print_int" -> Expr.Tuple [Expr.Var "print_int"; Expr.Tuple []]
   | Expr.Var "print_char" -> Expr.Tuple [Expr.Var "print_char"; Expr.Tuple []]
   | Expr.Var "print_string" -> Expr.Tuple [Expr.Var "print_string"; Expr.Tuple []]
@@ -146,18 +146,18 @@ and convert_expr' i expr =
 
 and convert_expr expr = convert_expr' 0 expr
 
-let make_let_var_defn pat expr = Def.LetAnd (false, [Expr.VarBind (pat, expr)])
+let make_let_var_defn pat expr = Mod.LetAnd (false, [Expr.VarBind (pat, expr)])
 
 let free_variables_defn = function
-  | Def.LetAnd (is_rec, l) ->
+  | Mod.LetAnd (is_rec, l) ->
     let _, l = List.map (intros_and_free_of_binding is_rec) l |> List.split in
     List.fold_left SS.union SS.empty l
   | _ -> SS.empty
 ;;
 
-let convert_defn defn =
+let rec convert_defn defn =
   match defn with
-  | Def.LetAnd (is_rec, l) ->
+  | Mod.LetAnd (is_rec, l) ->
     let fvs = free_variables_defn defn |> SS.elements in
     let evals, l = convert_let_bindings 0 is_rec fvs l in
     (* Remove VarBind from l, and use body of VarBind in resulting_expr *)
@@ -174,12 +174,16 @@ let convert_defn defn =
     let resulting_pat = Pat.Tuple pats in
     let resulting_expr = Expr.Tuple values in
     make_let_var_defn resulting_pat (Expr.LetAnd (is_rec, funs, resulting_expr))
-  | Def.TypeDef _ -> defn
-;;
+  | Mod.TypeDef _ -> defn
+  | Mod.Module (name, expr) ->
+    (match expr with
+    | Mod.Path _ -> defn
+    | Mod.Struct l -> Mod.Module (name, Mod.Struct (List.map convert_module_item l)))
+  | Mod.Open _ -> defn
 
-let convert_module_item = function
-  | Item.Expression expr -> Item.Expression (convert_expr expr)
-  | Item.Definition defn -> Item.Definition (convert_defn defn)
+and convert_module_item = function
+  | Mod.Expression expr -> Mod.Expression (convert_expr expr)
+  | Mod.Definition defn -> Mod.Definition (convert_defn defn)
 ;;
 
 let f = List.map convert_module_item

@@ -1,8 +1,9 @@
 module Pat = Pattern
+module NS = Namespace
 
 type 'a let_binding =
   | VarBind of 'a Pat.t * 'a t
-  | FunBind of 'a * 'a Pat.t * 'a t
+  | FunBind of string * 'a Pat.t * 'a t
 
 and 'a t =
   | Int of int
@@ -23,6 +24,67 @@ and 'a t =
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
+(* apply `f` on reference names, apply `g` on binding names *)
+let rec apply_on_names f g e =
+  let apply = apply_on_names f g in
+  match e with
+  | Int i -> Int i
+  | String s -> String s
+  | Nil -> Nil
+  | Tuple l -> Tuple (List.map apply l)
+  | BinOp (op, l, r) ->
+    let l = apply l in
+    let r = apply r in
+    BinOp (op, l, r)
+  | LetAnd (is_rec, l, in_) ->
+    let aux = function
+      | VarBind (p, body) -> VarBind (Pat.apply_on_names f g p, apply body)
+      | FunBind (bind, p, body) ->
+        FunBind (g bind NS.Var, Pat.apply_on_names f g p, apply body)
+    in
+    let l = List.map aux l in
+    let in_ = apply in_ in
+    LetAnd (is_rec, l, in_)
+  | IfThenElse (c, t, e) ->
+    let c = apply c in
+    let t = apply t in
+    let e = apply e in
+    IfThenElse (c, t, e)
+  | App (l, r) ->
+    let l = apply l in
+    let r = apply r in
+    App (l, r)
+  | Ctor (name, None) -> Ctor (f name NS.Ctor, None)
+  | Ctor (name, Some v) ->
+    let name = f name NS.Ctor in
+    let v = apply v in
+    Ctor (name, Some v)
+  | Var name -> Var (f name NS.Var)
+  | Match (expr, l) ->
+    let aux (p, when_, arm) =
+      let when_ = match when_ with Some when_ -> Some (apply when_) | None -> None in
+      let p = Pat.apply_on_names f g p in
+      let arm = apply arm in
+      p, when_, arm
+    in
+    let expr = apply expr in
+    let l = List.map aux l in
+    Match (expr, l)
+  | Lambda (p, expr) ->
+    let p = Pat.apply_on_names f g p in
+    let expr = apply expr in
+    Lambda (p, expr)
+  | Record l ->
+    let aux (field, expr) = f field NS.Field, apply expr in
+    Record (List.map aux l)
+  | RecordField (expr, field_name) -> RecordField (apply expr, field_name)
+  | RecordUpdate (expr, l) ->
+    let aux (field, expr) = f field NS.Field, apply expr in
+    let expr = apply expr in
+    let l = List.map aux l in
+    RecordUpdate (expr, l)
+;;
+
 let rec string_of_let_binding f = function
   | VarBind (pat, expr) ->
     Printf.sprintf
@@ -32,7 +94,7 @@ let rec string_of_let_binding f = function
   | FunBind (name, param, expr) ->
     Printf.sprintf
       "%s (%s) = (%s)"
-      (f name)
+      name
       (Pat.string_of_pattern f param)
       (string_of_expression f expr)
 

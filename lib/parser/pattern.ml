@@ -1,23 +1,23 @@
 module L = Lexer
 module T = Tree.Pattern
 
-type t = string T.t
+type t = Tree.Path.t T.t
 
-let string_of_pattern = T.string_of_pattern (fun x -> x)
+let string_of_pattern = T.string_of_pattern Tree.Path.string_of_path
 
 let rec parse_fields tokens =
-  let continue name expr = function
+  let continue path expr = function
     | L.Semicolon :: rest ->
       let rest, acc = parse_fields rest in
-      rest, (name, expr) :: acc
-    | rest -> rest, [name, expr]
+      rest, (path, expr) :: acc
+    | rest -> rest, [path, expr]
   in
-  match tokens with
-  | L.LowerIdent name :: L.Equal :: rest ->
+  match Path.try_parse_path tokens with
+  | L.Equal :: rest, Some path ->
     let rest, expr = parse_pattern rest in
-    continue name expr rest
-  | L.LowerIdent name :: rest -> continue name (T.Var name) rest
-  | rest -> rest, []
+    continue path expr rest
+  | rest, None -> rest, []
+  | rest, Some path -> continue path (T.Var (Tree.Path.last path)) rest
 
 and try_parse_literal tokens =
   match tokens with
@@ -29,12 +29,15 @@ and try_parse_literal tokens =
     tokens, Some (T.Range (from, to_))
   | L.CharLiteral c :: tokens -> tokens, Some (T.Int (Char.code c))
   | L.StringLiteral s :: tokens -> tokens, Some (T.String s)
-  | L.LowerIdent "_" :: tokens -> tokens, Some Wildcard
+  | L.LowerIdent "_" :: tokens -> tokens, Some T.Wildcard
   | L.LowerIdent ident :: tokens -> tokens, Some (T.Var ident)
-  | L.CapitalIdent ident :: tokens ->
-    (match try_parse_literal tokens with
-    | rest, Some p -> rest, Some (T.Ctor (ident, Some p))
-    | _, None -> tokens, Some (T.Ctor (ident, None)))
+  | L.CapitalIdent _ :: _ ->
+    (match Path.try_parse_path tokens with
+    | rest, None -> rest, None
+    | rest, Some path ->
+      (match try_parse_literal rest with
+      | rest, Some p -> rest, Some (T.Ctor (path, Some p))
+      | _, None -> rest, Some (T.Ctor (path, None))))
   | L.LBrace :: rest ->
     let rest, fields = parse_fields rest in
     (match rest with

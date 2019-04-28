@@ -6,7 +6,7 @@ module Pat = Pattern
 module Binop = Tree.Binop
 module T = Tree.Expression
 
-type t = string T.t
+type t = Tree.Path.t T.t
 
 (* fun x y z -> expr                      *)
 (* => fun x -> (fun y -> (fun z -> expr)) *)
@@ -48,8 +48,10 @@ let rec parse_match_arm tokens =
 and parse_let_fun_body params = function
   | L.Function :: L.Vertical :: rest | L.Function :: rest ->
     let rest, arms = parse_match_arm rest in
-    let anon_var = ".function_match" in
-    rest, params @ [Tree.Pattern.Var anon_var], T.Match (T.Var anon_var, arms)
+    let anon_var = "_function_match" in
+    ( rest
+    , params @ [Tree.Pattern.Var anon_var]
+    , T.Match (T.Var (Tree.Path.single anon_var), arms) )
   | rest ->
     let rest, body = parse_expression rest in
     rest, params, body
@@ -82,18 +84,18 @@ and parse_in = function
   | _ -> failwith "could not find `in`"
 
 and parse_fields tokens =
-  let continue name expr = function
+  let continue path expr = function
     | L.Semicolon :: rest ->
       let rest, acc = parse_fields rest in
-      rest, (name, expr) :: acc
-    | rest -> rest, [name, expr]
+      rest, (path, expr) :: acc
+    | rest -> rest, [path, expr]
   in
-  match tokens with
-  | L.LowerIdent name :: L.Equal :: rest ->
+  match Path.try_parse_path tokens with
+  | L.Equal :: rest, Some path ->
     let rest, expr = parse_let rest in
-    continue name expr rest
-  | L.LowerIdent name :: rest -> continue name (T.Var name) rest
-  | rest -> rest, []
+    continue path expr rest
+  | rest, None -> rest, []
+  | rest, Some path -> continue path (T.Var (Tree.Path.last_path path)) rest
 
 and parse_record tokens =
   let parse_value tokens =
@@ -122,11 +124,15 @@ and try_parse_literal tokens =
   (* TODO: Add char value *)
   | L.CharLiteral c :: tokens -> tokens, Some (T.Int (Char.code c))
   | L.StringLiteral s :: tokens -> tokens, Some (T.String s)
-  | L.LowerIdent ident :: tokens -> tokens, Some (T.Var ident)
-  | L.CapitalIdent ident :: tokens ->
-    (match try_parse_literal tokens with
-    | rest, Some p -> rest, Some (T.Ctor (ident, Some p))
-    | _, None -> tokens, Some (T.Ctor (ident, None)))
+  | L.LowerIdent ident :: rest -> rest, Some (T.Var (Tree.Path.single ident))
+  | L.CapitalIdent _ :: _ ->
+    (match Path.try_parse_path tokens with
+    | rest, None -> rest, None
+    | rest, Some path when Tree.Path.is_capitalized path ->
+      (match try_parse_literal rest with
+      | rest, Some p -> rest, Some (T.Ctor (path, Some p))
+      | _, None -> rest, Some (T.Ctor (path, None)))
+    | rest, Some path -> rest, Some (T.Var path))
   | L.LBrace :: rest ->
     let rest, r = parse_record rest in
     rest, Some r
