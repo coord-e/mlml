@@ -59,15 +59,15 @@ and find_aux root_env path =
     | [head] ->
       (match mem_name_local env head with
       | true ->
-        Some (resolved, find_local_aux env head |> snd)
+        Some (Path.join resolved (Path.single head), find_local_aux env head |> snd)
       | false -> None)
     | head :: tail ->
       (match find_local_aux env head with
-      | Some v, Some e -> aux e (Path.of_list tail) (path_of_value path v)
+      | Some v, Some e -> aux e (Path.of_list tail) (path_of_value (Path.single head) v)
       | _ -> None)
     | [] -> None
   in
-  aux root_env path (Path.last_path path)
+  aux root_env path Path.root
 
 and find_module_opt env path =
   match find_aux env path with Some (_, Some m) -> Some m | _ -> None
