@@ -27,10 +27,6 @@ let create_module_env () =
   ; modules = Hashtbl.create 32 }
 ;;
 
-(* `path_of_value path v` returns `path` if `v` is not alias, and returns the aliased
-   destination if `v` is alias *)
-let path_of_value path = function Env _ -> path | Alias p -> p
-
 let mem_name_local env name =
   Hashtbl.mem env.modules name
   || SS.mem name env.ctors
@@ -40,30 +36,36 @@ let mem_name_local env name =
 
 let find_module_local env name = Hashtbl.find_opt env.modules name
 
-(* `env_of_value env v` returns a `module_env` corresponding to `v`, with resolving alias *)
-let rec env_of_value_opt env = function
-  | Env v -> Some v
-  | Alias path -> find_module_opt env path
-
 (* find a provided path in env and returns canonical path and `module_env` if found *)
-and find_aux root_env path =
+let rec find_aux root_env path =
   (* same as `find_module_local`, but resolves the aliases *)
-  let find_local_aux env path =
-    match find_module_local env path with
-    (* use root env here to resolve aliases *)
-    | Some v -> Some v, env_of_value_opt root_env v
-    | None -> None, None
+  (* returns `module_env` and canonical path if name is alias *)
+  let find_module_env_local env name =
+    match find_module_local env name with
+    | Some (Env v) -> Some (v, None)
+    | Some (Alias path) ->
+      (match find_aux root_env path with
+      | Some (p, Some m) -> Some (m, Some p)
+      | _ -> None)
+    | None -> None
   in
   let rec aux env path resolved =
     match Path.extract path with
     | [head] ->
-      (match mem_name_local env head with
-      | true ->
-        Some (Path.join resolved (Path.single head), find_local_aux env head |> snd)
-      | false -> None)
+      let current_resolved = Path.join resolved (Path.single head) in
+      (match find_module_env_local env head with
+      | Some (e, Some p) -> Some (p, Some e)
+      | Some (e, None) -> Some (current_resolved, Some e)
+      | None ->
+        (* not a module *)
+        (match mem_name_local env head with
+        | true -> Some (current_resolved, None)
+        | false -> None))
     | head :: tail ->
-      (match find_local_aux env head with
-      | Some v, Some e -> aux e (Path.of_list tail) (path_of_value (Path.single head) v)
+      (match find_module_env_local env head with
+      | Some (e, None) ->
+        aux e (Path.of_list tail) (Path.join resolved (Path.single head))
+      | Some (e, Some p) -> aux e (Path.of_list tail) p
       | _ -> None)
     | [] -> None
   in
