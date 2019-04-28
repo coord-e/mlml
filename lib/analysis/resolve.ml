@@ -1,4 +1,5 @@
 (* resolve paths and convert them into string *)
+(* TODO: use more clear ways to resolve paths *)
 
 module Path = Tree.Path
 module Expr = Tree.Expression
