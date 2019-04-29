@@ -93,6 +93,11 @@ let rec try_parse_let tokens =
   | L.Open :: rest ->
     let rest, path = Path.parse_path rest in
     rest, Some (T.Open path)
+  | L.External :: L.LowerIdent name :: L.Colon :: rest ->
+    let rest, tyexpr = TyExpr.parse_type_expression rest in
+    (match rest with
+    | L.Equal :: L.StringLiteral s :: rest -> rest, Some (External (name, tyexpr, s))
+    | _ -> failwith "syntax error")
   | L.Let :: rest ->
     let rest, is_rec = Expr.parse_rec rest in
     let rest, binds = Expr.parse_let_bindings rest in
