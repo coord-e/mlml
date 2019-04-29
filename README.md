@@ -39,6 +39,14 @@ This compiler takes a source string as input, and produces x86\_64 assembly.
 - [ ] ... and more ...
 - [ ] **self-hosting!**
 
+## limitations
+
+- `external` definitions are only available for functions
+- all modules and paths are statically-resolved (functors will never be supported)
+- exceptions are not implemented
+- all custom oeprators are left-associative
+- `function` keyword does not make an expression
+
 ## thanks
 
 The code and algorithm in parser and lexer is strongly inspired by [ushitora-anqou/aqaml](https://github.com/ushitora-anqou/aqaml)
