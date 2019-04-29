@@ -118,12 +118,7 @@ and codegen_expr ctx buf = function
     let rhs = codegen_expr ctx buf rhs in
     let ret = safe_call ctx buf (Printf.sprintf "*%s" (string_of_value lhs)) [rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
-  | Expr.Var ident ->
-    (match ident with
-    | "print_int" -> function_ptr ctx buf print_int_label
-    | "print_char" -> function_ptr ctx buf print_char_label
-    | "print_string" -> function_ptr ctx buf print_string_label
-    | _ -> StackValue (get_variable ctx ident))
+  | Expr.Var ident -> StackValue (get_variable ctx ident)
   | Expr.LetAnd (is_rec, l, rhs) ->
     let pats, values = emit_let_binding_values ctx buf is_rec l in
     let def (name, ptr) = define_variable ctx buf name ptr in

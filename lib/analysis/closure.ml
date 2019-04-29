@@ -117,10 +117,6 @@ and convert_expr' i expr =
     let destruct = Pat.Tuple [Pat.Var f_name; Pat.Var fv_name] in
     let real_app = Expr.App (Expr.Var f_name, Expr.Tuple [rhs; Expr.Var fv_name]) in
     make_let_var destruct lhs real_app
-  (* TODO: Fixup these dirty code *)
-  | Expr.Var "print_int" -> Expr.Tuple [Expr.Var "print_int"; Expr.Tuple []]
-  | Expr.Var "print_char" -> Expr.Tuple [Expr.Var "print_char"; Expr.Tuple []]
-  | Expr.Var "print_string" -> Expr.Tuple [Expr.Var "print_string"; Expr.Tuple []]
   | Expr.Int _ | Expr.Var _ | Expr.String _ | Expr.Nil -> expr
   | Expr.BinOp (op, r, l) -> Expr.BinOp (op, aux i r, aux i l)
   | Expr.IfThenElse (c, t, e) -> Expr.IfThenElse (aux i c, aux i t, aux i e)
