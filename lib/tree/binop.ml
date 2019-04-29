@@ -4,12 +4,11 @@ type t =
   | Mul
   | Follow
   | Equal
-  | NotEqual
-  | PhysicalEqual
   | NotPhysicalEqual
   | Cons
   | StringIndex
-  | StringAppend
+  (* non-keyword operators *)
+  | Custom of string
 
 let string_of_binop = function
   | Add -> "+"
@@ -17,10 +16,8 @@ let string_of_binop = function
   | Mul -> "*"
   | Follow -> ";"
   | Equal -> "="
-  | NotEqual -> "<>"
-  | PhysicalEqual -> "=="
   | NotPhysicalEqual -> "!="
   | Cons -> "::"
   | StringIndex -> ".[]"
-  | StringAppend -> "^"
+  | Custom s -> s
 ;;
