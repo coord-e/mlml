@@ -180,6 +180,7 @@ let rec convert_defn defn =
     | Mod.Path _ -> defn
     | Mod.Struct l -> Mod.Module (name, Mod.Struct (List.map convert_module_item l)))
   | Mod.Open _ -> defn
+  | Mod.External _ -> defn
 
 and convert_module_item = function
   | Mod.Expression expr -> Mod.Expression (convert_expr expr)
