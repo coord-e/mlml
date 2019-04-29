@@ -112,12 +112,15 @@ let equal ctx buf label ret_label =
 ;;
 
 let append_string ctx buf _label _ret_label =
-  let lhs, free1 = nth_arg_register ctx 0 in
-  let rhs, free2 = nth_arg_register ctx 1 in
-  let lhs = push_to_stack ctx buf (RegisterValue lhs) in
-  let rhs = push_to_stack ctx buf (RegisterValue rhs) in
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the two element of closure tuple *)
+  let lhs = alloc_stack ctx in
+  let rhs = alloc_stack ctx in
+  read_from_address ctx buf (RegisterValue a1) (StackValue lhs) (-8);
+  read_from_address ctx buf (RegisterValue a1) (StackValue rhs) (-16);
   free1 ctx;
-  free2 ctx;
   let lhs_len = alloc_register ctx in
   let rhs_len = alloc_register ctx in
   let size = alloc_stack ctx in
