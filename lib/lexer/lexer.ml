@@ -199,6 +199,10 @@ let rec tokenize_aux acc rest =
       (match t with
       | ':' :: t -> tokenize_aux (DoubleColon :: acc) t
       | _ -> tokenize_aux (Colon :: acc) t)
+    | '!' ->
+      (match t with
+      | '=' :: t -> tokenize_aux (NotEqual :: acc) t
+      | _ -> tokenize_aux (Excl :: acc) t)
     | '=' | '<' | '>' | '@' | '^' | '|' | '&' | '+' | '-' | '*' | '/' | '$' | '%' ->
       let rest, sym = read_infix_symbol [] t in
       let sym_str = string_of_chars (h :: sym) in
@@ -210,9 +214,6 @@ let rec tokenize_aux acc rest =
         | "*" -> Star
         | "=" -> Equal
         | "<" -> Lt
-        | "!=" -> NotEqual
-        (* TODO: Excl is not a keyword *)
-        | "!" -> Excl
         | "|" -> Vertical
         | _ -> InfixSymbol sym_str
       in
