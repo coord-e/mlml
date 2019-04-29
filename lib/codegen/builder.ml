@@ -103,7 +103,13 @@ let use_env ctx env =
   old_env
 ;;
 
+let escape_label_name name =
+  let aux c = match c with 'a' .. 'z' | 'A' .. 'Z' | '_' | '.' -> c | _ -> '_' in
+  String.map aux name
+;;
+
 let new_label ctx name =
+  let name = escape_label_name name in
   let is_used label = LS.mem label ctx.used_labels in
   let use_label label =
     ctx.used_labels <- LS.add label ctx.used_labels;
