@@ -31,6 +31,7 @@ and try_parse_literal tokens =
   | L.StringLiteral s :: tokens -> tokens, Some (T.String s)
   | L.LowerIdent "_" :: tokens -> tokens, Some T.Wildcard
   | L.LowerIdent ident :: tokens -> tokens, Some (T.Var ident)
+  | L.LParen :: L.InfixSymbol sym :: L.RParen :: tokens -> tokens, Some (T.Var sym)
   | L.CapitalIdent _ :: _ ->
     (match Path.try_parse_path tokens with
     | rest, None -> rest, None
