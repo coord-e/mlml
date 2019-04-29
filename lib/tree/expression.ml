@@ -45,7 +45,12 @@ let rec apply_on_names f g e =
     let aux = function
       | VarBind (p, body) -> VarBind (Pat.apply_on_names f g p, apply body)
       | FunBind (bind, p, body) ->
-        FunBind (g bind NS.Var, Pat.apply_on_names f g p, apply body)
+        (* TODO: Improve control flow *)
+        let bind = if is_rec then g bind NS.Var else bind in
+        let p = Pat.apply_on_names f g p in
+        let body = apply body in
+        let bind = if not is_rec then g bind NS.Var else bind in
+        FunBind (bind, p, body)
     in
     let l = List.map aux l in
     let in_ = apply in_ in

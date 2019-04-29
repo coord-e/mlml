@@ -243,10 +243,14 @@ let rec convert_defn env ctx defn =
         let inner_env = create_local_env () in
         let f = apply_vars inner_env env ctx in
         let g = apply_binds inner_env in
+        let bind = absolute_name ctx bind in
+        (* TODO: Improve control flow *)
+        if is_rec then add_with_ns env bind NS.Var;
+        (* body conversion *)
         let p = Pat.apply_on_names f g p in
         let body = Expr.apply_on_names f g body in
-        let bind = absolute_name ctx bind in
-        add_with_ns env bind NS.Var;
+        (* bound name (non-rec) *)
+        if not is_rec then add_with_ns env bind NS.Var;
         Expr.FunBind (Path.string_of_path bind, p, body)
     in
     [Mod.Definition (Mod.LetAnd (is_rec, List.map aux l))]
