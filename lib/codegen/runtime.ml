@@ -1,11 +1,7 @@
 module B = Output_buffer
 open Builder
 
-let runtimes = []
-
-let rec runtimes = (match_fail, "match_fail") :: runtimes
-
-and match_fail ctx buf _label _ret_label =
+let match_fail ctx buf _label _ret_label =
   (* emit data *)
   let str_label = new_label ctx ".string_of_match_fail" in
   B.emit_sub buf (B.Label (string_of_label str_label));
@@ -21,9 +17,7 @@ and match_fail ctx buf _label _ret_label =
   ()
 ;;
 
-let rec runtimes = (print_int, "print_int") :: runtimes
-
-and print_int ctx buf _label _ret_label =
+let print_int ctx buf _label _ret_label =
   (* emit data *)
   let str_label = new_label ctx ".string_of_print_int" in
   B.emit_sub buf (B.Label (string_of_label str_label));
@@ -41,9 +35,7 @@ and print_int ctx buf _label _ret_label =
   free2 ctx
 ;;
 
-let rec runtimes = (print_char, "print_char") :: runtimes
-
-and print_char ctx buf _label _ret_label =
+let print_char ctx buf _label _ret_label =
   let a1, free1 = nth_arg_register ctx 0 in
   (* read the first element of closure tuple *)
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
@@ -52,9 +44,7 @@ and print_char ctx buf _label _ret_label =
   free1 ctx
 ;;
 
-let rec runtimes = (print_string, "print_string") :: runtimes
-
-and print_string ctx buf _label _ret_label =
+let print_string ctx buf _label _ret_label =
   let a1, free1 = nth_arg_register ctx 0 in
   let a2, free2 = nth_arg_register ctx 1 in
   (* read the first element of closure tuple *)
@@ -67,9 +57,7 @@ and print_string ctx buf _label _ret_label =
   free2 ctx
 ;;
 
-let rec runtimes = (equal, "equal") :: runtimes
-
-and equal ctx buf label ret_label =
+let equal ctx buf label ret_label =
   (* TODO: Enable to take expected result and return earlier *)
   let arg1, free1 = nth_arg_register ctx 0 in
   let arg2, free2 = nth_arg_register ctx 1 in
@@ -123,9 +111,7 @@ and equal ctx buf label ret_label =
   free2 ctx
 ;;
 
-let rec runtimes = (append_string, "append_string") :: runtimes
-
-and append_string ctx buf _label _ret_label =
+let append_string ctx buf _label _ret_label =
   let lhs, free1 = nth_arg_register ctx 0 in
   let rhs, free2 = nth_arg_register ctx 1 in
   let lhs = push_to_stack ctx buf (RegisterValue lhs) in
@@ -191,9 +177,7 @@ and append_string ctx buf _label _ret_label =
   assign_to_register buf (StackValue ptr_save) ret_register
 ;;
 
-let rec runtimes = (shallow_copy, "shallow_copy") :: runtimes
-
-and shallow_copy ctx buf _label _ret_label =
+let shallow_copy ctx buf _label _ret_label =
   let src = nth_arg_stack ctx buf 0 in
   let dest = alloc_register ctx in
   let size = alloc_register ctx in
@@ -216,7 +200,17 @@ and shallow_copy ctx buf _label _ret_label =
   free_register dest ctx
 ;;
 
-let emit f =
+let runtimes =
+  [ match_fail, match_fail_name
+  ; print_int, "print_int"
+  ; print_char, "print_char"
+  ; print_string, "print_string"
+  ; equal, "equal"
+  ; append_string, "append_string"
+  ; shallow_copy, "shallow_copy" ]
+;;
+
+let emit_all f =
   let aux (emitter, name) = f name emitter in
   List.iter aux runtimes
 ;;
