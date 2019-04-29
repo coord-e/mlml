@@ -200,6 +200,15 @@ let shallow_copy ctx buf _label _ret_label =
   free_register dest ctx
 ;;
 
+let identity ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* just return it *)
+  assign_to_register buf (RegisterValue a1) ret_register;
+  free1 ctx
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_int, "print_int"
@@ -207,7 +216,8 @@ let runtimes =
   ; print_string, "print_string"
   ; equal, "equal"
   ; append_string, "append_string"
-  ; shallow_copy, "shallow_copy" ]
+  ; shallow_copy, "shallow_copy"
+  ; identity, "identity" ]
 ;;
 
 let emit_all f =
