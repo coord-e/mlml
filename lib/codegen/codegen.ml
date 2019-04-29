@@ -360,7 +360,7 @@ and emit_module ctx buf label items =
 ;;
 
 let emit_runtime ctx buf name f =
-  let label = new_label ctx name in
+  let label = new_label ctx @@ make_runtime_name name in
   emit_function_with ctx buf label f
 ;;
 

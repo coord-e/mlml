@@ -154,6 +154,8 @@ let start_global_label buf label =
   start_label buf label
 ;;
 
+let make_name_of_runtime name = Printf.sprintf "_mlml_%s"
+
 let assign_to_register buf v reg =
   B.emit_inst_fmt buf "movq %s, %s" (string_of_value v) (string_of_register reg)
 ;;
