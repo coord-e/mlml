@@ -189,21 +189,23 @@ let convert_expr' local_env env ctx expr =
 
 let convert_expr env ctx expr = convert_expr' (create_local_env ()) env ctx expr
 
-let convert_type_def env ctx defn =
+let convert_type_expr env ctx expr =
   let binds x _ = x in
   let vars x _ =
     let path = resolve env ctx x in
     Path.string_of_path path
   in
+  TyExpr.apply_on_names vars binds expr
+;;
+
+let convert_type_def env ctx defn =
   match defn with
   | Mod.Variant l ->
     let aux (ctor_name, expr_opt) =
       let ctor_name = absolute_name ctx ctor_name in
       add_with_ns env ctor_name NS.Ctor;
       let expr_opt =
-        match expr_opt with
-        | Some e -> Some (TyExpr.apply_on_names vars binds e)
-        | None -> None
+        match expr_opt with Some e -> Some (convert_type_expr env ctx e) | None -> None
       in
       Path.string_of_path ctor_name, expr_opt
     in
@@ -212,12 +214,12 @@ let convert_type_def env ctx defn =
     let aux (field_name, expr) =
       let field_name = absolute_name ctx field_name in
       add_with_ns env field_name NS.Field;
-      let expr = TyExpr.apply_on_names vars binds expr in
+      let expr = convert_type_expr env ctx expr in
       Path.string_of_path field_name, expr
     in
     Mod.Record (List.map aux l)
   | Mod.Alias expr ->
-    let expr = TyExpr.apply_on_names vars binds expr in
+    let expr = convert_type_expr env ctx expr in
     Mod.Alias expr
 ;;
 
@@ -266,6 +268,12 @@ let rec convert_defn env ctx defn =
     let path = resolve env ctx path in
     open_path ctx path;
     []
+  | Mod.External (name, ty, decl) ->
+    let path = absolute_name ctx name in
+    add_with_ns env path NS.Var;
+    let name = Path.string_of_path path in
+    let ty = convert_type_expr env ctx ty in
+    [Mod.Definition (Mod.External (name, ty, decl))]
 
 and convert_module_item env ctx = function
   | Mod.Expression expr -> [Mod.Expression (convert_expr env ctx expr)]

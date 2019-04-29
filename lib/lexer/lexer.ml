@@ -49,6 +49,7 @@ type token =
   | Struct
   | End
   | Open
+  | External
 
 let to_digit c = int_of_char c - int_of_char '0'
 
@@ -163,6 +164,7 @@ let rec tokenize_aux acc rest =
       | "struct" -> tokenize_aux (Struct :: acc) rest
       | "end" -> tokenize_aux (End :: acc) rest
       | "open" -> tokenize_aux (Open :: acc) rest
+      | "external" -> tokenize_aux (External :: acc) rest
       | _ ->
         (match ident_str.[0] with
         | 'A' .. 'Z' -> tokenize_aux (CapitalIdent ident_str :: acc) rest
@@ -259,6 +261,7 @@ let string_of_token = function
   | Struct -> "struct"
   | End -> "end"
   | Open -> "open"
+  | External -> "external"
 ;;
 
 let string_of_tokens tokens =

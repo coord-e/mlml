@@ -57,12 +57,12 @@ let rec codegen_binop ctx buf lhs rhs = function
   | Binop.Equal ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let ret = safe_call ctx buf (string_of_label mlml_equal_label) [lhs; rhs] in
+    let ret = call_runtime ctx buf "equal" [lhs; rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Binop.NotEqual ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let ret = safe_call ctx buf (string_of_label mlml_equal_label) [lhs; rhs] in
+    let ret = call_runtime ctx buf "equal" [lhs; rhs] in
     (* marked bool inversion *)
     (* 11 -> 01              *)
     (* 01 -> 11              *)
@@ -106,7 +106,7 @@ let rec codegen_binop ctx buf lhs rhs = function
   | Binop.StringAppend ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let ret = safe_call ctx buf (string_of_label append_string_label) [lhs; rhs] in
+    let ret = call_runtime ctx buf "append_string" [lhs; rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
 
 and codegen_expr ctx buf = function
@@ -118,12 +118,7 @@ and codegen_expr ctx buf = function
     let rhs = codegen_expr ctx buf rhs in
     let ret = safe_call ctx buf (Printf.sprintf "*%s" (string_of_value lhs)) [rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
-  | Expr.Var ident ->
-    (match ident with
-    | "print_int" -> function_ptr ctx buf print_int_label
-    | "print_char" -> function_ptr ctx buf print_char_label
-    | "print_string" -> function_ptr ctx buf print_string_label
-    | _ -> StackValue (get_variable ctx ident))
+  | Expr.Var ident -> StackValue (get_variable ctx ident)
   | Expr.LetAnd (is_rec, l, rhs) ->
     let pats, values = emit_let_binding_values ctx buf is_rec l in
     let def (name, ptr) = define_variable ctx buf name ptr in
@@ -244,6 +239,11 @@ and codegen_definition ctx buf = function
   | Mod.TypeDef l ->
     let aux (_, _, def) = codegen_type_def ctx buf def in
     List.iter aux l
+  | Mod.External (name, _ty, decl) ->
+    let ptr = alloc_register ctx in
+    label_ptr_to_register buf (Label decl) ptr;
+    define_variable ctx buf name (RegisterValue ptr);
+    free_register ptr ctx
   | Mod.Module _ -> failwith "Module is left!"
   | Mod.Open _ -> failwith "Open is left!"
 
@@ -359,16 +359,15 @@ and emit_module ctx buf label items =
   emit_function_with ctx buf label emit
 ;;
 
+let emit_runtime ctx buf name f =
+  let label = new_label ctx @@ make_name_of_runtime name in
+  emit_function_with ctx buf label f
+;;
+
 let f ast =
   let buf = B.create () in
   let ctx = new_context () in
+  Runtime.emit_all (emit_runtime ctx buf);
   emit_module ctx buf (Label "main") ast;
-  let _ = emit_function_with ctx buf print_int_label emit_print_int_function in
-  let _ = emit_function_with ctx buf print_char_label emit_print_char_function in
-  let _ = emit_function_with ctx buf print_string_label emit_print_string_function in
-  let _ = emit_function_with ctx buf match_fail_label emit_match_fail in
-  let _ = emit_function_with ctx buf mlml_equal_label emit_equal_function in
-  let _ = emit_function_with ctx buf append_string_label emit_append_string_function in
-  let _ = emit_function_with ctx buf shallow_copy_label emit_shallow_copy_function in
   B.contents buf
 ;;

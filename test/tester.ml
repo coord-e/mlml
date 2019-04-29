@@ -1,5 +1,8 @@
 open Mlml
 
+(* TODO: replace test stdlib with real stdlib *)
+let stdlib_dir = "../../../test/test_stdlib"
+
 let open_and_read_result cmd =
   let channel = Unix.open_process_in cmd in
   let result = input_line channel in
@@ -13,7 +16,28 @@ let open_and_read_result cmd =
     failwith @@ Printf.sprintf "Execution of test code failed with signal %d" s
 ;;
 
+let collect_libs dir =
+  let read file =
+    let ic = open_in @@ Printf.sprintf "%s/%s" dir file in
+    let content = really_input_string ic @@ in_channel_length ic in
+    close_in ic;
+    let name = String.split_on_char '.' file |> List.hd in
+    name, content
+  in
+  Array.map read (Sys.readdir dir) |> Array.to_list
+;;
+
+let bundle_libs libs =
+  let aux (name, content) =
+    let mod_name = String.capitalize_ascii name in
+    Printf.sprintf "module %s = struct\n%s\nend" mod_name content
+  in
+  List.map aux libs |> String.concat "\n"
+;;
+
 let exec_with_mlml source =
+  let libs = collect_libs stdlib_dir |> bundle_libs in
+  let source = Printf.sprintf "%s\nopen Pervasives ;;\n%s" libs source in
   let as_file = Filename.temp_file "." ".s" in
   let oc = open_out as_file in
   Printf.fprintf oc "%s\n" @@ Compile.f source;

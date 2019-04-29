@@ -140,6 +140,9 @@ let convert_defn env defn =
   | Mod.TypeDef _ -> defn
   | Mod.Module _ -> defn
   | Mod.Open _ -> defn
+  | Mod.External (name, ty, decl) ->
+    let name = rename env name in
+    Mod.External (name, ty, decl)
 ;;
 
 let convert_module_item env = function

@@ -27,11 +27,10 @@ print_string (f "aieee".[0])
 |};
   Tester.f
     {|
-(* TODO: Use String.length *)
 (* TODO: Use > comparison *)
-let explode l s =
+let explode s =
   let rec exp i l = if (i + 1) = 0 then l else exp (i - 1) (s.[i] :: l) in
-  exp (l - 1) []
+  exp (String.length s - 1) []
 ;;
 
 let rec print = function
@@ -42,7 +41,7 @@ let rec print = function
       print t
 ;;
 
-print (explode 12 "hello, world")
+print (explode "hello, world")
   |};
   Tester.f
     {|

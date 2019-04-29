@@ -70,4 +70,12 @@ and parse_tuple tokens =
   | [value] -> rest, value
   | _ -> rest, T.Tuple values
 
-and parse_type_expression tokens = parse_tuple tokens
+and parse_fun tokens =
+  let tokens, lhs = parse_tuple tokens in
+  match tokens with
+  | L.Arrow :: tokens ->
+    let tokens, rhs = parse_fun tokens in
+    tokens, T.Function (lhs, rhs)
+  | _ -> tokens, lhs
+
+and parse_type_expression tokens = parse_fun tokens

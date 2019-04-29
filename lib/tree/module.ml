@@ -16,6 +16,7 @@ and 'a definition =
   | TypeDef of (string list * string * 'a type_def) list
   | Module of string * 'a module_expr
   | Open of 'a
+  | External of string * 'a TyExpr.t * string
 
 and 'a module_item =
   | Definition of 'a definition
@@ -56,6 +57,12 @@ and string_of_definition f = function
   | Module (name, mexp) ->
     Printf.sprintf "module %s = (%s)" name (string_of_module_expression f mexp)
   | Open path -> Printf.sprintf "open %s" (f path)
+  | External (name, ty, decl) ->
+    Printf.sprintf
+      "external %s : (%s) = \"%s\""
+      name
+      (TyExpr.string_of_type_expression f ty)
+      decl
 
 and string_of_module_item f = function
   | Definition def -> string_of_definition f def

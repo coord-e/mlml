@@ -5,6 +5,7 @@ type 'a t =
   | Tuple of 'a t list
   | Var of string
   | Ctor of 'a t list * 'a
+  | Function of 'a t * 'a t
 
 (* apply `f` on reference names, apply `g` on binding names *)
 let rec apply_on_names f g e =
@@ -17,6 +18,10 @@ let rec apply_on_names f g e =
     let params = List.map apply params in
     let ctor = f ctor NS.Type in
     Ctor (params, ctor)
+  | Function (a, b) ->
+    let a = apply a in
+    let b = apply b in
+    Function (a, b)
 ;;
 
 let rec string_of_type_expression f = function
@@ -28,4 +33,9 @@ let rec string_of_type_expression f = function
   | Tuple ts ->
     let ts = List.map (string_of_type_expression f) ts |> String.concat " * " in
     Printf.sprintf "Tuple (%s)" ts
+  | Function (a, b) ->
+    Printf.sprintf
+      "(%s) -> (%s)"
+      (string_of_type_expression f a)
+      (string_of_type_expression f b)
 ;;
