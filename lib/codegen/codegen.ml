@@ -244,6 +244,11 @@ and codegen_definition ctx buf = function
   | Mod.TypeDef l ->
     let aux (_, _, def) = codegen_type_def ctx buf def in
     List.iter aux l
+  | Mod.External (name, _ty, decl) ->
+    let ptr = alloc_register ctx in
+    label_ptr_to_register buf (Label decl) ptr;
+    define_variable ctx buf name (RegisterValue ptr);
+    free_register ptr ctx
   | Mod.Module _ -> failwith "Module is left!"
   | Mod.Open _ -> failwith "Open is left!"
 
