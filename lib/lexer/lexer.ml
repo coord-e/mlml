@@ -5,6 +5,7 @@ type token =
   | CharLiteral of char
   | CapitalIdent of string
   | LowerIdent of string
+  | InfixSymbol of string
   | Plus
   | Minus
   | Star
@@ -13,9 +14,7 @@ type token =
   | In
   | And
   | Equal
-  | DoubleEqual
   | NotEqual
-  | LtGt
   | Lt
   | If
   | Then
@@ -43,7 +42,6 @@ type token =
   | RBrace
   | Dot
   | DoubleDot
-  | Hat
   | Apostrophe
   | Module
   | Struct
@@ -114,6 +112,23 @@ let rec read_ident acc rest =
   | _ -> [], acc
 ;;
 
+let is_operator_char = function
+  | '!' | '$' | '%' | '&' | '*' | '+' | '-' | '.' | '/' | ':' | '<' | '=' | '>' | '?'
+  | '@' | '^' | '|' | '~' -> true
+  | _ -> false
+;;
+
+let rec read_infix_symbol acc rest =
+  match rest with
+  | h :: t ->
+    (match h with
+    | c when is_operator_char c ->
+      let rest, ident = read_infix_symbol acc t in
+      rest, h :: ident
+    | _ -> rest, acc)
+  | _ -> [], acc
+;;
+
 let rec tokenize_aux acc rest =
   match rest with
   | [] -> acc
@@ -169,25 +184,6 @@ let rec tokenize_aux acc rest =
         (match ident_str.[0] with
         | 'A' .. 'Z' -> tokenize_aux (CapitalIdent ident_str :: acc) rest
         | _ -> tokenize_aux (LowerIdent ident_str :: acc) rest))
-    | '+' -> tokenize_aux (Plus :: acc) t
-    | '-' ->
-      (match t with
-      | '>' :: t -> tokenize_aux (Arrow :: acc) t
-      | _ -> tokenize_aux (Minus :: acc) t)
-    | '*' -> tokenize_aux (Star :: acc) t
-    | '=' ->
-      (match t with
-      | '=' :: t -> tokenize_aux (DoubleEqual :: acc) t
-      | _ -> tokenize_aux (Equal :: acc) t)
-    | '<' ->
-      (match t with
-      | '>' :: t -> tokenize_aux (LtGt :: acc) t
-      | _ -> tokenize_aux (Lt :: acc) t)
-    | '!' ->
-      (match t with
-      | '=' :: t -> tokenize_aux (NotEqual :: acc) t
-      | _ -> tokenize_aux (Excl :: acc) t)
-    | '|' -> tokenize_aux (Vertical :: acc) t
     | ',' -> tokenize_aux (Comma :: acc) t
     | '(' -> tokenize_aux (LParen :: acc) t
     | ')' -> tokenize_aux (RParen :: acc) t
@@ -199,7 +195,6 @@ let rec tokenize_aux acc rest =
       (match t with
       | '.' :: t -> tokenize_aux (DoubleDot :: acc) t
       | _ -> tokenize_aux (Dot :: acc) t)
-    | '^' -> tokenize_aux (Hat :: acc) t
     | ';' ->
       (match t with
       | ';' :: t -> tokenize_aux (DoubleSemicolon :: acc) t
@@ -208,6 +203,24 @@ let rec tokenize_aux acc rest =
       (match t with
       | ':' :: t -> tokenize_aux (DoubleColon :: acc) t
       | _ -> tokenize_aux (Colon :: acc) t)
+    | '=' | '<' | '>' | '@' | '^' | '|' | '&' | '+' | '-' | '*' | '/' | '$' | '%' ->
+      let rest, sym = read_infix_symbol t [] in
+      let sym_str = string_of_chars (h :: sym) in
+      let token =
+        match sym_str with
+        | "+" -> Plus
+        | "-" -> Minus
+        | "->" -> Arrow
+        | "*" -> Star
+        | "=" -> Equal
+        | "<" -> Lt
+        | "!=" -> NotEqual
+        (* TODO: Excl is not a keyword *)
+        | "!" -> Excl
+        | "|" -> Vertical
+        | _ -> InfixSymbol sym_str
+      in
+      tokenize_aux (token :: acc) rest
     | _ -> failwith @@ Printf.sprintf "unexpected character: '%c'" h)
 ;;
 
@@ -217,6 +230,7 @@ let string_of_token = function
   | StringLiteral str -> Printf.sprintf "\"%s\"" str
   | CharLiteral ch -> Printf.sprintf "'%c'" ch
   | CapitalIdent ident | LowerIdent ident -> ident
+  | InfixSymbol sym -> sym
   | Plus -> "+"
   | Minus -> "-"
   | Star -> "*"
@@ -225,9 +239,7 @@ let string_of_token = function
   | In -> "in"
   | And -> "and"
   | Equal -> "="
-  | DoubleEqual -> "=="
   | NotEqual -> "!="
-  | LtGt -> "<>"
   | Lt -> "<"
   | If -> "if"
   | Then -> "then"
@@ -255,7 +267,6 @@ let string_of_token = function
   | RBrace -> "}"
   | Dot -> "."
   | DoubleDot -> ".."
-  | Hat -> "^"
   | Apostrophe -> "'"
   | Module -> "module"
   | Struct -> "struct"

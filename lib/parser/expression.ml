@@ -219,7 +219,7 @@ and parse_append tokens =
   let tokens, lhs = parse_cons tokens in
   let rec aux lhs tokens =
     match tokens with
-    | L.Hat :: rest ->
+    | L.InfixSymbol "^" :: rest ->
       let rest, rhs = parse_cons rest in
       aux (T.BinOp (Binop.StringAppend, lhs, rhs)) rest
     | _ -> tokens, lhs
@@ -233,10 +233,10 @@ and parse_equal tokens =
     | L.Equal :: rest ->
       let rest, rhs = parse_append rest in
       aux (T.BinOp (Binop.Equal, lhs, rhs)) rest
-    | L.DoubleEqual :: rest ->
+    | L.InfixSymbol "==" :: rest ->
       let rest, rhs = parse_append rest in
       aux (T.BinOp (Binop.PhysicalEqual, lhs, rhs)) rest
-    | L.LtGt :: rest ->
+    | L.InfixSymbol "<>" :: rest ->
       let rest, rhs = parse_append rest in
       aux (T.BinOp (Binop.NotEqual, lhs, rhs)) rest
     | L.NotEqual :: rest ->
