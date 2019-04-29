@@ -1,6 +1,7 @@
 module Pat = Tree.Pattern
 module Mod = Tree.Module
 module Expr = Tree.Expression
+module Binop = Tree.Binop
 
 let make_name = Printf.sprintf "%s%d"
 
@@ -118,7 +119,9 @@ and convert_expr env e =
     Expr.Match (expr, l)
   | Expr.Nil | Expr.Int _ | Expr.String _ -> e
   | Expr.Tuple l -> Expr.Tuple (List.map (convert_expr env) l)
-  | Expr.BinOp (op, l, r) -> Expr.BinOp (op, convert_expr env l, convert_expr env r)
+  | Expr.BinOp (op, l, r) ->
+    let op = match op with Binop.Custom sym -> Binop.Custom (find env sym) | _ -> op in
+    Expr.BinOp (op, convert_expr env l, convert_expr env r)
   | Expr.IfThenElse (cond, then_, else_) ->
     Expr.IfThenElse
       (convert_expr env cond, convert_expr env then_, convert_expr env else_)

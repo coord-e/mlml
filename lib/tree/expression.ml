@@ -35,6 +35,11 @@ let rec apply_on_names f g e =
   | BinOp (op, l, r) ->
     let l = apply l in
     let r = apply r in
+    let op =
+      match op with
+      | Binop.Custom sym -> Binop.Custom (f (Path.single sym) NS.Var)
+      | _ -> op
+    in
     BinOp (op, l, r)
   | LetAnd (is_rec, l, in_) ->
     let aux = function
