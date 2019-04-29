@@ -144,7 +144,7 @@ and convert_expr' i expr =
     let aux' (name, expr) = name, aux i expr in
     Expr.RecordUpdate (aux i e, List.map aux' fields)
 
-and convert_expr expr = convert_expr' 0 expr
+and convert_expr acc expr = Mod.Expression (convert_expr' 0 expr) :: acc
 
 let make_let_var_defn pat expr = Mod.LetAnd (false, [Expr.VarBind (pat, expr)])
 
@@ -155,7 +155,8 @@ let free_variables_defn = function
   | _ -> SS.empty
 ;;
 
-let rec convert_defn defn =
+let rec convert_defn acc defn =
+  let app d = Mod.Definition d :: acc in
   match defn with
   | Mod.LetAnd (is_rec, l) ->
     let fvs = free_variables_defn defn |> SS.elements in
@@ -173,18 +174,25 @@ let rec convert_defn defn =
     let pats, values = List.fold_left folder (List.map aux vars) evals |> List.split in
     let resulting_pat = Pat.Tuple pats in
     let resulting_expr = Expr.Tuple values in
-    make_let_var_defn resulting_pat (Expr.LetAnd (is_rec, funs, resulting_expr))
-  | Mod.TypeDef _ -> defn
+    app @@ make_let_var_defn resulting_pat (Expr.LetAnd (is_rec, funs, resulting_expr))
+  | Mod.TypeDef _ -> app defn
   | Mod.Module (name, expr) ->
     (match expr with
-    | Mod.Path _ -> defn
-    | Mod.Struct l -> Mod.Module (name, Mod.Struct (List.map convert_module_item l)))
-  | Mod.Open _ -> defn
-  | Mod.External _ -> defn
+    | Mod.Path _ -> app defn
+    | Mod.Struct l ->
+      app @@ Mod.Module (name, Mod.Struct (List.fold_right convert_module_item l [])))
+  | Mod.Open _ -> app @@ defn
+  | Mod.External (name, _ty, _decl) ->
+    (* convert to closure form *)
+    let c =
+      make_let_var_defn (Pat.Var name) (Expr.Tuple [Expr.Var name; Expr.Tuple []])
+    in
+    Mod.Definition defn :: Mod.Definition c :: acc
 
-and convert_module_item = function
-  | Mod.Expression expr -> Mod.Expression (convert_expr expr)
-  | Mod.Definition defn -> Mod.Definition (convert_defn defn)
+and convert_module_item l acc =
+  match l with
+  | Mod.Expression expr -> convert_expr acc expr
+  | Mod.Definition defn -> convert_defn acc defn
 ;;
 
-let f = List.map convert_module_item
+let f l = List.fold_right convert_module_item l []
