@@ -18,8 +18,10 @@ let rec intros_and_free_of_binding is_rec = function
 
 and free_variables = function
   | Expr.Int _ | Expr.String _ | Expr.Nil -> SS.empty
-  | Expr.App (l, r) | Expr.BinOp (_, l, r) ->
-    SS.union (free_variables l) (free_variables r)
+  | Expr.BinOp (op, l, r) ->
+    let lr = SS.union (free_variables l) (free_variables r) in
+    (match op with Binop.Custom sym -> SS.add sym lr | _ -> lr)
+  | Expr.App (l, r) -> SS.union (free_variables l) (free_variables r)
   | Expr.Tuple values ->
     List.map free_variables values |> List.fold_left SS.union SS.empty
   | Expr.LetAnd (is_rec, l, in_) ->
