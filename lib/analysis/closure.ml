@@ -2,6 +2,7 @@ module Expr = Tree.Expression
 module Mod = Tree.Module
 module Pat = Tree.Pattern
 module SS = Set.Make (String)
+module Binop = Tree.Binop
 
 (* TODO: Improve this function's name *)
 let rec intros_and_free_of_binding is_rec = function
@@ -118,7 +119,13 @@ and convert_expr' i expr =
     let real_app = Expr.App (Expr.Var f_name, Expr.Tuple [rhs; Expr.Var fv_name]) in
     make_let_var destruct lhs real_app
   | Expr.Int _ | Expr.Var _ | Expr.String _ | Expr.Nil -> expr
-  | Expr.BinOp (op, r, l) -> Expr.BinOp (op, aux i r, aux i l)
+  | Expr.BinOp (op, r, l) ->
+    (match op with
+    | Binop.Custom sym -> aux i (Expr.App (Expr.App (Expr.Var sym, l), r))
+    | _ ->
+      let l = aux i l in
+      let r = aux i r in
+      Expr.BinOp (op, r, l))
   | Expr.IfThenElse (c, t, e) -> Expr.IfThenElse (aux i c, aux i t, aux i e)
   | Expr.Ctor (name, param) ->
     (match param with
