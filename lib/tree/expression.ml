@@ -35,12 +35,22 @@ let rec apply_on_names f g e =
   | BinOp (op, l, r) ->
     let l = apply l in
     let r = apply r in
+    let op =
+      match op with
+      | Binop.Custom sym -> Binop.Custom (f (Path.single sym) NS.Var)
+      | _ -> op
+    in
     BinOp (op, l, r)
   | LetAnd (is_rec, l, in_) ->
     let aux = function
       | VarBind (p, body) -> VarBind (Pat.apply_on_names f g p, apply body)
       | FunBind (bind, p, body) ->
-        FunBind (g bind NS.Var, Pat.apply_on_names f g p, apply body)
+        (* TODO: Improve control flow *)
+        let bind = if is_rec then g bind NS.Var else bind in
+        let p = Pat.apply_on_names f g p in
+        let body = apply body in
+        let bind = if not is_rec then g bind NS.Var else bind in
+        FunBind (bind, p, body)
     in
     let l = List.map aux l in
     let in_ = apply in_ in

@@ -2,6 +2,7 @@ module Expr = Tree.Expression
 module Mod = Tree.Module
 module Pat = Tree.Pattern
 module SS = Set.Make (String)
+module Binop = Tree.Binop
 
 (* TODO: Improve this function's name *)
 let rec intros_and_free_of_binding is_rec = function
@@ -17,8 +18,10 @@ let rec intros_and_free_of_binding is_rec = function
 
 and free_variables = function
   | Expr.Int _ | Expr.String _ | Expr.Nil -> SS.empty
-  | Expr.App (l, r) | Expr.BinOp (_, l, r) ->
-    SS.union (free_variables l) (free_variables r)
+  | Expr.BinOp (op, l, r) ->
+    let lr = SS.union (free_variables l) (free_variables r) in
+    (match op with Binop.Custom sym -> SS.add sym lr | _ -> lr)
+  | Expr.App (l, r) -> SS.union (free_variables l) (free_variables r)
   | Expr.Tuple values ->
     List.map free_variables values |> List.fold_left SS.union SS.empty
   | Expr.LetAnd (is_rec, l, in_) ->
@@ -118,7 +121,13 @@ and convert_expr' i expr =
     let real_app = Expr.App (Expr.Var f_name, Expr.Tuple [rhs; Expr.Var fv_name]) in
     make_let_var destruct lhs real_app
   | Expr.Int _ | Expr.Var _ | Expr.String _ | Expr.Nil -> expr
-  | Expr.BinOp (op, r, l) -> Expr.BinOp (op, aux i r, aux i l)
+  | Expr.BinOp (op, l, r) ->
+    (match op with
+    | Binop.Custom sym -> aux i (Expr.App (Expr.App (Expr.Var sym, l), r))
+    | _ ->
+      let l = aux i l in
+      let r = aux i r in
+      Expr.BinOp (op, l, r))
   | Expr.IfThenElse (c, t, e) -> Expr.IfThenElse (aux i c, aux i t, aux i e)
   | Expr.Ctor (name, param) ->
     (match param with

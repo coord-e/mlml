@@ -215,32 +215,26 @@ and parse_cons tokens =
     tokens, T.BinOp (Binop.Cons, lhs, rhs)
   | _ -> tokens, lhs
 
-and parse_append tokens =
+and parse_infix tokens =
   let tokens, lhs = parse_cons tokens in
   let rec aux lhs tokens =
     match tokens with
-    | L.Hat :: rest ->
+    | L.InfixSymbol sym :: rest ->
       let rest, rhs = parse_cons rest in
-      aux (T.BinOp (Binop.StringAppend, lhs, rhs)) rest
+      aux (T.BinOp (Binop.Custom sym, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
 
 and parse_equal tokens =
-  let tokens, lhs = parse_append tokens in
+  let tokens, lhs = parse_infix tokens in
   let rec aux lhs tokens =
     match tokens with
     | L.Equal :: rest ->
-      let rest, rhs = parse_append rest in
+      let rest, rhs = parse_infix rest in
       aux (T.BinOp (Binop.Equal, lhs, rhs)) rest
-    | L.DoubleEqual :: rest ->
-      let rest, rhs = parse_append rest in
-      aux (T.BinOp (Binop.PhysicalEqual, lhs, rhs)) rest
-    | L.LtGt :: rest ->
-      let rest, rhs = parse_append rest in
-      aux (T.BinOp (Binop.NotEqual, lhs, rhs)) rest
     | L.NotEqual :: rest ->
-      let rest, rhs = parse_append rest in
+      let rest, rhs = parse_infix rest in
       aux (T.BinOp (Binop.NotPhysicalEqual, lhs, rhs)) rest
     | _ -> tokens, lhs
   in

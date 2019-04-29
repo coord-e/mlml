@@ -46,10 +46,6 @@ let rec codegen_binop ctx buf lhs rhs = function
   | Binop.Follow ->
     let _ = codegen_expr ctx buf lhs in
     codegen_expr ctx buf rhs
-  | Binop.PhysicalEqual ->
-    let lhs = codegen_expr ctx buf lhs in
-    let rhs = codegen_expr ctx buf rhs in
-    comparison_to_value ctx buf Eq lhs rhs
   | Binop.NotPhysicalEqual ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
@@ -58,15 +54,6 @@ let rec codegen_binop ctx buf lhs rhs = function
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
     let ret = call_runtime ctx buf "equal" [lhs; rhs] in
-    StackValue (turn_into_stack ctx buf (RegisterValue ret))
-  | Binop.NotEqual ->
-    let lhs = codegen_expr ctx buf lhs in
-    let rhs = codegen_expr ctx buf rhs in
-    let ret = call_runtime ctx buf "equal" [lhs; rhs] in
-    (* marked bool inversion *)
-    (* 11 -> 01              *)
-    (* 01 -> 11              *)
-    B.emit_inst_fmt buf "xorq $2, %s" (string_of_register ret);
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Binop.Cons ->
     let lhs = codegen_expr ctx buf lhs in
@@ -103,11 +90,7 @@ let rec codegen_binop ctx buf lhs rhs = function
     let s = StackValue (turn_into_stack ctx buf (RegisterValue lhs)) in
     free_register lhs ctx;
     s
-  | Binop.StringAppend ->
-    let lhs = codegen_expr ctx buf lhs in
-    let rhs = codegen_expr ctx buf rhs in
-    let ret = call_runtime ctx buf "append_string" [lhs; rhs] in
-    StackValue (turn_into_stack ctx buf (RegisterValue ret))
+  | Binop.Custom _ -> failwith "custom infix operator is left in codegen"
 
 and codegen_expr ctx buf = function
   | Expr.Int num -> make_marked_const num
