@@ -177,6 +177,15 @@ let append_string ctx buf _label _ret_label =
   assign_to_register buf (StackValue ptr_save) ret_register
 ;;
 
+let length_string ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the length of string *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue ret_register) (-8);
+  free1 ctx
+;;
+
 let shallow_copy ctx buf _label _ret_label =
   let src = nth_arg_stack ctx buf 0 in
   let dest = alloc_register ctx in
@@ -216,6 +225,7 @@ let runtimes =
   ; print_string, "print_string"
   ; equal, "equal"
   ; append_string, "append_string"
+  ; length_string, "length_string"
   ; shallow_copy, "shallow_copy"
   ; identity, "identity" ]
 ;;
