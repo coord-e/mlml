@@ -15,7 +15,7 @@ let l2 = [4; 5; 6]
 
 let rec print_list = function
   | [] -> print_string "end\n"
-  | h :: t -> print_int h; print_string "->"
+  | h :: t -> print_int h; print_string "->"; print_list t
 ;;
 
 print_list (l1 @ l2);
