@@ -90,7 +90,14 @@ let rec codegen_binop ctx buf lhs rhs = function
     let s = StackValue (turn_into_stack ctx buf (RegisterValue lhs)) in
     free_register lhs ctx;
     s
-  | Binop.Custom _ -> failwith "unimplemented"
+  | Binop.Custom sym ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    let f = get_variable ctx sym in
+    (* call twice because f is curryed *)
+    let r1 = safe_call ctx buf (Printf.sprintf "*%s" (string_of_stack f)) [lhs] in
+    let r2 = safe_call ctx buf (Printf.sprintf "*%s" (string_of_register r1)) [rhs] in
+    StackValue (turn_into_stack ctx buf (RegisterValue r2))
 
 and codegen_expr ctx buf = function
   | Expr.Int num -> make_marked_const num
