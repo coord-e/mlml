@@ -359,16 +359,15 @@ and emit_module ctx buf label items =
   emit_function_with ctx buf label emit
 ;;
 
+let emit_runtime ctx buf name f =
+  let label = new_label ctx name in
+  emit_function_with ctx buf label f
+;;
+
 let f ast =
   let buf = B.create () in
   let ctx = new_context () in
+  Runtime.emit_all (emit_runtime ctx buf);
   emit_module ctx buf (Label "main") ast;
-  let _ = emit_function_with ctx buf print_int_label emit_print_int_function in
-  let _ = emit_function_with ctx buf print_char_label emit_print_char_function in
-  let _ = emit_function_with ctx buf print_string_label emit_print_string_function in
-  let _ = emit_function_with ctx buf match_fail_label emit_match_fail in
-  let _ = emit_function_with ctx buf mlml_equal_label emit_equal_function in
-  let _ = emit_function_with ctx buf append_string_label emit_append_string_function in
-  let _ = emit_function_with ctx buf shallow_copy_label emit_shallow_copy_function in
   B.contents buf
 ;;
