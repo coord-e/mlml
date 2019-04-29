@@ -118,15 +118,11 @@ let is_operator_char = function
   | _ -> false
 ;;
 
-let rec read_infix_symbol acc rest =
-  match rest with
-  | h :: t ->
-    (match h with
-    | c when is_operator_char c ->
-      let rest, ident = read_infix_symbol acc t in
-      rest, h :: ident
-    | _ -> rest, acc)
-  | _ -> [], acc
+let rec read_infix_symbol acc = function
+  | h :: t when is_operator_char h ->
+    let rest, ident = read_infix_symbol acc t in
+    rest, h :: ident
+  | rest -> rest, acc
 ;;
 
 let rec tokenize_aux acc rest =
@@ -204,7 +200,7 @@ let rec tokenize_aux acc rest =
       | ':' :: t -> tokenize_aux (DoubleColon :: acc) t
       | _ -> tokenize_aux (Colon :: acc) t)
     | '=' | '<' | '>' | '@' | '^' | '|' | '&' | '+' | '-' | '*' | '/' | '$' | '%' ->
-      let rest, sym = read_infix_symbol t [] in
+      let rest, sym = read_infix_symbol [] t in
       let sym_str = string_of_chars (h :: sym) in
       let token =
         match sym_str with
