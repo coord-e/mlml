@@ -57,12 +57,12 @@ let rec codegen_binop ctx buf lhs rhs = function
   | Binop.Equal ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let ret = safe_call ctx buf (string_of_label mlml_equal_label) [lhs; rhs] in
+    let ret = call_runtime ctx buf "equal" [lhs; rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Binop.NotEqual ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let ret = safe_call ctx buf (string_of_label mlml_equal_label) [lhs; rhs] in
+    let ret = call_runtime ctx buf "equal" [lhs; rhs] in
     (* marked bool inversion *)
     (* 11 -> 01              *)
     (* 01 -> 11              *)
@@ -106,7 +106,7 @@ let rec codegen_binop ctx buf lhs rhs = function
   | Binop.StringAppend ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    let ret = safe_call ctx buf (string_of_label append_string_label) [lhs; rhs] in
+    let ret = call_runtime ctx buf "append_string" [lhs; rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
 
 and codegen_expr ctx buf = function
@@ -360,7 +360,7 @@ and emit_module ctx buf label items =
 ;;
 
 let emit_runtime ctx buf name f =
-  let label = new_label ctx @@ make_runtime_name name in
+  let label = new_label ctx @@ make_name_of_runtime name in
   emit_function_with ctx buf label f
 ;;
 

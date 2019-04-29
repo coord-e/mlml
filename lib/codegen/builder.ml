@@ -82,6 +82,9 @@ let non_volatile_registers =
 ;;
 
 let ret_register = Register "%rax"
+let make_name_of_runtime = Printf.sprintf "_mlml_%s"
+let match_fail_name = "match_fail"
+let match_fail_label = Label (make_name_of_runtime match_fail_name)
 
 let new_local_env () =
   {unused_registers = usable_registers; current_stack = -8; vars = Hashtbl.create 10}
@@ -153,8 +156,6 @@ let start_global_label buf label =
   B.emit_inst buf @@ ".globl " ^ string_of_label label;
   start_label buf label
 ;;
-
-let make_name_of_runtime name = Printf.sprintf "_mlml_%s"
 
 let assign_to_register buf v reg =
   B.emit_inst_fmt buf "movq %s, %s" (string_of_value v) (string_of_register reg)
@@ -286,6 +287,14 @@ let safe_call ctx buf name args =
   let restore (x, s) = assign_to_register buf (StackValue s) x in
   List.iter restore saved_regs;
   ret_register
+;;
+
+let call_runtime ctx buf name =
+  let real_name = make_name_of_runtime name in
+  if LS.mem (Label real_name) ctx.used_labels
+  then safe_call ctx buf real_name
+  else
+    failwith @@ Printf.sprintf "could not find a runtime function named '%s'" real_name
 ;;
 
 let define_ctor ctx ctor idx = Hashtbl.add ctx.ctors ctor idx
@@ -486,7 +495,7 @@ let rec pattern_match ctx buf pat v fail_label =
     free ctx
   | Pat.String s ->
     let sv = make_string_const ctx buf s in
-    let ret = safe_call ctx buf (string_of_label mlml_equal_label) [v; sv] in
+    let ret = call_runtime ctx buf "equal" [v; sv] in
     branch_if_falsy ctx buf (RegisterValue ret) fail_label
   | Pat.Or (a, b) ->
     let idents = Pat.introduced_ident_list a in
@@ -550,6 +559,6 @@ let rec pattern_match ctx buf pat v fail_label =
 ;;
 
 let shallow_copy ctx buf src dest =
-  let ret = safe_call ctx buf (string_of_label shallow_copy_label) [src] in
+  let ret = call_runtime ctx buf "shallow_copy" [src] in
   assign_to_value ctx buf (RegisterValue ret) dest
 ;;
