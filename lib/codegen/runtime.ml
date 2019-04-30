@@ -200,6 +200,7 @@ let shallow_copy ctx buf _label _ret_label =
   let ptr = push_to_stack ctx buf (RegisterValue dest) in
   B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_register dest);
   B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_stack src);
+  B.emit_inst_fmt buf "addq $8, %s" (string_of_register size);
   let _ =
     safe_call
       ctx
