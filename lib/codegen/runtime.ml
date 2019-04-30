@@ -136,9 +136,7 @@ let append_string ctx buf _label _ret_label =
   B.emit_inst_fmt buf "addq %s, %s" (string_of_register lhs_len) (string_of_stack len);
   (* calculate aligned size *)
   assign_to_stack ctx buf (StackValue len) size;
-  B.emit_inst_fmt buf "shrq $3, %s" (string_of_stack size);
-  B.emit_inst_fmt buf "incq %s" (string_of_stack size);
-  B.emit_inst_fmt buf "shlq $3, %s" (string_of_stack size);
+  calc_aligned_size buf (StackValue size);
   (* add 16 (metadata) *)
   B.emit_inst_fmt buf "addq $16, %s" (string_of_stack size);
   let ptr = alloc_register ctx in
@@ -193,7 +191,11 @@ let length_string ctx buf _label _ret_label =
 ;;
 
 let shallow_copy ctx buf _label _ret_label =
-  let src = nth_arg_stack ctx buf 0 in
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  let src = alloc_stack ctx in
+  read_from_address ctx buf (RegisterValue a1) (StackValue src) (-8);
+  free1 ctx;
   let dest = alloc_register ctx in
   let size = alloc_register ctx in
   (* read data size *)
@@ -203,6 +205,7 @@ let shallow_copy ctx buf _label _ret_label =
   let ptr = push_to_stack ctx buf (RegisterValue dest) in
   B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_register dest);
   B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_stack src);
+  B.emit_inst_fmt buf "addq $8, %s" (string_of_register size);
   let _ =
     safe_call
       ctx
@@ -224,6 +227,87 @@ let identity ctx buf _label _ret_label =
   free1 ctx
 ;;
 
+let get_string ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the two element of tuple *)
+  let lhs = alloc_register ctx in
+  let rhs = alloc_register ctx in
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue lhs) (-8);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue rhs) (-16);
+  free1 ctx;
+  (* function body *)
+  restore_marked_int buf (RegisterValue rhs);
+  (* assume lhs holds pointer to a string *)
+  string_value_to_content ctx buf (RegisterValue lhs) (RegisterValue lhs);
+  B.emit_inst_fmt buf "addq %s, %s" (string_of_register rhs) (string_of_register lhs);
+  free_register rhs ctx;
+  (* take one byte (one character) *)
+  B.emit_inst_fmt buf "movzbq (%s), %s" (string_of_register lhs) (string_of_register lhs);
+  make_marked_int buf (RegisterValue lhs);
+  assign_to_register buf (RegisterValue lhs) ret_register;
+  free_register lhs ctx
+;;
+
+let set_string ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the two element of tuple *)
+  let str = alloc_register ctx in
+  let idx = alloc_register ctx in
+  let chr = alloc_register ctx in
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue str) (-8);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue idx) (-16);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue chr) (-24);
+  free1 ctx;
+  (* function body *)
+  restore_marked_int buf (RegisterValue idx);
+  (* assume str holds pointer to a string *)
+  string_value_to_content ctx buf (RegisterValue str) (RegisterValue str);
+  B.emit_inst_fmt buf "addq %s, %s" (string_of_register idx) (string_of_register str);
+  free_register idx ctx;
+  restore_marked_int buf (RegisterValue chr);
+  (* Use rdx temporarily (8-bit register(dl) is needed) *)
+  let rdx = Register "%rdx" in
+  use_register ctx rdx;
+  assign_to_register buf (RegisterValue chr) rdx;
+  B.emit_inst_fmt buf "movb %%dl, (%s)" (string_of_register str);
+  free_register rdx ctx;
+  free_register str ctx;
+  free_register chr ctx
+;;
+
+let create_string ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  restore_marked_int buf (RegisterValue a1);
+  (* actual length of string *)
+  let len = alloc_register ctx in
+  (* allocated size *)
+  let size = alloc_register ctx in
+  assign_to_register buf (RegisterValue a1) len;
+  assign_to_register buf (RegisterValue a1) size;
+  free1 ctx;
+  calc_aligned_size buf (RegisterValue size);
+  (* add 16 (metadata) *)
+  B.emit_inst_fmt buf "addq $16, %s" (string_of_register size);
+  let ptr = alloc_register ctx in
+  alloc_heap_ptr ctx buf (RegisterValue size) (RegisterValue ptr);
+  (* data size *)
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_register size);
+  make_marked_int buf (RegisterValue size);
+  assign_to_address ctx buf (RegisterValue size) (RegisterValue ptr) 0;
+  make_marked_int buf (RegisterValue len);
+  assign_to_address ctx buf (RegisterValue len) (RegisterValue ptr) (-8);
+  free_register size ctx;
+  free_register len ctx;
+  assign_to_register buf (RegisterValue ptr) ret_register;
+  free_register ptr ctx
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_int, "print_int"
@@ -232,6 +316,9 @@ let runtimes =
   ; equal, "equal"
   ; append_string, "append_string"
   ; length_string, "length_string"
+  ; get_string, "get_string"
+  ; set_string, "set_string"
+  ; create_string, "create_string"
   ; shallow_copy, "shallow_copy"
   ; identity, "identity" ]
 ;;
