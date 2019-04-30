@@ -147,6 +147,7 @@ and try_parse_literal tokens =
     in
     let rest, l = aux rest in
     rest, Some l
+  | L.LParen :: L.RParen :: tokens -> tokens, Some (T.Tuple [])
   | L.LParen :: tokens ->
     let rest, v = parse_expression tokens in
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
@@ -265,7 +266,13 @@ and parse_if = function
       | L.Else :: rest ->
         let rest, else_ = parse_expression rest in
         rest, T.IfThenElse (cond, then_, else_)
-      | _ -> failwith "could not find 'else'")
+      | _ ->
+        (* (if c then v)             *)
+        (* is converted to           *)
+        (* (if c then v; () else ()) *)
+        let unit_ = T.Tuple [] in
+        let then_ = T.BinOp (Binop.Follow, then_, unit_) in
+        rest, T.IfThenElse (cond, then_, unit_))
     | _ -> failwith "could not find 'then'")
   | tokens -> parse_tuple tokens
 
