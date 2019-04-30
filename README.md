@@ -29,7 +29,8 @@ This compiler takes a source string as input, and produces x86\_64 assembly.
 - [ ] primitive types
   - [x] string
   - [x] list
-  - [ ] bytes
+  - [x] bytes
+  - [ ] array
 - [ ] modules
   - [x] definition
   - [x] aliases
