@@ -32,7 +32,8 @@ let print_int ctx buf _label _ret_label =
   B.emit_inst buf "xorq %rax, %rax";
   let _ = safe_call ctx buf "printf@PLT" [RegisterValue a1; RegisterValue a2] in
   free1 ctx;
-  free2 ctx
+  free2 ctx;
+  assign_to_register buf (make_tuple_const ctx buf []) ret_register
 ;;
 
 let print_char ctx buf _label _ret_label =
@@ -41,7 +42,8 @@ let print_char ctx buf _label _ret_label =
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
   restore_marked_int buf (RegisterValue a1);
   let _ = safe_call ctx buf "putchar@PLT" [RegisterValue a1] in
-  free1 ctx
+  free1 ctx;
+  assign_to_register buf (make_tuple_const ctx buf []) ret_register
 ;;
 
 let print_string ctx buf _label _ret_label =
@@ -54,7 +56,8 @@ let print_string ctx buf _label _ret_label =
   B.emit_inst_fmt buf "movq stdout(%%rip), %s" (string_of_register a2);
   let _ = safe_call ctx buf "fputs@PLT" [RegisterValue a1; RegisterValue a2] in
   free1 ctx;
-  free2 ctx
+  free2 ctx;
+  assign_to_register buf (make_tuple_const ctx buf []) ret_register
 ;;
 
 let equal ctx buf label ret_label =
