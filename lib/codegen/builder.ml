@@ -382,6 +382,12 @@ let make_tuple_const ctx buf values =
   StackValue s
 ;;
 
+let call_runtime_mlml ctx buf name params =
+  let params = match params with [v] -> v | l -> make_tuple_const ctx buf l in
+  let cls = make_tuple_const ctx buf [params; make_tuple_const ctx buf []] in
+  call_runtime ctx buf name [cls]
+;;
+
 let undef_variable_pattern ctx pat =
   List.iter (undef_variable ctx) (Pat.introduced_ident_list pat)
 ;;
@@ -574,7 +580,6 @@ let rec pattern_match ctx buf pat v fail_label =
 ;;
 
 let shallow_copy ctx buf src dest =
-  let t = make_tuple_const ctx buf [src] in
-  let ret = call_runtime ctx buf "shallow_copy" [t] in
+  let ret = call_runtime_mlml ctx buf "shallow_copy" [src] in
   assign_to_value ctx buf (RegisterValue ret) dest
 ;;
