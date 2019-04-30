@@ -10,6 +10,26 @@ let get s n = _get (s, n)
 let set s n c = _set (s, n, c)
 let empty = create 0
 
+let blit src srcoff dst dstoff len =
+  let rec aux i =
+    let srcidx = srcoff + i in
+    let dstidx = dstoff + i in
+    set dst dstidx @@ get src srcidx;
+    if i != 0 then aux (i - 1)
+  in
+  aux (len - 1)
+;;
+
+let blit_string src srcoff dst dstoff len = blit src srcoff dst dstoff len |> to_string
+
+let sub s start len =
+  let b = create len in
+  blit s start b 0 len;
+  b
+;;
+
+let sub_string s start len = sub s start len |> to_string
+
 let init n f =
   let b = create n in
   let rec aux i =
