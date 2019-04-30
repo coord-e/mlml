@@ -190,7 +190,11 @@ let length_string ctx buf _label _ret_label =
 ;;
 
 let shallow_copy ctx buf _label _ret_label =
-  let src = nth_arg_stack ctx buf 0 in
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  let src = alloc_stack ctx in
+  read_from_address ctx buf (RegisterValue a1) (StackValue src) (-8);
+  free1 ctx;
   let dest = alloc_register ctx in
   let size = alloc_register ctx in
   (* read data size *)

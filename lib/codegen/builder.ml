@@ -565,6 +565,7 @@ let rec pattern_match ctx buf pat v fail_label =
 ;;
 
 let shallow_copy ctx buf src dest =
-  let ret = call_runtime ctx buf "shallow_copy" [src] in
+  let t = make_tuple_const ctx buf [src] in
+  let ret = call_runtime ctx buf "shallow_copy" [t] in
   assign_to_value ctx buf (RegisterValue ret) dest
 ;;
