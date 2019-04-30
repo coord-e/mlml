@@ -37,8 +37,11 @@ let bundle_libs libs =
 ;;
 
 let exec_with_mlml source =
-  let libs = collect_libs stdlib_dir |> bundle_libs in
-  let source = Printf.sprintf "%s\nopen Pervasives ;;\n%s" libs source in
+  let libs = collect_libs stdlib_dir in
+  let p, libs = List.partition (fun (name, _) -> name = "pervasives") libs in
+  let libs = bundle_libs libs in
+  let p = bundle_libs p in
+  let source = Printf.sprintf "%s\nopen Pervasives ;;%s\n;;\n%s" p libs source in
   let as_file = Filename.temp_file "." ".s" in
   let oc = open_out as_file in
   Printf.fprintf oc "%s\n" @@ Compile.f source;
