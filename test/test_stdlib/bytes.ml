@@ -12,11 +12,9 @@ let empty = create 0
 
 let init n f =
   let b = create n in
-  let rec aux = function
-    | 0 -> set b 0 (f 0)
-    | i ->
-      set b i (f i);
-      aux (i - 1)
+  let rec aux i =
+    set b i (f i);
+    if i != 0 then aux (i - 1)
   in
   aux (n - 1);
   b
