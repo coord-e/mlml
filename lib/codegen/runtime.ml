@@ -230,7 +230,7 @@ let get_string ctx buf _label _ret_label =
   let a1, free1 = nth_arg_register ctx 0 in
   (* read the first element of closure tuple *)
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
-  (* read the two element of closure tuple *)
+  (* read the two element of tuple *)
   let lhs = alloc_register ctx in
   let rhs = alloc_register ctx in
   read_from_address ctx buf (RegisterValue a1) (RegisterValue lhs) (-8);
@@ -256,7 +256,7 @@ let set_string ctx buf _label _ret_label =
   let a1, free1 = nth_arg_register ctx 0 in
   (* read the first element of closure tuple *)
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
-  (* read the two element of closure tuple *)
+  (* read the two element of tuple *)
   let str = alloc_register ctx in
   let idx = alloc_register ctx in
   let chr = alloc_register ctx in
