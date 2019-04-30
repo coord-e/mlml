@@ -133,9 +133,7 @@ let append_string ctx buf _label _ret_label =
   B.emit_inst_fmt buf "addq %s, %s" (string_of_register lhs_len) (string_of_stack len);
   (* calculate aligned size *)
   assign_to_stack ctx buf (StackValue len) size;
-  B.emit_inst_fmt buf "shrq $3, %s" (string_of_stack size);
-  B.emit_inst_fmt buf "incq %s" (string_of_stack size);
-  B.emit_inst_fmt buf "shlq $3, %s" (string_of_stack size);
+  calc_aligned_size buf (StackValue size);
   (* add 16 (metadata) *)
   B.emit_inst_fmt buf "addq $16, %s" (string_of_stack size);
   let ptr = alloc_register ctx in
@@ -278,6 +276,35 @@ let set_string ctx buf _label _ret_label =
   free_register chr ctx
 ;;
 
+let create_string ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  restore_marked_int buf (RegisterValue a1);
+  (* actual length of string *)
+  let len = alloc_register ctx in
+  (* allocated size *)
+  let size = alloc_register ctx in
+  assign_to_register buf (RegisterValue a1) len;
+  assign_to_register buf (RegisterValue a1) size;
+  free1 ctx;
+  calc_aligned_size buf (RegisterValue size);
+  (* add 16 (metadata) *)
+  B.emit_inst_fmt buf "addq $16, %s" (string_of_register size);
+  let ptr = alloc_register ctx in
+  alloc_heap_ptr ctx buf (RegisterValue size) (RegisterValue ptr);
+  (* data size *)
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_register size);
+  make_marked_int buf (RegisterValue size);
+  assign_to_address ctx buf (RegisterValue size) (RegisterValue ptr) 0;
+  make_marked_int buf (RegisterValue len);
+  assign_to_address ctx buf (RegisterValue len) (RegisterValue ptr) (-8);
+  free_register size ctx;
+  free_register len ctx;
+  assign_to_register buf (RegisterValue ptr) ret_register;
+  free_register ptr ctx
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_int, "print_int"
@@ -288,6 +315,7 @@ let runtimes =
   ; length_string, "length_string"
   ; get_string, "get_string"
   ; set_string, "set_string"
+  ; create_string, "create_string"
   ; shallow_copy, "shallow_copy"
   ; identity, "identity" ]
 ;;

@@ -343,9 +343,18 @@ let alloc_heap_ptr_constsize ctx buf size dest =
   alloc_heap_ptr_raw ctx buf (ConstantValue size) dest
 ;;
 
+(* calculate aligned size *)
+let calc_aligned_size buf size =
+  B.emit_inst_fmt buf "shrq $3, %s" (string_of_value size);
+  B.emit_inst_fmt buf "incq %s" (string_of_value size);
+  B.emit_inst_fmt buf "shlq $3, %s" (string_of_value size)
+;;
+
+let calc_aligned_size_const size = ((size / 8) + 1) * 8
+
 let make_string_const ctx buf s =
   let len = String.length s in
-  let aligned = ((len / 8) + 1) * 8 in
+  let aligned = calc_aligned_size_const len in
   (* emit data *)
   let str_label = new_unnamed_label ctx in
   let pad = aligned - len - 1 in
@@ -353,7 +362,7 @@ let make_string_const ctx buf s =
   B.emit_sub_inst_fmt buf ".fill %d" pad;
   B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const len;
   B.emit_sub buf (B.Label (string_of_label str_label));
-  B.emit_sub_inst_fmt buf ".quad %d" (((aligned + 8) * 2) + 1);
+  B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const (aligned + 8);
   let r = alloc_register ctx in
   label_ptr_to_register buf str_label r;
   let s = turn_into_stack ctx buf (RegisterValue r) in
