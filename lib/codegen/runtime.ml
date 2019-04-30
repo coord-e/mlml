@@ -221,6 +221,63 @@ let identity ctx buf _label _ret_label =
   free1 ctx
 ;;
 
+let get_string ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the two element of closure tuple *)
+  let lhs = alloc_register ctx in
+  let rhs = alloc_register ctx in
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue lhs) (-8);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue rhs) (-16);
+  free1 ctx;
+  (* function body *)
+  restore_marked_int buf (RegisterValue rhs);
+  (* assume lhs holds pointer to a string *)
+  string_value_to_content ctx buf (RegisterValue lhs) (RegisterValue lhs);
+  B.emit_inst_fmt buf "addq %s, %s" (string_of_register rhs) (string_of_register lhs);
+  free_register rhs ctx;
+  (* take one byte (one character) *)
+  B.emit_inst_fmt
+    buf
+    "movzbq (%s), %s"
+    (string_of_register lhs)
+    (string_of_register lhs);
+  make_marked_int buf (RegisterValue lhs);
+  assign_to_register buf (RegisterValue lhs) ret_register;
+  free_register lhs ctx
+
+let set_string ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the two element of closure tuple *)
+  let str = alloc_register ctx in
+  let idx = alloc_register ctx in
+  let chr = alloc_register ctx in
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue str) (-8);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue idx) (-16);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue chr) (-24);
+  free1 ctx;
+  (* function body *)
+  restore_marked_int buf (RegisterValue idx);
+  (* assume str holds pointer to a string *)
+  string_value_to_content ctx buf (RegisterValue str) (RegisterValue str);
+  B.emit_inst_fmt buf "addq %s, %s" (string_of_register idx) (string_of_register str);
+  free_register idx ctx;
+  (* take one byte (one character) *)
+  (* Use rdx temporarily (8-bit register(dl) is needed) *)
+  let rdx = Register "%rdx" in
+  use_register ctx rdx;
+  assign_to_register buf (RegisterValue chr) rdx;
+  B.emit_inst_fmt
+    buf
+    "movb %%dl, (%s)"
+    (string_of_register str);
+  free_register rdx ctx;
+  free_register str ctx;
+  free_register chr ctx
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_int, "print_int"
@@ -229,6 +286,8 @@ let runtimes =
   ; equal, "equal"
   ; append_string, "append_string"
   ; length_string, "length_string"
+  ; get_string, "get_string"
+  ; set_string, "set_string"
   ; shallow_copy, "shallow_copy"
   ; identity, "identity" ]
 ;;
