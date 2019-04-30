@@ -243,14 +243,11 @@ let get_string ctx buf _label _ret_label =
   B.emit_inst_fmt buf "addq %s, %s" (string_of_register rhs) (string_of_register lhs);
   free_register rhs ctx;
   (* take one byte (one character) *)
-  B.emit_inst_fmt
-    buf
-    "movzbq (%s), %s"
-    (string_of_register lhs)
-    (string_of_register lhs);
+  B.emit_inst_fmt buf "movzbq (%s), %s" (string_of_register lhs) (string_of_register lhs);
   make_marked_int buf (RegisterValue lhs);
   assign_to_register buf (RegisterValue lhs) ret_register;
   free_register lhs ctx
+;;
 
 let set_string ctx buf _label _ret_label =
   let a1, free1 = nth_arg_register ctx 0 in
@@ -270,18 +267,16 @@ let set_string ctx buf _label _ret_label =
   string_value_to_content ctx buf (RegisterValue str) (RegisterValue str);
   B.emit_inst_fmt buf "addq %s, %s" (string_of_register idx) (string_of_register str);
   free_register idx ctx;
-  (* take one byte (one character) *)
+  restore_marked_int buf (RegisterValue chr);
   (* Use rdx temporarily (8-bit register(dl) is needed) *)
   let rdx = Register "%rdx" in
   use_register ctx rdx;
   assign_to_register buf (RegisterValue chr) rdx;
-  B.emit_inst_fmt
-    buf
-    "movb %%dl, (%s)"
-    (string_of_register str);
+  B.emit_inst_fmt buf "movb %%dl, (%s)" (string_of_register str);
   free_register rdx ctx;
   free_register str ctx;
   free_register chr ctx
+;;
 
 let runtimes =
   [ match_fail, match_fail_name
