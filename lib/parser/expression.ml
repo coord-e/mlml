@@ -147,6 +147,7 @@ and try_parse_literal tokens =
     in
     let rest, l = aux rest in
     rest, Some l
+  | L.LParen :: L.RParen :: tokens -> tokens, Some (T.Tuple [])
   | L.LParen :: tokens ->
     let rest, v = parse_expression tokens in
     (match rest with L.RParen :: rest -> rest, Some v | _ -> rest, None)
