@@ -65,32 +65,8 @@ let rec codegen_binop ctx buf lhs rhs = function
     free_r ctx;
     make_marked_int buf rem;
     rem
-  | Binop.Or ->
-    (* if lhs then lhs else rhs *)
-    let lhs = codegen_expr ctx buf lhs in
-    let merge = alloc_register ctx in
-    assign_to_register buf lhs merge;
-    let truthy_label = new_unnamed_label ctx in
-    branch_if_truthy ctx buf lhs truthy_label;
-    let rhs = codegen_expr ctx buf rhs in
-    assign_to_register buf rhs merge;
-    start_label buf truthy_label;
-    let s = turn_into_stack ctx buf (RegisterValue merge) in
-    free_register merge ctx;
-    StackValue s
-  | Binop.And ->
-    (* if lhs then rhs else lhs *)
-    let lhs = codegen_expr ctx buf lhs in
-    let merge = alloc_register ctx in
-    assign_to_register buf lhs merge;
-    let falsy_label = new_unnamed_label ctx in
-    branch_if_falsy ctx buf lhs falsy_label;
-    let rhs = codegen_expr ctx buf rhs in
-    assign_to_register buf rhs merge;
-    start_label buf falsy_label;
-    let s = turn_into_stack ctx buf (RegisterValue merge) in
-    free_register merge ctx;
-    StackValue s
+  | Binop.Or -> codegen_expr ctx buf (Expr.IfThenElse (lhs, lhs, lhs))
+  | Binop.And -> codegen_expr ctx buf (Expr.IfThenElse (lhs, rhs, lhs))
   | Binop.Follow ->
     let _ = codegen_expr ctx buf lhs in
     codegen_expr ctx buf rhs
