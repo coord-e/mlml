@@ -10,5 +10,11 @@ let () =
   Tester.bool_expr "1 > 2";
   Tester.bool_expr "133 < 123";
   Tester.bool_expr "42 > 42";
-  Tester.bool_expr "2 < 42"
+  Tester.bool_expr "2 < 42";
+  Tester.bool_expr "false || false";
+  Tester.bool_expr "true || true";
+  Tester.bool_expr "true && true";
+  Tester.bool_expr "false && true";
+  Tester.bool_expr "false && (print_int 42; true)";
+  Tester.bool_expr "true && (print_int 42; true)"
 ;;
