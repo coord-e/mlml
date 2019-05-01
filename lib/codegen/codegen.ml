@@ -43,6 +43,30 @@ let rec codegen_binop ctx buf lhs rhs = function
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free_r ctx;
     StackValue s
+  | Binop.Div ->
+    let lhs, free_l = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
+    let rhs, free_r = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
+    restore_marked_int buf (RegisterValue lhs);
+    restore_marked_int buf (RegisterValue rhs);
+    let quot = StackValue (alloc_stack ctx) in
+    calc_div ctx buf lhs rhs (Some quot) None;
+    free_l ctx;
+    free_r ctx;
+    make_marked_int buf quot;
+    quot
+  | Binop.Mod ->
+    let lhs, free_l = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
+    let rhs, free_r = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
+    restore_marked_int buf (RegisterValue lhs);
+    restore_marked_int buf (RegisterValue rhs);
+    let rem = StackValue (alloc_stack ctx) in
+    calc_div ctx buf lhs rhs None (Some rem);
+    free_l ctx;
+    free_r ctx;
+    make_marked_int buf rem;
+    rem
+  | Binop.Or -> codegen_expr ctx buf (Expr.IfThenElse (lhs, lhs, lhs))
+  | Binop.And -> codegen_expr ctx buf (Expr.IfThenElse (lhs, rhs, lhs))
   | Binop.Follow ->
     let _ = codegen_expr ctx buf lhs in
     codegen_expr ctx buf rhs
@@ -55,6 +79,14 @@ let rec codegen_binop ctx buf lhs rhs = function
     let rhs = codegen_expr ctx buf rhs in
     let ret = call_runtime ctx buf "equal" [lhs; rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
+  | Binop.Lt ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    comparison_to_value ctx buf Gt lhs rhs
+  | Binop.Gt ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    comparison_to_value ctx buf Lt lhs rhs
   | Binop.Cons ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in

@@ -190,6 +190,12 @@ and parse_mult tokens =
     | L.Star :: rest ->
       let rest, rhs = parse_app rest in
       aux (T.BinOp (Binop.Mul, lhs, rhs)) rest
+    | L.Slash :: rest ->
+      let rest, rhs = parse_app rest in
+      aux (T.BinOp (Binop.Div, lhs, rhs)) rest
+    | L.Mod :: rest ->
+      let rest, rhs = parse_app rest in
+      aux (T.BinOp (Binop.Mod, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -237,13 +243,35 @@ and parse_equal tokens =
     | L.NotEqual :: rest ->
       let rest, rhs = parse_infix rest in
       aux (T.BinOp (Binop.NotPhysicalEqual, lhs, rhs)) rest
+    | L.Lt :: rest ->
+      let rest, rhs = parse_infix rest in
+      aux (T.BinOp (Binop.Lt, lhs, rhs)) rest
+    | L.Gt :: rest ->
+      let rest, rhs = parse_infix rest in
+      aux (T.BinOp (Binop.Gt, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
 
+and parse_and tokens =
+  let tokens, lhs = parse_equal tokens in
+  match tokens with
+  | L.DoubleAnd :: tokens ->
+    let tokens, rhs = parse_and tokens in
+    tokens, T.BinOp (Binop.And, lhs, rhs)
+  | _ -> tokens, lhs
+
+and parse_or tokens =
+  let tokens, lhs = parse_and tokens in
+  match tokens with
+  | L.DoubleVertical :: tokens ->
+    let tokens, rhs = parse_or tokens in
+    tokens, T.BinOp (Binop.Or, lhs, rhs)
+  | _ -> tokens, lhs
+
 and parse_tuple tokens =
   let rec aux tokens =
-    let rest, curr = parse_equal tokens in
+    let rest, curr = parse_or tokens in
     match rest with
     | L.Comma :: rest ->
       let rest, tail = aux rest in

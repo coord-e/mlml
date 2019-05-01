@@ -13,7 +13,6 @@ This compiler takes a source string as input, and produces x86\_64 assembly.
 ## roadmap
 
 - [x] basic arithmetic
-  - [ ] div, shift, etc
 - [x] variables
 - [x] if-then-else
 - [x] functions

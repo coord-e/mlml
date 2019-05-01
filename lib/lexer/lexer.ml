@@ -9,6 +9,9 @@ type token =
   | Plus
   | Minus
   | Star
+  | Slash
+  | Mod
+  | DoubleAnd
   | Let
   | Rec
   | In
@@ -16,11 +19,13 @@ type token =
   | Equal
   | NotEqual
   | Lt
+  | Gt
   | If
   | Then
   | Else
   | Type
   | Vertical
+  | DoubleVertical
   | Excl
   | Of
   | Match
@@ -155,6 +160,7 @@ let rec tokenize_aux acc rest =
       let rest, ident = read_ident [] rest in
       let ident_str = string_of_chars ident in
       (match ident_str with
+      | "mod" -> tokenize_aux (Mod :: acc) rest
       | "let" -> tokenize_aux (Let :: acc) rest
       | "rec" -> tokenize_aux (Rec :: acc) rest
       | "in" -> tokenize_aux (In :: acc) rest
@@ -212,9 +218,13 @@ let rec tokenize_aux acc rest =
         | "-" -> Minus
         | "->" -> Arrow
         | "*" -> Star
+        | "/" -> Slash
         | "=" -> Equal
         | "<" -> Lt
+        | ">" -> Gt
         | "|" -> Vertical
+        | "||" -> DoubleVertical
+        | "&&" -> DoubleAnd
         | _ -> InfixSymbol sym_str
       in
       tokenize_aux (token :: acc) rest
@@ -231,6 +241,9 @@ let string_of_token = function
   | Plus -> "+"
   | Minus -> "-"
   | Star -> "*"
+  | Slash -> "/"
+  | DoubleAnd -> "&&"
+  | Mod -> "mod"
   | Let -> "let"
   | Rec -> "rec"
   | In -> "in"
@@ -238,11 +251,13 @@ let string_of_token = function
   | Equal -> "="
   | NotEqual -> "!="
   | Lt -> "<"
+  | Gt -> ">"
   | If -> "if"
   | Then -> "then"
   | Else -> "else"
   | Type -> "type"
   | Vertical -> "|"
+  | DoubleVertical -> "||"
   | Excl -> "!"
   | Of -> "of"
   | Match -> "match"

@@ -9,6 +9,8 @@ let not c = if c then false else true
 let ( <> ) a b = not (a = b)
 let ( == ) a b = not (a != b)
 let ( ^ ) a b = _append_string (a, b)
+let ( <= ) a b = not (a > b)
+let ( >= ) a b = not (a < b)
 let rec ( @ ) a b = match a with [] -> b | h :: t -> h :: (t @ b)
 
 (* TODO: @@ is right-assiciative *)
