@@ -7,6 +7,8 @@ type t =
   | NotPhysicalEqual
   | Lt
   | Gt
+  | And
+  | Or
   | Cons
   | StringIndex
   | Mod
@@ -25,6 +27,8 @@ let string_of_binop = function
   | Follow -> ";"
   | Equal -> "="
   | NotPhysicalEqual -> "!="
+  | And -> "&&"
+  | Or -> "||"
   | Cons -> "::"
   | StringIndex -> ".[]"
   | Custom s -> s

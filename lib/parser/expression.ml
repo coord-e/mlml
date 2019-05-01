@@ -253,9 +253,25 @@ and parse_equal tokens =
   in
   aux lhs tokens
 
+and parse_and tokens =
+  let tokens, lhs = parse_equal tokens in
+  match tokens with
+  | L.DoubleAnd :: tokens ->
+    let tokens, rhs = parse_and tokens in
+    tokens, T.BinOp (Binop.And, lhs, rhs)
+  | _ -> tokens, lhs
+
+and parse_or tokens =
+  let tokens, lhs = parse_and tokens in
+  match tokens with
+  | L.DoubleVertical :: tokens ->
+    let tokens, rhs = parse_or tokens in
+    tokens, T.BinOp (Binop.Or, lhs, rhs)
+  | _ -> tokens, lhs
+
 and parse_tuple tokens =
   let rec aux tokens =
-    let rest, curr = parse_equal tokens in
+    let rest, curr = parse_or tokens in
     match rest with
     | L.Comma :: rest ->
       let rest, tail = aux rest in

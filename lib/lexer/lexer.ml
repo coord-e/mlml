@@ -11,6 +11,7 @@ type token =
   | Star
   | Slash
   | Mod
+  | DoubleAnd
   | Let
   | Rec
   | In
@@ -24,6 +25,7 @@ type token =
   | Else
   | Type
   | Vertical
+  | DoubleVertical
   | Excl
   | Of
   | Match
@@ -221,6 +223,8 @@ let rec tokenize_aux acc rest =
         | "<" -> Lt
         | ">" -> Gt
         | "|" -> Vertical
+        | "||" -> DoubleVertical
+        | "&&" -> DoubleAnd
         | _ -> InfixSymbol sym_str
       in
       tokenize_aux (token :: acc) rest
@@ -238,6 +242,7 @@ let string_of_token = function
   | Minus -> "-"
   | Star -> "*"
   | Slash -> "/"
+  | DoubleAnd -> "&&"
   | Mod -> "mod"
   | Let -> "let"
   | Rec -> "rec"
@@ -252,6 +257,7 @@ let string_of_token = function
   | Else -> "else"
   | Type -> "type"
   | Vertical -> "|"
+  | DoubleVertical -> "||"
   | Excl -> "!"
   | Of -> "of"
   | Match -> "match"
