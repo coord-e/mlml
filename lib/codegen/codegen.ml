@@ -43,6 +43,33 @@ let rec codegen_binop ctx buf lhs rhs = function
     let s = turn_into_stack ctx buf (RegisterValue rhs) in
     free_r ctx;
     StackValue s
+  | Binop.Div ->
+    let lhs, free_l = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
+    let rhs, free_r = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
+    restore_marked_int buf (RegisterValue lhs);
+    restore_marked_int buf (RegisterValue rhs);
+    let rax = Register "%rax" in
+    assign_to_register buf (RegisterValue lhs) rax;
+    free_l ctx;
+    B.emit_inst buf "cltd";
+    B.emit_inst_fmt buf "idivq %s" (string_of_register rhs);
+    free_r ctx;
+    make_marked_int buf (RegisterValue rax);
+    StackValue (turn_into_stack ctx buf (RegisterValue rax))
+  | Binop.Mod ->
+    let lhs, free_l = codegen_expr ctx buf lhs |> turn_into_register ctx buf in
+    let rhs, free_r = codegen_expr ctx buf rhs |> turn_into_register ctx buf in
+    restore_marked_int buf (RegisterValue lhs);
+    restore_marked_int buf (RegisterValue rhs);
+    let rax = Register "%rax" in
+    assign_to_register buf (RegisterValue lhs) rax;
+    free_l ctx;
+    B.emit_inst buf "cltd";
+    B.emit_inst_fmt buf "idivq %s" (string_of_register rhs);
+    free_r ctx;
+    let rdx = Register "%rdx" in
+    make_marked_int buf (RegisterValue rdx);
+    StackValue (turn_into_stack ctx buf (RegisterValue rdx))
   | Binop.Follow ->
     let _ = codegen_expr ctx buf lhs in
     codegen_expr ctx buf rhs
