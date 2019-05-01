@@ -583,3 +583,18 @@ let shallow_copy ctx buf src dest =
   let ret = call_runtime_mlml ctx buf "shallow_copy" [src] in
   assign_to_value ctx buf (RegisterValue ret) dest
 ;;
+
+let calc_div ctx buf lhs rhs quot rem =
+  let rax = Register "%rax" in
+  assign_to_register buf (RegisterValue lhs) rax;
+  B.emit_inst buf "cltd";
+  B.emit_inst_fmt buf "idivq %s" (string_of_register rhs);
+  let rdx = Register "%rdx" in
+  match quot with
+  | Some quot -> assign_to_value ctx buf (RegisterValue rax) quot
+  | None ->
+    ();
+    (match rem with
+    | Some rem -> assign_to_value ctx buf (RegisterValue rdx) rem
+    | None -> ())
+;;
