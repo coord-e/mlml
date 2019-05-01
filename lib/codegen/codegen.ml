@@ -77,6 +77,14 @@ let rec codegen_binop ctx buf lhs rhs = function
     let rhs = codegen_expr ctx buf rhs in
     let ret = call_runtime ctx buf "equal" [lhs; rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
+  | Binop.Lt ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    comparison_to_value ctx buf Lt lhs rhs
+  | Binop.Gt ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    comparison_to_value ctx buf Gt lhs rhs
   | Binop.Cons ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in

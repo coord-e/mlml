@@ -5,6 +5,8 @@ type t =
   | Follow
   | Equal
   | NotPhysicalEqual
+  | Lt
+  | Gt
   | Cons
   | StringIndex
   | Mod
@@ -17,6 +19,8 @@ let string_of_binop = function
   | Sub -> "-"
   | Mul -> "*"
   | Div -> "/"
+  | Lt -> "<"
+  | Gt -> ">"
   | Mod -> "mod"
   | Follow -> ";"
   | Equal -> "="

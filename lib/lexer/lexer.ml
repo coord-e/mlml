@@ -18,6 +18,7 @@ type token =
   | Equal
   | NotEqual
   | Lt
+  | Gt
   | If
   | Then
   | Else
@@ -218,6 +219,7 @@ let rec tokenize_aux acc rest =
         | "/" -> Slash
         | "=" -> Equal
         | "<" -> Lt
+        | ">" -> Gt
         | "|" -> Vertical
         | _ -> InfixSymbol sym_str
       in
@@ -244,6 +246,7 @@ let string_of_token = function
   | Equal -> "="
   | NotEqual -> "!="
   | Lt -> "<"
+  | Gt -> ">"
   | If -> "if"
   | Then -> "then"
   | Else -> "else"

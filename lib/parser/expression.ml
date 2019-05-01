@@ -243,6 +243,12 @@ and parse_equal tokens =
     | L.NotEqual :: rest ->
       let rest, rhs = parse_infix rest in
       aux (T.BinOp (Binop.NotPhysicalEqual, lhs, rhs)) rest
+    | L.Lt :: rest ->
+      let rest, rhs = parse_infix rest in
+      aux (T.BinOp (Binop.Lt, lhs, rhs)) rest
+    | L.Gt :: rest ->
+      let rest, rhs = parse_infix rest in
+      aux (T.BinOp (Binop.Gt, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
