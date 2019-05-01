@@ -190,6 +190,12 @@ and parse_mult tokens =
     | L.Star :: rest ->
       let rest, rhs = parse_app rest in
       aux (T.BinOp (Binop.Mul, lhs, rhs)) rest
+    | L.Slash :: rest ->
+      let rest, rhs = parse_app rest in
+      aux (T.BinOp (Binop.Div, lhs, rhs)) rest
+    | L.Mod :: rest ->
+      let rest, rhs = parse_app rest in
+      aux (T.BinOp (Binop.Mod, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
