@@ -80,11 +80,11 @@ let rec codegen_binop ctx buf lhs rhs = function
   | Binop.Lt ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    comparison_to_value ctx buf Lt lhs rhs
+    comparison_to_value ctx buf Gt lhs rhs
   | Binop.Gt ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
-    comparison_to_value ctx buf Gt lhs rhs
+    comparison_to_value ctx buf Lt lhs rhs
   | Binop.Cons ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in
