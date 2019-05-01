@@ -9,6 +9,8 @@ type token =
   | Plus
   | Minus
   | Star
+  | Slash
+  | Mod
   | Let
   | Rec
   | In
@@ -155,6 +157,7 @@ let rec tokenize_aux acc rest =
       let rest, ident = read_ident [] rest in
       let ident_str = string_of_chars ident in
       (match ident_str with
+      | "mod" -> tokenize_aux (Mod :: acc) rest
       | "let" -> tokenize_aux (Let :: acc) rest
       | "rec" -> tokenize_aux (Rec :: acc) rest
       | "in" -> tokenize_aux (In :: acc) rest
@@ -212,6 +215,7 @@ let rec tokenize_aux acc rest =
         | "-" -> Minus
         | "->" -> Arrow
         | "*" -> Star
+        | "/" -> Slash
         | "=" -> Equal
         | "<" -> Lt
         | "|" -> Vertical
@@ -231,6 +235,8 @@ let string_of_token = function
   | Plus -> "+"
   | Minus -> "-"
   | Star -> "*"
+  | Slash -> "/"
+  | Mod -> "mod"
   | Let -> "let"
   | Rec -> "rec"
   | In -> "in"
