@@ -1,7 +1,10 @@
+module Fmt = Tree.Format_string
+
 type token =
   | IntLiteral of int
   | BoolLiteral of bool
   | StringLiteral of string
+  | FormatStringLiteral of Fmt.kind list
   | CharLiteral of char
   | CapitalIdent of string
   | LowerIdent of string
@@ -235,6 +238,7 @@ let string_of_token = function
   | IntLiteral num -> string_of_int num
   | BoolLiteral b -> string_of_bool b
   | StringLiteral str -> Printf.sprintf "\"%s\"" str
+  | FormatStringLiteral f -> Printf.sprintf "\"%s\"" (Fmt.string_of_format_string f)
   | CharLiteral ch -> Printf.sprintf "'%c'" ch
   | CapitalIdent ident | LowerIdent ident -> ident
   | InfixSymbol sym -> sym
