@@ -6,5 +6,9 @@ let () =
   Tester.expr "4 / 2";
   Tester.expr "12 / 5 + 3";
   Tester.expr "12 mod 5 * 14";
-  Tester.expr "8 + 3 mod 12 + 4"
+  Tester.expr "8 + 3 mod 12 + 4";
+  Tester.bool_expr "1 > 2";
+  Tester.bool_expr "133 < 123";
+  Tester.bool_expr "42 > 42";
+  Tester.bool_expr "2 < 42"
 ;;
