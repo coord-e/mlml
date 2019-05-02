@@ -5,10 +5,10 @@ services:
   - docker
 
 install:
-  - docker build dev/ -t mlml-test
+  - . ./dev/init.sh
 
 script:
-  - docker run --rm -t -v $(pwd):/home/opam/src mlml-test /src/dev/ci_script.sh
+  - ./dev/exec.sh ./dev/ci_script.sh
 
 after_success:
-  - docker run --rm -t -v $(pwd):/home/opam/src -e TRAVIS_JOB_ID=$TRAVIS_JOB_ID mlml-test /src/dev/ci_coverage.sh
+  - ./dev/exec.sh ./dev/ci_coverage.sh
