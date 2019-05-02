@@ -352,24 +352,6 @@ let calc_aligned_size buf size =
 
 let calc_aligned_size_const size = ((size / 8) + 1) * 8
 
-let make_string_const ctx buf s =
-  let len = String.length s in
-  let aligned = calc_aligned_size_const len in
-  (* emit data *)
-  let str_label = new_unnamed_label ctx in
-  let pad = aligned - len - 1 in
-  B.emit_sub_inst_fmt buf ".string \"%s\"" @@ String.escaped s;
-  B.emit_sub_inst_fmt buf ".fill %d" pad;
-  B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const len;
-  B.emit_sub buf (B.Label (string_of_label str_label));
-  B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const (aligned + 8);
-  let r = alloc_register ctx in
-  label_ptr_to_register buf str_label r;
-  let s = turn_into_stack ctx buf (RegisterValue r) in
-  free_register r ctx;
-  StackValue s
-;;
-
 let make_tuple_const ctx buf values =
   let size = List.length values in
   let reg = alloc_register ctx in
@@ -463,6 +445,30 @@ let string_value_to_content ctx buf v dest =
   assign_to_value ctx buf v dest;
   B.emit_inst_fmt buf "subq %s, %s" (string_of_register reg) (string_of_value dest);
   free_register reg ctx
+;;
+
+let shallow_copy ctx buf src dest =
+  let ret = call_runtime_mlml ctx buf "shallow_copy" [src] in
+  assign_to_value ctx buf (RegisterValue ret) dest
+;;
+
+let make_string_const ctx buf s =
+  let len = String.length s in
+  let aligned = calc_aligned_size_const len in
+  (* emit data *)
+  let str_label = new_unnamed_label ctx in
+  let pad = aligned - len - 1 in
+  B.emit_sub_inst_fmt buf ".string \"%s\"" @@ String.escaped s;
+  B.emit_sub_inst_fmt buf ".fill %d" pad;
+  B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const len;
+  B.emit_sub buf (B.Label (string_of_label str_label));
+  B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const (aligned + 8);
+  let r = alloc_register ctx in
+  label_ptr_to_register buf str_label r;
+  let res = StackValue (alloc_stack ctx) in
+  shallow_copy ctx buf (RegisterValue r) res;
+  free_register r ctx;
+  res
 ;;
 
 let rec pattern_match ctx buf pat v fail_label =
@@ -577,11 +583,6 @@ let rec pattern_match ctx buf pat v fail_label =
     branch_by_comparison ctx buf Lt (ConstantValue (Char.code from)) rv fail_label;
     branch_by_comparison ctx buf Gt (ConstantValue (Char.code to_)) rv fail_label;
     free_register reg ctx
-;;
-
-let shallow_copy ctx buf src dest =
-  let ret = call_runtime_mlml ctx buf "shallow_copy" [src] in
-  assign_to_value ctx buf (RegisterValue ret) dest
 ;;
 
 let calc_div ctx buf lhs rhs quot rem =
