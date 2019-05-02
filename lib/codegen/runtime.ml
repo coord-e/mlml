@@ -60,6 +60,20 @@ let print_string ctx buf _label _ret_label =
   assign_to_register buf (make_tuple_const ctx buf []) ret_register
 ;;
 
+let prerr_string ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  let a2, free2 = nth_arg_register ctx 1 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  B.emit_inst_fmt buf "movq stderr(%%rip), %s" (string_of_register a2);
+  let _ = safe_call ctx buf "fputs@PLT" [RegisterValue a1; RegisterValue a2] in
+  free1 ctx;
+  free2 ctx;
+  assign_to_register buf (make_tuple_const ctx buf []) ret_register
+;;
+
 let equal ctx buf label ret_label =
   (* TODO: Enable to take expected result and return earlier *)
   let arg1, free1 = nth_arg_register ctx 0 in
@@ -408,6 +422,7 @@ let runtimes =
   ; print_int, "print_int"
   ; print_char, "print_char"
   ; print_string, "print_string"
+  ; prerr_string, "prerr_string"
   ; equal, "equal"
   ; append_string, "append_string"
   ; length_string, "length_string"
