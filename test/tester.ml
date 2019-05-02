@@ -39,10 +39,14 @@ let bundle_libs libs =
 let exec_with_mlml source =
   let libs = collect_libs stdlib_dir in
   let p, libs = List.partition (fun (name, _) -> name = "pervasives") libs in
-  (* TODO: Remove this hack that is aimed to make Bytes available in String *)
+  (* TODO: Remove these hacks *)
+  let p2, libs = List.partition (fun (name, _) -> name = "pervasives2") libs in
   let libs = List.sort (fun (n1, _) (n2, _) -> compare n1 n2) libs |> bundle_libs in
   let p = bundle_libs p in
-  let source = Printf.sprintf "%s\nopen Pervasives ;;%s\n;;\n%s" p libs source in
+  let p2 = bundle_libs p2 in
+  let source =
+    Printf.sprintf "%s;;open Pervasives;;%s;;%s;;open Pervasives2;;%s" p libs p2 source
+  in
   let as_file = Filename.temp_file "." ".s" in
   let oc = open_out as_file in
   Printf.fprintf oc "%s\n" @@ Compile.f source;
