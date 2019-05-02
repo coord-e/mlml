@@ -1,14 +1,20 @@
 FROM ocaml/opam2:debian-stable
 
+ARG LOCAL_UID
+ARG LOCAL_GID
+
+RUN sudo usermod -u ${LOCAL_UID} -o opam
+RUN sudo groupmod -g ${LOCAL_GID} -o opam
+
 RUN opam install dune bisect_ppx
-RUN sudo cp $HOME/.profile /root
 RUN sudo apt-get update
 RUN sudo apt-get install -y inotify-tools
 
-VOLUME /src
-WORKDIR /src
+ENV SRC_DIR=${HOME}/src
 
-ENV DUNE_BUILD_DIR $HOME/_build
-ENV MLML_STDLIB_DIR /src/test/test_stdlib
+VOLUME ${SRC_DIR}
+WORKDIR ${SRC_DIR}
+
+ENV MLML_STDLIB_DIR ${SRC_DIR}/test/test_stdlib
 
 CMD ["dune", "runtest", "-w"]
