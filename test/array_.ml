@@ -45,5 +45,17 @@ f [| 3; 243; 234 |]
   Tester.f {|
 let a = [| 3; 2; 5 |] in
 print_int @@ Array.length a
+  |};
+  Tester.f
+    {|
+let a = Array.make 10 "hello" in
+print_int @@ Array.length a;
+let print_array a =
+  let rec aux i =
+    print_string @@ Array.get a i;
+    if i != 0 then aux (i - 1)
+  in aux (Array.length a - 1)
+in
+print_array a
   |}
 ;;
