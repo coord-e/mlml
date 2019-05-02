@@ -45,3 +45,24 @@ let split_on_char c str =
   in
   aux str
 ;;
+
+let uppercase_ascii = map Char.uppercase_ascii
+let lowercase_ascii = map Char.lowercase_ascii
+
+let apply_hd f s =
+  let aux = function 0 -> f s.[0] | i -> s.[i] in
+  init (length s) aux
+;;
+
+let capitalize_ascii = apply_hd Char.uppercase_ascii
+let uncapitalize_ascii = apply_hd Char.lowercase_ascii
+
+let escaped str =
+  let rec aux acc = function
+    | 0 -> acc
+    | i ->
+      let e = Char.escaped str.[i] in
+      aux (e ^ acc) (i - 1)
+  in
+  aux "" (length str - 1)
+;;
