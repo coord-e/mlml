@@ -15,5 +15,13 @@ let ramen_ver = fmt "ramen"  in
 ramen_ver "universe" "everything" 42;
 let foods = ramen_ver "steak" "sushi" in
 foods 42
+  |};
+  Tester.f
+    {|
+let f s = Printf.ksprintf (fun x -> s ^ x) in
+print_string @@ f "hello, " "%s!" "world";
+print_string @@ f "one" "plus %s is %d" "one" 2;
+let f2 = f "No." in
+f2 "%d-%s" 1 "maybe"
   |}
 ;;
