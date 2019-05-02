@@ -477,6 +477,14 @@ let rec pattern_match ctx buf pat v fail_label =
   | Pat.Var x -> define_variable ctx buf x v
   | Pat.Array values | Pat.Tuple values ->
     (* assume v holds heap address *)
+    (* length match *)
+    (* size in bytes ( *8 ), recursive data ( *2 ) *)
+    let len = List.length values * 8 * 2 in
+    let reg = alloc_register ctx in
+    read_from_address ctx buf v (RegisterValue reg) 0;
+    branch_by_comparison ctx buf Ne (RegisterValue reg) (ConstantValue len) fail_label;
+    free_register reg ctx;
+    (* content match *)
     let aux i p =
       let reg = alloc_register ctx in
       let reg_value = RegisterValue reg in
