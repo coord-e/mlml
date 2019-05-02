@@ -85,6 +85,8 @@ and convert_expr e =
     let aux' (name, expr) = name, convert_expr expr in
     Expr.Record (List.map aux' fields)
   | Expr.RecordField (v, field) -> Expr.RecordField (convert_expr v, field)
+  | Expr.RecordFieldAssign (v, field, e) ->
+    Expr.RecordFieldAssign (convert_expr v, field, convert_expr e)
   | Expr.RecordUpdate (e, fields) ->
     let aux' (name, expr) = name, convert_expr expr in
     Expr.RecordUpdate (convert_expr e, List.map aux' fields)

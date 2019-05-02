@@ -55,6 +55,7 @@ and free_variables = function
     let aux (_, expr) = free_variables expr in
     List.map aux fields |> List.fold_left SS.union SS.empty
   | Expr.RecordField (v, _) -> free_variables v
+  | Expr.RecordFieldAssign (v, _, e) -> SS.union (free_variables v) (free_variables e)
   | Expr.RecordUpdate (e, fields) ->
     let aux (_, expr) = free_variables expr in
     List.map aux fields |> List.fold_left SS.union (free_variables e)
@@ -145,6 +146,10 @@ and convert_expr' i expr =
     let aux' (name, expr) = name, aux i expr in
     Expr.Record (List.map aux' fields)
   | Expr.RecordField (v, field) -> Expr.RecordField (aux i v, field)
+  | Expr.RecordFieldAssign (v, field, e) ->
+    let v = aux i v in
+    let e = aux i e in
+    Expr.RecordFieldAssign (v, field, e)
   | Expr.RecordUpdate (e, fields) ->
     let aux' (name, expr) = name, aux i expr in
     Expr.RecordUpdate (aux i e, List.map aux' fields)

@@ -132,6 +132,10 @@ and convert_expr env e =
     let aux' (name, expr) = name, convert_expr env expr in
     Expr.Record (List.map aux' fields)
   | Expr.RecordField (v, field) -> Expr.RecordField (convert_expr env v, field)
+  | Expr.RecordFieldAssign (v, field, e) ->
+    let v = convert_expr env v in
+    let e = convert_expr env e in
+    Expr.RecordFieldAssign (v, field, e)
   | Expr.RecordUpdate (e, fields) ->
     let aux' (name, expr) = name, convert_expr env expr in
     Expr.RecordUpdate (convert_expr env e, List.map aux' fields)
