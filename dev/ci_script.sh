@@ -1,3 +1,3 @@
 #!/bin/bash
 
-BISECT_ENABLE=yes dune runtest
+sudo env BISECT_ENABLE=yes dune runtest
