@@ -5,7 +5,7 @@ services:
   - docker
 
 install:
-  - . ./dev/init.sh
+  - ./dev/init.sh
 
 script:
   - ./dev/exec.sh ./dev/ci_script.sh
