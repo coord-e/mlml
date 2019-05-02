@@ -1,7 +1,11 @@
 open Mlml
 
 (* TODO: replace test stdlib with real stdlib *)
-let stdlib_dir = "../../../test/test_stdlib"
+let stdlib_dir =
+  match Sys.getenv_opt "MLML_STDLIB_DIR" with
+  | Some d -> d
+  | None -> "../../../test/test_stdlib"
+;;
 
 let open_and_read_result cmd =
   let channel = Unix.open_process_in cmd in

@@ -1,11 +1,14 @@
-FROM ocaml/opam2:alpine
+FROM ocaml/opam2:debian-stable
 
 RUN opam install dune bisect_ppx
-RUN sudo apk --update --no-cache add inotify-tools
+RUN sudo cp $HOME/.profile /root
+RUN sudo apt-get update
+RUN sudo apt-get install -y inotify-tools
 
 VOLUME /src
 WORKDIR /src
 
-ENV DUNE_BUILD_DIR /_build
+ENV DUNE_BUILD_DIR $HOME/_build
+ENV MLML_STDLIB_DIR /src/test/test_stdlib
 
-CMD ["sudo", "dune", "runtest", "-w"]
+CMD ["dune", "runtest", "-w"]
