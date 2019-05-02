@@ -114,6 +114,7 @@ let rec codegen_binop ctx buf lhs rhs = function
 and codegen_expr ctx buf = function
   | Expr.Int num -> make_marked_const num
   | Expr.String s -> make_string_const ctx buf s
+  | Expr.Format _ -> failwith "format string is left in codegen"
   | Expr.BinOp (op, lhs, rhs) -> codegen_binop ctx buf lhs rhs op
   | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in

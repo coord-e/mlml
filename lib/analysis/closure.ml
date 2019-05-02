@@ -17,7 +17,7 @@ let rec intros_and_free_of_binding is_rec = function
     intros, body
 
 and free_variables = function
-  | Expr.Int _ | Expr.String _ | Expr.Nil -> SS.empty
+  | Expr.Int _ | Expr.String _ | Expr.Nil | Expr.Format _ -> SS.empty
   | Expr.BinOp (op, l, r) ->
     let lr = SS.union (free_variables l) (free_variables r) in
     (match op with Binop.Custom sym -> SS.add sym lr | _ -> lr)
@@ -120,7 +120,7 @@ and convert_expr' i expr =
     let destruct = Pat.Tuple [Pat.Var f_name; Pat.Var fv_name] in
     let real_app = Expr.App (Expr.Var f_name, Expr.Tuple [rhs; Expr.Var fv_name]) in
     make_let_var destruct lhs real_app
-  | Expr.Int _ | Expr.Var _ | Expr.String _ | Expr.Nil -> expr
+  | Expr.Int _ | Expr.Var _ | Expr.String _ | Expr.Nil | Expr.Format _ -> expr
   | Expr.BinOp (op, l, r) ->
     (match op with
     | Binop.Custom sym -> aux i (Expr.App (Expr.App (Expr.Var sym, l), r))

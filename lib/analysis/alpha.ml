@@ -117,7 +117,7 @@ and convert_expr env e =
     let expr = convert_expr env expr in
     let l = List.map aux l in
     Expr.Match (expr, l)
-  | Expr.Nil | Expr.Int _ | Expr.String _ -> e
+  | Expr.Nil | Expr.Int _ | Expr.String _ | Expr.Format _ -> e
   | Expr.Tuple l -> Expr.Tuple (List.map (convert_expr env) l)
   | Expr.BinOp (op, l, r) ->
     let op = match op with Binop.Custom sym -> Binop.Custom (find env sym) | _ -> op in
