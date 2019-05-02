@@ -12,9 +12,11 @@ RUN opam install dune bisect_ppx
 RUN sudo apt-get update
 RUN sudo apt-get install -y inotify-tools
 
-VOLUME $HOME/src
-WORKDIR $HOME/src
+ENV SRC_DIR=${HOME}/src
 
-ENV MLML_STDLIB_DIR $HOME/src/test/test_stdlib
+VOLUME ${SRC_DIR}
+WORKDIR ${SRC_DIR}
+
+ENV MLML_STDLIB_DIR ${SRC_DIR}/test/test_stdlib
 
 CMD ["dune", "runtest", "-w"]
