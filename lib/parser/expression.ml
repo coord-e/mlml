@@ -313,7 +313,7 @@ and parse_if = function
         let then_ = T.BinOp (Binop.Follow, then_, unit_) in
         rest, T.IfThenElse (cond, then_, unit_))
     | _ -> failwith "could not find 'then'")
-  | tokens -> parse_tuple tokens
+  | tokens -> parse_assign tokens
 
 and parse_match = function
   | L.Match :: rest ->
