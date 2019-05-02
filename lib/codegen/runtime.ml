@@ -308,6 +308,53 @@ let create_string ctx buf _label _ret_label =
   free_register ptr ctx
 ;;
 
+let get_array ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the two element of tuple *)
+  let lhs = alloc_register ctx in
+  let rhs = alloc_register ctx in
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue lhs) (-8);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue rhs) (-16);
+  free1 ctx;
+  (* function body *)
+  restore_marked_int buf (RegisterValue rhs);
+  B.emit_inst_fmt buf "incq %s" (string_of_register rhs);
+  B.emit_inst_fmt buf "shlq $3, %s" (string_of_register rhs);
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_register rhs) (string_of_register lhs);
+  free_register rhs ctx;
+  let reg = alloc_register ctx in
+  read_from_address ctx buf (RegisterValue lhs) (RegisterValue reg) 0;
+  free_register lhs ctx;
+  assign_to_register buf (RegisterValue reg) ret_register;
+  free_register reg ctx
+;;
+
+let set_array ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the three element of tuple *)
+  let ary = alloc_register ctx in
+  let idx = alloc_register ctx in
+  let v = alloc_register ctx in
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue ary) (-8);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue idx) (-16);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue v) (-24);
+  free1 ctx;
+  (* function body *)
+  restore_marked_int buf (RegisterValue idx);
+  B.emit_inst_fmt buf "incq %s" (string_of_register idx);
+  B.emit_inst_fmt buf "shlq $3, %s" (string_of_register idx);
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_register idx) (string_of_register ary);
+  free_register idx ctx;
+  assign_to_address ctx buf (RegisterValue v) (RegisterValue ary) 0;
+  free_register ary ctx;
+  free_register v ctx;
+  assign_to_register buf (make_tuple_const ctx buf []) ret_register
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_int, "print_int"
@@ -320,7 +367,9 @@ let runtimes =
   ; set_string, "set_string"
   ; create_string, "create_string"
   ; shallow_copy, "shallow_copy"
-  ; identity, "identity" ]
+  ; identity, "identity"
+  ; get_array, "get_array"
+  ; set_array, "set_array" ]
 ;;
 
 let emit_all f =
