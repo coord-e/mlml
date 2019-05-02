@@ -1,7 +1,7 @@
 let () =
   Tester.f {|
 let ary = [|1; 2; 3|] in
-print_int ary.[1]
+print_int ary.(1)
   |};
   Tester.f {|
 let a = [|1; 2; 3|] in
@@ -13,21 +13,21 @@ print_int (x * y + z)
 let a = [| [| 1; 2 |]; [| 3; 4 |] |] in
 let [| a; [| b; c |] |] = a in
 print_int (b + c);
-print_int a.[0]
+print_int a.(0)
   |};
   Tester.f
     {|
 let a = [| 1; 2; 3; 4 |] in
-print_int a.[2];
-a.[2] <- 10;
-print_int a.[2]
+print_int a.(2);
+a.(2) <- 10;
+print_int a.(2)
   |};
   Tester.f
     {|
 let a = [| "a"; "b"; "c" |] in
 let b = a in
-a.[2] <- "d";
-print_string b.[2]
+a.(2) <- "d";
+print_string b.(2)
   |};
   Tester.f
     {|
