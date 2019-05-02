@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sudo -E bisect-ppx-report \
+bisect-ppx-report \
   -I _build/default/ \
   -coveralls coverage.json \
   -service-name travis-ci \

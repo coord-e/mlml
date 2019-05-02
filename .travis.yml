@@ -8,7 +8,7 @@ install:
   - docker build dev/ -t mlml-test
 
 script:
-  - docker run --rm -t -v $(pwd):/src mlml-test /src/dev/ci_script.sh
+  - docker run --rm -t -v $(pwd):/home/opam/src mlml-test /src/dev/ci_script.sh
 
 after_success:
-  - docker run --rm -t -v $(pwd):/src -e TRAVIS_JOB_ID=$TRAVIS_JOB_ID mlml-test /src/dev/ci_coverage.sh
+  - docker run --rm -t -v $(pwd):/home/opam/src -e TRAVIS_JOB_ID=$TRAVIS_JOB_ID mlml-test /src/dev/ci_coverage.sh
