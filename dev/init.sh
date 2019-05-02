@@ -10,7 +10,12 @@ else
   readonly DOCKER="sudo docker"
 fi
 
-[ -z "$($DOCKER image ls -q ${IMAGE_NAME})" ] && $DOCKER build "$(dirname $0)" -t ${IMAGE_NAME} --build-arg LOCAL_UID=$(id -u $USER) --build-arg LOCAL_GID=$(id -g $USER)
+# Build if the image is not found
+[ -z "$($DOCKER image ls -q ${IMAGE_NAME})" ] \
+  && $DOCKER build "$(dirname $0)"            \
+       -t ${IMAGE_NAME}                       \
+       --build-arg LOCAL_UID=$(id -u $USER)   \
+       --build-arg LOCAL_GID=$(id -g $USER)
 
 function exec_docker() {
   # TRAVIS_JOB_ID is for CI environment
