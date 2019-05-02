@@ -47,6 +47,22 @@ This compiler takes a source string as input, and produces x86\_64 assembly.
 - all custom oeprators are left-associative
 - `function` keyword does not make an expression
 
+## development
+
+If you have docker installed in your system, simply run
+
+```shell
+./dev/start.sh
+```
+
+to start the development.
+
+You can run tests manually by running the following command:
+
+```shell
+./dev/exec.sh dune runtest
+```
+
 ## thanks
 
 The code and algorithm in parser and lexer is strongly inspired by [ushitora-anqou/aqaml](https://github.com/ushitora-anqou/aqaml)
