@@ -6,9 +6,7 @@
 ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/coorde/mlml.svg)
 [![MicroBadger Image](https://images.microbadger.com/badges/image/coorde/mlml.svg)](https://microbadger.com/images/coorde/mlml)
 
-mlml is a tiny ML subset written in OCaml.
-
-This compiler takes a source string as input, and produces x86\_64 assembly.
+a compiler for a tiny subset of OCaml, which is written just for fun.
 
 ## roadmap
 
@@ -37,13 +35,13 @@ This compiler takes a source string as input, and produces x86\_64 assembly.
   - [x] `open`
   - [ ] importing from other files
 - [ ] **self-hosting!**
+- [ ] exceptions
 - [ ] type checker & type inference
 
 ## limitations
 
 - `external` definitions are only available for functions
-- all modules and paths are statically-resolved (functors will never be supported)
-- exceptions are not implemented
+- all modules and paths are statically-resolved
 - all custom oeprators are left-associative
 - `function` keyword does not make an expression
 
