@@ -109,6 +109,11 @@ let rec codegen_binop ctx buf lhs rhs = function
     let rhs = codegen_expr ctx buf rhs in
     let ret = call_runtime_mlml ctx buf "get_string" [lhs; rhs] in
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
+  | Binop.ArrayIndex ->
+    let lhs = codegen_expr ctx buf lhs in
+    let rhs = codegen_expr ctx buf rhs in
+    let ret = call_runtime_mlml ctx buf "get_array" [lhs; rhs] in
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Binop.Custom _ -> failwith "custom infix operator is left in codegen"
 
 and codegen_expr ctx buf = function
@@ -148,7 +153,8 @@ and codegen_expr ctx buf = function
     assign_to_stack ctx buf else_ eval_stack;
     start_label buf join_label;
     StackValue eval_stack
-  | Expr.Tuple values ->
+  (* array is internally identical to tuple *)
+  | Expr.Array values | Expr.Tuple values ->
     let values = List.map (codegen_expr ctx buf) values in
     make_tuple_const ctx buf values
   | Expr.Ctor (name, value) ->
@@ -240,6 +246,12 @@ and codegen_expr ctx buf = function
     let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
     free_register reg ctx;
     s
+  | Expr.ArrayAssign (ary, idx, v) ->
+    let ary = codegen_expr ctx buf ary in
+    let idx = codegen_expr ctx buf idx in
+    let v = codegen_expr ctx buf v in
+    let ret = call_runtime_mlml ctx buf "set_array" [ary; idx; v] in
+    StackValue (turn_into_stack ctx buf (RegisterValue ret))
 
 and codegen_definition ctx buf = function
   | Mod.LetAnd (is_rec, l) ->

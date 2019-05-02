@@ -475,7 +475,7 @@ let rec pattern_match ctx buf pat v fail_label =
   match pat with
   | Pat.Wildcard -> ()
   | Pat.Var x -> define_variable ctx buf x v
-  | Pat.Tuple values ->
+  | Pat.Array values | Pat.Tuple values ->
     (* assume v holds heap address *)
     let aux i p =
       let reg = alloc_register ctx in
