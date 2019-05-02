@@ -4,7 +4,7 @@ ARG LOCAL_UID
 ARG LOCAL_GID
 
 RUN sudo usermod -u ${LOCAL_UID} -o opam
-RUN sudo groupmod -g ${LOCAL_GID} opam
+RUN sudo groupmod -g ${LOCAL_GID} -o opam
 
 RUN opam install dune bisect_ppx
 RUN sudo apt-get update
