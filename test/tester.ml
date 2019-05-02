@@ -26,9 +26,9 @@ let open_and_read_result cmd =
   (match status with
   | Unix.WEXITED code ->
     if code != 0
-    then Printf.eprintf "Warning: Execution of test code failed with code %d" code
+    then Printf.eprintf "Warning: Execution of test code failed with code %d\n" code
   | Unix.WSTOPPED s | Unix.WSIGNALED s ->
-    Printf.eprintf "Warning: Execution of test code failed with signal %d" s);
+    Printf.eprintf "Warning: Execution of test code failed with signal %d\n" s);
   result
 ;;
 
@@ -83,7 +83,10 @@ let exec_with_ocaml source =
 let f source =
   let mlml_result = exec_with_mlml source in
   let ocaml_result = exec_with_ocaml source in
-  assert (mlml_result = ocaml_result)
+  if not (mlml_result = ocaml_result)
+  then (
+    Printf.eprintf "mlml: (%s)\nocaml: (%s)\n" mlml_result ocaml_result;
+    failwith "assertion failed" )
 ;;
 
 let expr source =
