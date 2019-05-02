@@ -209,9 +209,7 @@ and codegen_expr ctx buf = function
     free_register reg ctx;
     s
   | Expr.Record fields ->
-    let trans (_is_mut, name, expr) =
-      get_field_index ctx name, codegen_expr ctx buf expr
-    in
+    let trans (name, expr) = get_field_index ctx name, codegen_expr ctx buf expr in
     let cmp (i1, _) (i2, _) = compare i1 i2 in
     List.map trans fields |> List.sort cmp |> List.map snd |> make_tuple_const ctx buf
   | Expr.RecordField (v, field) ->
