@@ -11,6 +11,7 @@ type t =
   | Or
   | Cons
   | StringIndex
+  | ArrayIndex
   | Mod
   | Div
   (* non-keyword operators *)
@@ -31,5 +32,6 @@ let string_of_binop = function
   | Or -> "||"
   | Cons -> "::"
   | StringIndex -> ".[]"
+  | ArrayIndex -> ".()"
   | Custom s -> s
 ;;

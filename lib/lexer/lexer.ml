@@ -58,6 +58,8 @@ type token =
   | End
   | Open
   | External
+  | LArray
+  | RArray
 
 let to_digit c = int_of_char c - int_of_char '0'
 
@@ -220,7 +222,10 @@ let rec tokenize_aux acc rest =
     | ',' -> tokenize_aux (Comma :: acc) t
     | '(' -> tokenize_aux (LParen :: acc) t
     | ')' -> tokenize_aux (RParen :: acc) t
-    | '[' -> tokenize_aux (LBracket :: acc) t
+    | '[' ->
+      (match t with
+      | '|' :: t -> tokenize_aux (LArray :: acc) t
+      | _ -> tokenize_aux (LBracket :: acc) t)
     | ']' -> tokenize_aux (RBracket :: acc) t
     | '{' -> tokenize_aux (LBrace :: acc) t
     | '}' -> tokenize_aux (RBrace :: acc) t
@@ -240,6 +245,7 @@ let rec tokenize_aux acc rest =
       (match t with
       | '=' :: t -> tokenize_aux (NotEqual :: acc) t
       | _ -> tokenize_aux (Excl :: acc) t)
+    | '|' when List.hd t = ']' -> tokenize_aux (RArray :: acc) (List.tl t)
     | '=' | '<' | '>' | '@' | '^' | '|' | '&' | '+' | '-' | '*' | '/' | '$' | '%' ->
       let rest, sym = read_infix_symbol [] t in
       let sym_str = string_of_chars (h :: sym) in
@@ -320,6 +326,8 @@ let string_of_token = function
   | End -> "end"
   | Open -> "open"
   | External -> "external"
+  | LArray -> "[|"
+  | RArray -> "|]"
 ;;
 
 let string_of_tokens tokens =

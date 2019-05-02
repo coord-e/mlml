@@ -6,6 +6,7 @@ type 'a t =
   | Int of int
   | String of string
   | Tuple of 'a t list
+  | Array of 'a t list
   | Ctor of 'a * 'a t option
   | Or of 'a t * 'a t
   | Cons of 'a t * 'a t
@@ -24,6 +25,7 @@ let rec apply_on_names f g p =
   | Nil -> Nil
   | Range (f, t) -> Range (f, t)
   | Tuple l -> Tuple (List.map apply l)
+  | Array l -> Array (List.map apply l)
   | Ctor (name, None) -> Ctor (f name NS.Ctor, None)
   | Ctor (name, Some v) ->
     let name = f name NS.Ctor in
@@ -49,6 +51,10 @@ let rec string_of_pattern f = function
   | String s -> Printf.sprintf "\"%s\"" s
   | Tuple values ->
     List.map (string_of_pattern f) values |> String.concat ", " |> Printf.sprintf "(%s)"
+  | Array values ->
+    List.map (string_of_pattern f) values
+    |> String.concat ", "
+    |> Printf.sprintf "[|%s|]"
   | Ctor (name, rhs) ->
     (match rhs with
     | Some rhs -> Printf.sprintf "%s (%s)" (f name) (string_of_pattern f rhs)
@@ -72,7 +78,8 @@ let rec introduced_idents = function
   | Var x -> SS.singleton x
   | Wildcard -> SS.empty
   | Int _ | String _ -> SS.empty
-  | Tuple values -> List.map introduced_idents values |> List.fold_left SS.union SS.empty
+  | Array values | Tuple values ->
+    List.map introduced_idents values |> List.fold_left SS.union SS.empty
   | Ctor (_, value) ->
     (match value with Some value -> introduced_idents value | None -> SS.empty)
   | Or (a, b) -> SS.union (introduced_idents a) (introduced_idents b)

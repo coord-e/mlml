@@ -22,7 +22,7 @@ and free_variables = function
     let lr = SS.union (free_variables l) (free_variables r) in
     (match op with Binop.Custom sym -> SS.add sym lr | _ -> lr)
   | Expr.App (l, r) -> SS.union (free_variables l) (free_variables r)
-  | Expr.Tuple values ->
+  | Expr.Array values | Expr.Tuple values ->
     List.map free_variables values |> List.fold_left SS.union SS.empty
   | Expr.LetAnd (is_rec, l, in_) ->
     let in_ = free_variables in_ in
@@ -59,6 +59,8 @@ and free_variables = function
   | Expr.RecordUpdate (e, fields) ->
     let aux (_, expr) = free_variables expr in
     List.map aux fields |> List.fold_left SS.union (free_variables e)
+  | Expr.ArrayAssign (ary, idx, v) ->
+    SS.union (free_variables ary) @@ SS.union (free_variables idx) (free_variables v)
 ;;
 
 let free_variable_list x = free_variables x |> SS.elements
@@ -135,6 +137,7 @@ and convert_expr' i expr =
     | Some param -> Expr.Ctor (name, Some (aux i param))
     | None -> expr)
   | Expr.Tuple values -> Expr.Tuple (List.map (aux i) values)
+  | Expr.Array values -> Expr.Array (List.map (aux i) values)
   | Expr.Match (expr, arms) ->
     let expr = aux i expr in
     let aux' (pat, when_, v) =
@@ -153,6 +156,7 @@ and convert_expr' i expr =
   | Expr.RecordUpdate (e, fields) ->
     let aux' (name, expr) = name, aux i expr in
     Expr.RecordUpdate (aux i e, List.map aux' fields)
+  | Expr.ArrayAssign (ary, idx, v) -> Expr.ArrayAssign (aux i ary, aux i idx, aux i v)
 
 and convert_expr acc expr = Mod.Expression (convert_expr' 0 expr) :: acc
 

@@ -75,6 +75,7 @@ and convert_expr e =
     Expr.Match (expr, l)
   | Expr.String _ | Expr.Var _ | Expr.Nil | Expr.Int _ -> e
   | Expr.Tuple l -> Expr.Tuple (List.map convert_expr l)
+  | Expr.Array l -> Expr.Array (List.map convert_expr l)
   | Expr.BinOp (op, l, r) -> Expr.BinOp (op, convert_expr l, convert_expr r)
   | Expr.IfThenElse (cond, then_, else_) ->
     Expr.IfThenElse (convert_expr cond, convert_expr then_, convert_expr else_)
@@ -90,6 +91,8 @@ and convert_expr e =
   | Expr.RecordUpdate (e, fields) ->
     let aux' (name, expr) = name, convert_expr expr in
     Expr.RecordUpdate (convert_expr e, List.map aux' fields)
+  | Expr.ArrayAssign (ary, idx, v) ->
+    Expr.ArrayAssign (convert_expr ary, convert_expr idx, convert_expr v)
 ;;
 
 let rec convert_defn defn =

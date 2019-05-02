@@ -36,6 +36,9 @@ let rec replace_pattern env p =
   | Pat.Tuple l ->
     let l = List.map (replace_pattern env) l in
     Pat.Tuple l
+  | Pat.Array l ->
+    let l = List.map (replace_pattern env) l in
+    Pat.Array l
   | Pat.Ctor (_name, None) -> p
   | Pat.Ctor (name, Some param) ->
     let param = replace_pattern env param in
@@ -119,6 +122,7 @@ and convert_expr env e =
     Expr.Match (expr, l)
   | Expr.Nil | Expr.Int _ | Expr.String _ | Expr.Format _ -> e
   | Expr.Tuple l -> Expr.Tuple (List.map (convert_expr env) l)
+  | Expr.Array l -> Expr.Array (List.map (convert_expr env) l)
   | Expr.BinOp (op, l, r) ->
     let op = match op with Binop.Custom sym -> Binop.Custom (find env sym) | _ -> op in
     Expr.BinOp (op, convert_expr env l, convert_expr env r)
@@ -139,6 +143,8 @@ and convert_expr env e =
   | Expr.RecordUpdate (e, fields) ->
     let aux' (name, expr) = name, convert_expr env expr in
     Expr.RecordUpdate (convert_expr env e, List.map aux' fields)
+  | Expr.ArrayAssign (ary, idx, v) ->
+    Expr.ArrayAssign (convert_expr env ary, convert_expr env idx, convert_expr env v)
 ;;
 
 let convert_defn env defn =

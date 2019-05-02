@@ -10,6 +10,7 @@ and 'a t =
   | Int of int
   | Tuple of 'a t list
   | String of string
+  | Array of 'a t list
   | Format of Fmt.kind list
   | BinOp of Binop.t * 'a t * 'a t
   | LetAnd of bool * 'a let_binding list * 'a t
@@ -24,6 +25,7 @@ and 'a t =
   | RecordField of 'a t * string
   | RecordFieldAssign of 'a t * string * 'a t
   | RecordUpdate of 'a t * ('a * 'a t) list
+  | ArrayAssign of 'a t * 'a t * 'a t
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
@@ -36,6 +38,7 @@ let rec apply_on_names f g e =
   | Format l -> Format l
   | Nil -> Nil
   | Tuple l -> Tuple (List.map apply l)
+  | Array l -> Array (List.map apply l)
   | BinOp (op, l, r) ->
     let l = apply l in
     let r = apply r in
@@ -101,6 +104,11 @@ let rec apply_on_names f g e =
     let expr = apply expr in
     let l = List.map aux l in
     RecordUpdate (expr, l)
+  | ArrayAssign (ary, idx, v) ->
+    let ary = apply ary in
+    let idx = apply idx in
+    let v = apply v in
+    ArrayAssign (ary, idx, v)
 ;;
 
 let rec string_of_let_binding f = function
@@ -121,6 +129,9 @@ and string_of_expression f = function
   | Tuple values ->
     let p = List.map (string_of_expression f) values |> String.concat ", " in
     Printf.sprintf "Tuple (%s)" p
+  | Array values ->
+    let p = List.map (string_of_expression f) values |> String.concat ", " in
+    Printf.sprintf "Array (%s)" p
   | String s -> Printf.sprintf "String \"%s\"" s
   | Format f -> Printf.sprintf "Format \"%s\"" (Fmt.string_of_format_string f)
   | BinOp (op, lhs, rhs) ->
@@ -190,4 +201,10 @@ and string_of_expression f = function
     List.map aux fields
     |> String.concat "; "
     |> Printf.sprintf "{%s with %s}" (string_of_expression f e)
+  | ArrayAssign (ary, idx, v) ->
+    Printf.sprintf
+      "(%s).(%s) <- (%s)"
+      (string_of_expression f ary)
+      (string_of_expression f idx)
+      (string_of_expression f v)
 ;;

@@ -137,6 +137,17 @@ and try_parse_literal tokens =
   | L.LBrace :: rest ->
     let rest, r = parse_record rest in
     rest, Some r
+  | L.LArray :: rest ->
+    let rec aux = function
+      | L.RArray :: rest -> rest, []
+      | L.Semicolon :: rest -> aux rest
+      | tokens ->
+        let rest, v = parse_let tokens in
+        let rest, acc = aux rest in
+        rest, v :: acc
+    in
+    let rest, l = aux rest in
+    rest, Some (T.Array l)
   | L.LBracket :: rest ->
     let rec aux = function
       | L.RBracket :: rest -> rest, T.Nil
@@ -164,6 +175,11 @@ and try_parse_dot tokens =
       let rest, rhs = parse_expression rest in
       (match rest with
       | L.RBracket :: rest -> rest, Some (T.BinOp (Binop.StringIndex, lhs, rhs))
+      | _ -> tokens, None)
+    | L.Dot :: L.LParen :: rest ->
+      let rest, rhs = parse_expression rest in
+      (match rest with
+      | L.RParen :: rest -> rest, Some (T.BinOp (Binop.ArrayIndex, lhs, rhs))
       | _ -> tokens, None)
     | _ -> rest, Some lhs)
   | None -> tokens, None
@@ -292,7 +308,8 @@ and parse_assign tokens =
     let tokens, rhs = parse_let tokens in
     (match lhs with
     | T.RecordField (e, name) -> tokens, T.RecordFieldAssign (e, name, rhs)
-    | _ -> failwith "lhs of <- must be record field")
+    | T.BinOp (Binop.ArrayIndex, e, idx) -> tokens, T.ArrayAssign (e, idx, rhs)
+    | _ -> failwith "lhs of <- must be record field or array index")
   | _ -> tokens, lhs
 
 and parse_if = function

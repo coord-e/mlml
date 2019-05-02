@@ -44,6 +44,17 @@ and try_parse_literal tokens =
     (match rest with
     | L.RBrace :: rest -> rest, Some (T.Record fields)
     | _ -> failwith "record definition is not terminated")
+  | L.LArray :: rest ->
+    let rec aux = function
+      | L.RArray :: rest -> rest, []
+      | L.Semicolon :: rest -> aux rest
+      | tokens ->
+        let rest, v = parse_pattern tokens in
+        let rest, acc = aux rest in
+        rest, v :: acc
+    in
+    let rest, l = aux rest in
+    rest, Some (T.Array l)
   | L.LBracket :: rest ->
     let rec aux = function
       | L.RBracket :: rest -> rest, T.Nil

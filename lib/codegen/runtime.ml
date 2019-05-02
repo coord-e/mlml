@@ -308,6 +308,92 @@ let create_string ctx buf _label _ret_label =
   free_register ptr ctx
 ;;
 
+let get_array ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the two element of tuple *)
+  let lhs = alloc_register ctx in
+  let rhs = alloc_register ctx in
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue lhs) (-8);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue rhs) (-16);
+  free1 ctx;
+  (* function body *)
+  restore_marked_int buf (RegisterValue rhs);
+  B.emit_inst_fmt buf "incq %s" (string_of_register rhs);
+  B.emit_inst_fmt buf "shlq $3, %s" (string_of_register rhs);
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_register rhs) (string_of_register lhs);
+  free_register rhs ctx;
+  let reg = alloc_register ctx in
+  read_from_address ctx buf (RegisterValue lhs) (RegisterValue reg) 0;
+  free_register lhs ctx;
+  assign_to_register buf (RegisterValue reg) ret_register;
+  free_register reg ctx
+;;
+
+let set_array ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the three element of tuple *)
+  let ary = alloc_register ctx in
+  let idx = alloc_register ctx in
+  let v = alloc_register ctx in
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue ary) (-8);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue idx) (-16);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue v) (-24);
+  free1 ctx;
+  (* function body *)
+  restore_marked_int buf (RegisterValue idx);
+  B.emit_inst_fmt buf "incq %s" (string_of_register idx);
+  B.emit_inst_fmt buf "shlq $3, %s" (string_of_register idx);
+  B.emit_inst_fmt buf "subq %s, %s" (string_of_register idx) (string_of_register ary);
+  free_register idx ctx;
+  assign_to_address ctx buf (RegisterValue v) (RegisterValue ary) 0;
+  free_register ary ctx;
+  free_register v ctx;
+  assign_to_register buf (make_tuple_const ctx buf []) ret_register
+;;
+
+let length_array ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  let reg = alloc_register ctx in
+  (* read metadata *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue reg) 0;
+  free1 ctx;
+  restore_marked_int buf (RegisterValue reg);
+  B.emit_inst_fmt buf "shrq $3, %s" (string_of_register reg);
+  make_marked_int buf (RegisterValue reg);
+  assign_to_register buf (RegisterValue reg) ret_register;
+  free_register reg ctx
+;;
+
+let create_array ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  restore_marked_int buf (RegisterValue a1);
+  let len = assign_to_new_register ctx buf (RegisterValue a1) in
+  let size = assign_to_new_register ctx buf (RegisterValue a1) in
+  let ptr = alloc_register ctx in
+  free1 ctx;
+  (* calc stored size *)
+  (* (len + 1) * 8 *)
+  B.emit_inst_fmt buf "incq %s" (string_of_register size);
+  B.emit_inst_fmt buf "shlq $3, %s" (string_of_register size);
+  alloc_heap_ptr ctx buf (RegisterValue size) (RegisterValue ptr);
+  free_register size ctx;
+  (* calc size *)
+  (* len * 8 * 2 *)
+  B.emit_inst_fmt buf "shlq $4, %s" (string_of_register len);
+  assign_to_address ctx buf (RegisterValue len) (RegisterValue ptr) 0;
+  free_register len ctx;
+  assign_to_register buf (RegisterValue ptr) ret_register;
+  free_register ptr ctx
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_int, "print_int"
@@ -320,7 +406,11 @@ let runtimes =
   ; set_string, "set_string"
   ; create_string, "create_string"
   ; shallow_copy, "shallow_copy"
-  ; identity, "identity" ]
+  ; identity, "identity"
+  ; length_array, "length_array"
+  ; create_array, "create_array"
+  ; get_array, "get_array"
+  ; set_array, "set_array" ]
 ;;
 
 let emit_all f =
