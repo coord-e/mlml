@@ -32,9 +32,9 @@ print_string b.(2)
   Tester.f
     {|
 let f = function
-  | [| a |] -> a
-  | [| a; b |] -> a * b
-  | _ -> 1200
+  | [| a |] -> print_int a
+  | [| a; b |] -> print_int (a * b)
+  | _ -> print_int 1200
 ;;
 
 f [| 2; 13 |];
