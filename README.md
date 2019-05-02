@@ -23,21 +23,21 @@ This compiler takes a source string as input, and produces x86\_64 assembly.
 - [x] tuples
 - [x] variants
 - [x] records
-- [x] pattern matching with `match`
+- [x] pattern matching
 - [x] structual comparison
-- [ ] primitive types
+- [x] primitive types
   - [x] string
   - [x] list
   - [x] bytes
   - [x] array
+- [x] formatted output with `Printf`
 - [ ] modules
   - [x] definition
   - [x] aliases
   - [x] `open`
   - [ ] importing from other files
-- [ ] type checker & type inference
-- [ ] ... and more ...
 - [ ] **self-hosting!**
+- [ ] type checker & type inference
 
 ## limitations
 
