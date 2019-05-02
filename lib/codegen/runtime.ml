@@ -355,6 +355,21 @@ let set_array ctx buf _label _ret_label =
   assign_to_register buf (make_tuple_const ctx buf []) ret_register
 ;;
 
+let length_array ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  let reg = alloc_register ctx in
+  (* read metadata *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue reg) 0;
+  free1 ctx;
+  restore_marked_int buf (RegisterValue reg);
+  B.emit_inst_fmt buf "shrq $3, %s" (string_of_register reg);
+  make_marked_int buf (RegisterValue reg);
+  assign_to_register buf (RegisterValue reg) ret_register;
+  free_register reg ctx
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_int, "print_int"
@@ -368,6 +383,7 @@ let runtimes =
   ; create_string, "create_string"
   ; shallow_copy, "shallow_copy"
   ; identity, "identity"
+  ; length_array, "length_array"
   ; get_array, "get_array"
   ; set_array, "set_array" ]
 ;;

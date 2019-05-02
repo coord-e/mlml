@@ -3,3 +3,5 @@ external _set : 'a array * int * 'a -> unit = "_mlml_set_array"
 
 let get a n = _get (a, n)
 let set a n x = _set (a, n, x)
+
+external length : 'a array -> int = "_mlml_length_array"

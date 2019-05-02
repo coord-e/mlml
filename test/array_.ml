@@ -40,5 +40,10 @@ let f = function
 f [| 2; 13 |];
 f [| 3 |];
 f [| 3; 243; 234 |]
+  |};
+  (* Library features *)
+  Tester.f {|
+let a = [| 3; 2; 5 |] in
+print_int @@ Array.length a
   |}
 ;;
