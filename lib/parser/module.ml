@@ -30,14 +30,18 @@ let parse_variant tokens =
 ;;
 
 let parse_record tokens =
-  let rec aux = function
+  let rec aux tokens =
+    let is_mut, tokens =
+      match tokens with L.Mutable :: rest -> true, rest | _ -> false, tokens
+    in
+    match tokens with
     | L.LowerIdent name :: L.Colon :: rest ->
       let rest, ty_expr = TyExpr.parse_type_expression rest in
       (match rest with
       | L.Semicolon :: rest ->
         let rest, acc = aux rest in
-        rest, (name, ty_expr) :: acc
-      | _ -> rest, [name, ty_expr])
+        rest, (is_mut, name, ty_expr) :: acc
+      | _ -> rest, [is_mut, name, ty_expr])
     | rest -> rest, []
   in
   let rest, fields = match tokens with L.LBrace :: rest | rest -> aux rest in

@@ -36,6 +36,8 @@ type token =
   | When
   | Fun
   | Arrow
+  | LeftArrow
+  | Mutable
   | Function
   | Comma
   | Semicolon
@@ -210,6 +212,7 @@ let rec tokenize_aux acc rest =
       | "end" -> tokenize_aux (End :: acc) rest
       | "open" -> tokenize_aux (Open :: acc) rest
       | "external" -> tokenize_aux (External :: acc) rest
+      | "mutable" -> tokenize_aux (Mutable :: acc) rest
       | _ ->
         (match ident_str.[0] with
         | 'A' .. 'Z' -> tokenize_aux (CapitalIdent ident_str :: acc) rest
@@ -245,6 +248,7 @@ let rec tokenize_aux acc rest =
         | "+" -> Plus
         | "-" -> Minus
         | "->" -> Arrow
+        | "<-" -> LeftArrow
         | "*" -> Star
         | "/" -> Slash
         | "=" -> Equal
@@ -294,6 +298,8 @@ let string_of_token = function
   | When -> "when"
   | Fun -> "fun"
   | Arrow -> "->"
+  | LeftArrow -> "<-"
+  | Mutable -> "mutable"
   | Function -> "function"
   | Comma -> ","
   | Semicolon -> ";"

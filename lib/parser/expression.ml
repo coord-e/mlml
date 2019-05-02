@@ -285,6 +285,16 @@ and parse_tuple tokens =
   | [value] -> rest, value
   | _ -> rest, T.Tuple values
 
+and parse_assign tokens =
+  let tokens, lhs = parse_tuple tokens in
+  match tokens with
+  | L.LeftArrow :: tokens ->
+    let tokens, rhs = parse_let tokens in
+    (match lhs with
+    | T.RecordField (e, name) -> tokens, T.RecordFieldAssign (e, name, rhs)
+    | _ -> failwith "lhs of <- must be record field")
+  | _ -> tokens, lhs
+
 and parse_if = function
   | L.If :: rest ->
     let rest, cond = parse_expression rest in
@@ -303,7 +313,7 @@ and parse_if = function
         let then_ = T.BinOp (Binop.Follow, then_, unit_) in
         rest, T.IfThenElse (cond, then_, unit_))
     | _ -> failwith "could not find 'then'")
-  | tokens -> parse_tuple tokens
+  | tokens -> parse_assign tokens
 
 and parse_match = function
   | L.Match :: rest ->

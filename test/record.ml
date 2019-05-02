@@ -75,5 +75,29 @@ let value = {lst = [{lst = [{lst = []; v = 1}]; v = 10}; {lst = []; v = 40}]; v 
 
 ;;
 print_int (f value)
+  |};
+  (* mutable fields *)
+  Tester.f
+    {|
+type r = { mutable a : int; mutable b : string }
+let print_r {a; b} = Printf.printf "a = %d, b = %s\n" a b
+let r = { a = 10; b = "hello" }
+;;
+print_r r;
+r.a <- 20;
+print_r r;
+r.b <- "hi";
+print_r r
+  |};
+  Tester.f
+    {|
+type r = { a : int; mutable b : string } ;;
+let r = { a = 10; b = "hello" } in
+let s = r in
+r.b <- "world";
+print_string s.b;
+let t = { r with a = 30 } in
+r.b <- "mlml";
+print_string t.b
   |}
 ;;

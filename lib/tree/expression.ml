@@ -22,6 +22,7 @@ and 'a t =
   | Nil
   | Record of ('a * 'a t) list
   | RecordField of 'a t * string
+  | RecordFieldAssign of 'a t * string * 'a t
   | RecordUpdate of 'a t * ('a * 'a t) list
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
@@ -91,6 +92,10 @@ let rec apply_on_names f g e =
     let aux (field, expr) = f field NS.Field, apply expr in
     Record (List.map aux l)
   | RecordField (expr, field_name) -> RecordField (apply expr, field_name)
+  | RecordFieldAssign (record, field_name, expr) ->
+    let record = apply record in
+    let expr = apply expr in
+    RecordFieldAssign (record, field_name, expr)
   | RecordUpdate (expr, l) ->
     let aux (field, expr) = f field NS.Field, apply expr in
     let expr = apply expr in
@@ -172,6 +177,12 @@ and string_of_expression f = function
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
   | RecordField (v, field) ->
     Printf.sprintf "RecordField (%s).%s" (string_of_expression f v) field
+  | RecordFieldAssign (v, field, e) ->
+    Printf.sprintf
+      "RecordFieldAssign (%s).%s <- (%s)"
+      (string_of_expression f v)
+      field
+      (string_of_expression f e)
   | RecordUpdate (e, fields) ->
     let aux (name, expr) =
       Printf.sprintf "%s = (%s)" (f name) (string_of_expression f expr)

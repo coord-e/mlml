@@ -220,6 +220,13 @@ and codegen_expr ctx buf = function
     let s = StackValue (turn_into_stack ctx buf (RegisterValue reg)) in
     free_register reg ctx;
     s
+  | Expr.RecordFieldAssign (v, field, e) ->
+    let v = codegen_expr ctx buf v in
+    let e = codegen_expr ctx buf e in
+    let idx = get_field_index ctx field in
+    assign_to_address ctx buf e v (-(idx + 1) * 8);
+    (* Evaluates to unit *)
+    make_tuple_const ctx buf []
   | Expr.RecordUpdate (target, fields) ->
     let target = codegen_expr ctx buf target in
     let reg = alloc_register ctx in
@@ -255,7 +262,7 @@ and codegen_type_def ctx _buf = function
     let aux i (ctor, _) = define_ctor ctx ctor i in
     List.iteri aux variants
   | Mod.Record fields ->
-    let aux i (name, _) = define_field ctx name i in
+    let aux i (_is_mut, name, _) = define_field ctx name i in
     List.iteri aux fields
   | Mod.Alias _ -> ()
 
