@@ -1,1 +1,1 @@
-let f x = Resolve.f x |> Alpha.f |> Closure.f
+let f x = Format_string.f x |> Resolve.f |> Alpha.f |> Closure.f

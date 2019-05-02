@@ -1,5 +1,6 @@
 module Pat = Pattern
 module NS = Namespace
+module Fmt = Format_string
 
 type 'a let_binding =
   | VarBind of 'a Pat.t * 'a t
@@ -9,6 +10,7 @@ and 'a t =
   | Int of int
   | Tuple of 'a t list
   | String of string
+  | Format of Fmt.kind list
   | BinOp of Binop.t * 'a t * 'a t
   | LetAnd of bool * 'a let_binding list * 'a t
   | IfThenElse of 'a t * 'a t * 'a t
@@ -30,6 +32,7 @@ let rec apply_on_names f g e =
   match e with
   | Int i -> Int i
   | String s -> String s
+  | Format l -> Format l
   | Nil -> Nil
   | Tuple l -> Tuple (List.map apply l)
   | BinOp (op, l, r) ->
@@ -114,6 +117,7 @@ and string_of_expression f = function
     let p = List.map (string_of_expression f) values |> String.concat ", " in
     Printf.sprintf "Tuple (%s)" p
   | String s -> Printf.sprintf "String \"%s\"" s
+  | Format f -> Printf.sprintf "Format \"%s\"" (Fmt.string_of_format_string f)
   | BinOp (op, lhs, rhs) ->
     Printf.sprintf
       "%s (%s) (%s)"

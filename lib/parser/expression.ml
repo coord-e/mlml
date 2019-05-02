@@ -124,6 +124,7 @@ and try_parse_literal tokens =
   (* TODO: Add char value *)
   | L.CharLiteral c :: tokens -> tokens, Some (T.Int (Char.code c))
   | L.StringLiteral s :: tokens -> tokens, Some (T.String s)
+  | L.FormatStringLiteral s :: tokens -> tokens, Some (T.Format s)
   | L.LowerIdent ident :: rest -> rest, Some (T.Var (Tree.Path.single ident))
   | L.CapitalIdent _ :: _ ->
     (match Path.try_parse_path tokens with

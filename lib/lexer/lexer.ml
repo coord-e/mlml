@@ -1,7 +1,10 @@
+module Fmt = Tree.Format_string
+
 type token =
   | IntLiteral of int
   | BoolLiteral of bool
   | StringLiteral of string
+  | FormatStringLiteral of Fmt.kind list
   | CharLiteral of char
   | CapitalIdent of string
   | LowerIdent of string
@@ -86,13 +89,38 @@ let read_one_char = function
   | [] -> failwith "attempt to read a char from empty input"
 ;;
 
-let rec read_string acc rest =
-  let rest, c = read_one_char rest in
+let read_string_part chars =
+  let rec aux acc chars =
+    let rest, c = read_one_char chars in
+    match c with
+    | '%' | '"' -> chars, acc
+    | c ->
+      let rest, acc = aux acc rest in
+      rest, c :: acc
+  in
+  let rest, chars = aux [] chars in
+  rest, string_of_chars chars
+;;
+
+let rec read_format_string acc chars =
+  let rest, c = read_one_char chars in
   match c with
   | '"' -> rest, acc
-  | c ->
-    let rest, acc = read_string acc rest in
-    rest, c :: acc
+  | '%' ->
+    let rest, ty_char = read_one_char rest in
+    let spec =
+      match ty_char with
+      | 'd' -> Fmt.Int
+      | 'c' -> Fmt.Char
+      | 's' -> Fmt.String
+      | _ -> failwith "Invalid format specifier"
+    in
+    let rest, acc = read_format_string acc rest in
+    rest, spec :: acc
+  | _ ->
+    let rest, str = read_string_part chars in
+    let rest, acc = read_format_string acc rest in
+    rest, Fmt.Const str :: acc
 ;;
 
 let try_read_char tokens =
@@ -149,9 +177,9 @@ let rec tokenize_aux acc rest =
       let rest, num = read_int 0 rest in
       tokenize_aux (IntLiteral num :: acc) rest
     | '"' ->
-      let rest, str = read_string [] t in
-      let str_str = string_of_chars str in
-      tokenize_aux (StringLiteral str_str :: acc) rest
+      (match read_format_string [] t with
+      | rest, [Fmt.Const s] -> tokenize_aux (StringLiteral s :: acc) rest
+      | rest, fmt -> tokenize_aux (FormatStringLiteral fmt :: acc) rest)
     | '\'' ->
       (match try_read_char t with
       | rest, Some ch -> tokenize_aux (CharLiteral ch :: acc) rest
@@ -235,6 +263,7 @@ let string_of_token = function
   | IntLiteral num -> string_of_int num
   | BoolLiteral b -> string_of_bool b
   | StringLiteral str -> Printf.sprintf "\"%s\"" str
+  | FormatStringLiteral f -> Printf.sprintf "\"%s\"" (Fmt.string_of_format_string f)
   | CharLiteral ch -> Printf.sprintf "'%c'" ch
   | CapitalIdent ident | LowerIdent ident -> ident
   | InfixSymbol sym -> sym
