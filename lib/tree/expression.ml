@@ -20,7 +20,7 @@ and 'a t =
   | Match of 'a t * ('a Pat.t * 'a t option * 'a t) list
   | Lambda of 'a Pat.t * 'a t
   | Nil
-  | Record of ('a * 'a t) list
+  | Record of (bool * 'a * 'a t) list
   | RecordField of 'a t * string
   | RecordUpdate of 'a t * ('a * 'a t) list
 
@@ -88,7 +88,7 @@ let rec apply_on_names f g e =
     let expr = apply expr in
     Lambda (p, expr)
   | Record l ->
-    let aux (field, expr) = f field NS.Field, apply expr in
+    let aux (is_mut, field, expr) = is_mut, f field NS.Field, apply expr in
     Record (List.map aux l)
   | RecordField (expr, field_name) -> RecordField (apply expr, field_name)
   | RecordUpdate (expr, l) ->
@@ -166,8 +166,12 @@ and string_of_expression f = function
     Printf.sprintf "(%s) -> (%s)" p (string_of_expression f body)
   | Nil -> "Nil"
   | Record fields ->
-    let aux (name, expr) =
-      Printf.sprintf "%s = (%s)" (f name) (string_of_expression f expr)
+    let aux (is_mut, name, expr) =
+      Printf.sprintf
+        "%s%s = (%s)"
+        (if is_mut then "mutable " else "")
+        (f name)
+        (string_of_expression f expr)
     in
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
   | RecordField (v, field) ->

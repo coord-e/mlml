@@ -84,18 +84,21 @@ and parse_in = function
   | _ -> failwith "could not find `in`"
 
 and parse_fields tokens =
-  let continue path expr = function
+  let continue is_mut path expr = function
     | L.Semicolon :: rest ->
       let rest, acc = parse_fields rest in
-      rest, (path, expr) :: acc
-    | rest -> rest, [path, expr]
+      rest, (is_mut, path, expr) :: acc
+    | rest -> rest, [is_mut, path, expr]
+  in
+  let is_mut, tokens =
+    match tokens with L.Mutable :: rest -> true, rest | _ -> false, tokens
   in
   match Path.try_parse_path tokens with
   | L.Equal :: rest, Some path ->
     let rest, expr = parse_let rest in
-    continue path expr rest
+    continue is_mut path expr rest
   | rest, None -> rest, []
-  | rest, Some path -> continue path (T.Var (Tree.Path.last_path path)) rest
+  | rest, Some path -> continue is_mut path (T.Var (Tree.Path.last_path path)) rest
 
 and parse_record tokens =
   let parse_value tokens =
@@ -106,6 +109,11 @@ and parse_record tokens =
     match rest with
     | L.With :: rest ->
       let rest, fields = parse_fields rest in
+      let aux = function
+        | true, _, _ -> failwith "mutable is not allowed in record update"
+        | false, f, v -> f, v
+      in
+      let fields = List.map aux fields in
       rest, Some (T.RecordUpdate (expr, fields))
     | _ -> tokens, None
   in

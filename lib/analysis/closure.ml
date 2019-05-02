@@ -52,7 +52,7 @@ and free_variables = function
     SS.diff body param
   | Expr.Var x -> SS.singleton x
   | Expr.Record fields ->
-    let aux (_, expr) = free_variables expr in
+    let aux (_, _, expr) = free_variables expr in
     List.map aux fields |> List.fold_left SS.union SS.empty
   | Expr.RecordField (v, _) -> free_variables v
   | Expr.RecordUpdate (e, fields) ->
@@ -142,7 +142,7 @@ and convert_expr' i expr =
     in
     Expr.Match (expr, List.map aux' arms)
   | Expr.Record fields ->
-    let aux' (name, expr) = name, aux i expr in
+    let aux' (is_mut, name, expr) = is_mut, name, aux i expr in
     Expr.Record (List.map aux' fields)
   | Expr.RecordField (v, field) -> Expr.RecordField (aux i v, field)
   | Expr.RecordUpdate (e, fields) ->

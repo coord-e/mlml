@@ -129,7 +129,7 @@ and convert_expr env e =
   | Expr.Ctor (_name, None) -> e
   | Expr.Ctor (name, Some param) -> Expr.Ctor (name, Some (convert_expr env param))
   | Expr.Record fields ->
-    let aux' (name, expr) = name, convert_expr env expr in
+    let aux' (is_mut, name, expr) = is_mut, name, convert_expr env expr in
     Expr.Record (List.map aux' fields)
   | Expr.RecordField (v, field) -> Expr.RecordField (convert_expr env v, field)
   | Expr.RecordUpdate (e, fields) ->
