@@ -18,6 +18,10 @@ let rec ( @ ) a b = match a with [] -> b | h :: t -> h :: (t @ b)
 let ( @@ ) f a = f a
 let ( |> ) v f = f v
 
+type 'a option =
+  | Some of 'a
+  | None
+
 external exit : int -> 'a = "_mlml_exit"
 
 let failwith msg =
