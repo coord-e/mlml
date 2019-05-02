@@ -374,6 +374,7 @@ let create_array ctx buf _label _ret_label =
   let a1, free1 = nth_arg_register ctx 0 in
   (* read the first element of closure tuple *)
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  restore_marked_int buf (RegisterValue a1);
   let len = assign_to_new_register ctx buf (RegisterValue a1) in
   let size = assign_to_new_register ctx buf (RegisterValue a1) in
   let ptr = alloc_register ctx in
