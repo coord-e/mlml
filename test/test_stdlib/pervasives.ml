@@ -4,6 +4,7 @@ external print_string : string -> unit = "_mlml_print_string"
 external int_of_char : char -> int = "_mlml_identity"
 external char_of_int : int -> char = "_mlml_identity"
 external _append_string : string * string -> string = "_mlml_append_string"
+external exit : int -> 'a = "_mlml_exit"
 
 let not c = if c then false else true
 let ( <> ) a b = not (a = b)

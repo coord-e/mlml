@@ -394,6 +394,15 @@ let create_array ctx buf _label _ret_label =
   free_register ptr ctx
 ;;
 
+let exit ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  restore_marked_int buf (RegisterValue a1);
+  let _ = safe_call ctx buf "exit@PLT" [RegisterValue a1] in
+  free1 ctx
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_int, "print_int"
@@ -410,7 +419,8 @@ let runtimes =
   ; length_array, "length_array"
   ; create_array, "create_array"
   ; get_array, "get_array"
-  ; set_array, "set_array" ]
+  ; set_array, "set_array"
+  ; exit, "exit" ]
 ;;
 
 let emit_all f =
