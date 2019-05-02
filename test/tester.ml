@@ -7,9 +7,20 @@ let stdlib_dir =
   | None -> "../../../test/test_stdlib"
 ;;
 
+let input_line_opt ch = try Some (input_line ch) with End_of_file -> None
+
+let input_all ch =
+  let rec aux acc =
+    match input_line_opt ch with
+    | Some line -> aux (line :: acc)
+    | None -> List.rev acc |> String.concat "\n"
+  in
+  aux []
+;;
+
 let open_and_read_result cmd =
   let channel = Unix.open_process_in cmd in
-  let result = input_line channel in
+  let result = input_all channel in
   let status = Unix.close_process_in channel in
   (* TODO: Fail if status is not zero or process is signaled *)
   (match status with
