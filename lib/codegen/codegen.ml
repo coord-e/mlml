@@ -255,7 +255,7 @@ and codegen_type_def ctx _buf = function
     let aux i (ctor, _) = define_ctor ctx ctor i in
     List.iteri aux variants
   | Mod.Record fields ->
-    let aux i (name, _) = define_field ctx name i in
+    let aux i (_is_mut, name, _) = define_field ctx name i in
     List.iteri aux fields
   | Mod.Alias _ -> ()
 

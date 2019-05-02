@@ -211,11 +211,11 @@ let convert_type_def env ctx defn =
     in
     Mod.Variant (List.map aux l)
   | Mod.Record l ->
-    let aux (field_name, expr) =
+    let aux (is_mut, field_name, expr) =
       let field_name = absolute_name ctx field_name in
       add_with_ns env field_name NS.Field;
       let expr = convert_type_expr env ctx expr in
-      Path.string_of_path field_name, expr
+      is_mut, Path.string_of_path field_name, expr
     in
     Mod.Record (List.map aux l)
   | Mod.Alias expr ->

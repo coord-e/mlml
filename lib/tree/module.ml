@@ -4,7 +4,7 @@ module TyExpr = Type_expression
 
 type 'a type_def =
   | Variant of (string * 'a TyExpr.t option) list
-  | Record of (string * 'a TyExpr.t) list
+  | Record of (bool * string * 'a TyExpr.t) list
   | Alias of 'a TyExpr.t
 
 type 'a module_expr =
@@ -31,8 +31,12 @@ let rec string_of_type_def f = function
     in
     List.map aux variants |> String.concat " | "
   | Record fields ->
-    let aux (name, ty) =
-      Printf.sprintf "%s: %s" name (TyExpr.string_of_type_expression f ty)
+    let aux (is_mut, name, ty) =
+      Printf.sprintf
+        "%s%s: %s"
+        (if is_mut then "mutable " else "")
+        name
+        (TyExpr.string_of_type_expression f ty)
     in
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
   | Alias ty -> TyExpr.string_of_type_expression f ty
