@@ -29,7 +29,7 @@ This compiler takes a source string as input, and produces x86\_64 assembly.
   - [x] string
   - [x] list
   - [x] bytes
-  - [ ] array
+  - [x] array
 - [ ] modules
   - [x] definition
   - [x] aliases
