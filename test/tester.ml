@@ -7,7 +7,7 @@ let stdlib_dir =
   | None -> "../../../test/test_stdlib"
 ;;
 
-let stdlibs = ["array"; "bytes"; "char"; "string"; "printf"; "list"; "hashtbl"]
+let stdlibs = ["sys"; "array"; "bytes"; "char"; "string"; "printf"; "list"; "hashtbl"]
 let input_line_opt ch = try Some (input_line ch) with End_of_file -> None
 
 let input_all ch =
