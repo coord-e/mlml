@@ -47,11 +47,11 @@ let handle_argv ctx buf _label _ret_label =
   let loop_label = new_unnamed_label ctx in
   start_label buf loop_label;
   (* loop block *)
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_register ptr);
   let ret = call_runtime ctx buf "c_str_to_string" [argv] in
   assign_to_address ctx buf (RegisterValue ret) (RegisterValue ptr) 0;
   B.emit_inst_fmt buf "incq %s" (string_of_register count);
   B.emit_inst_fmt buf "decq %s" (string_of_value argv);
-  B.emit_inst_fmt buf "subq $8, %s" (string_of_register ptr);
   branch_by_comparison ctx buf Ne target (RegisterValue count) loop_label;
   free_register count ctx;
   free_register ptr ctx;
