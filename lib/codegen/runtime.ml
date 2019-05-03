@@ -86,8 +86,7 @@ let c_str_to_string ctx buf _label _ret_label =
   in
   free_register size_tmp ctx;
   let ptr_save = push_to_stack ctx buf (RegisterValue ptr) |> stack_value in
-  (* seek to the real content *)
-  B.emit_inst_fmt buf "subq $16, %s" (string_of_register ptr);
+  string_value_to_content ctx buf (RegisterValue ptr) (RegisterValue ptr);
   let _ = safe_call ctx buf "memcpy@PLT" [RegisterValue ptr; a1; RegisterValue len] in
   free_register len ctx;
   free_register ptr ctx;
