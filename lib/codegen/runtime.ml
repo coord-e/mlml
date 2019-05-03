@@ -17,6 +17,43 @@ let match_fail ctx buf _label _ret_label =
   ()
 ;;
 
+let handle_argv ctx buf _label _ret_label =
+  (* emit data *)
+  B.emit_sub_inst buf ".data";
+  let argv_label = new_label ctx ".mlml_argv" in
+  B.emit_sub buf (B.Label (string_of_label argv_label));
+  B.emit_sub_inst buf ".fill 8";
+  B.emit_sub_inst buf ".section .rodata";
+  (* emit function body *)
+  let argc = nth_arg_stack ctx buf 0 |> stack_value in
+  let argv = nth_arg_stack ctx buf 1 |> stack_value in
+  let ptr =
+    call_runtime_mlml ctx buf "create_array" [argc]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  let ptr_save = push_to_stack ctx buf (RegisterValue ptr) |> stack_value in
+  (* loop until count = target *)
+  let target = argc in
+  let count = assign_to_new_register ctx buf (ConstantValue 0) in
+  let loop_label = new_unnamed_label ctx in
+  start_label buf loop_label;
+  (* loop block *)
+  let ret = call_runtime ctx buf "c_str_to_string" [argv] in
+  assign_to_address ctx buf (RegisterValue ret) (RegisterValue ptr) 0;
+  B.emit_inst_fmt buf "incq %s" (string_of_register count);
+  B.emit_inst_fmt buf "decq %s" (string_of_value argv);
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_register ptr);
+  branch_by_comparison ctx buf Ne target (RegisterValue count) loop_label;
+  free_register count ctx;
+  free_register ptr ctx;
+  (* end of loop *)
+  let storage_ptr = alloc_register ctx in
+  label_ptr_to_register buf argv_label storage_ptr;
+  assign_to_address ctx buf ptr_save (RegisterValue storage_ptr) 0;
+  free_register storage_ptr ctx
+;;
+
 let print_int ctx buf _label _ret_label =
   (* emit data *)
   let str_label = new_label ctx ".string_of_print_int" in
@@ -435,7 +472,8 @@ let runtimes =
   ; create_array, "create_array"
   ; get_array, "get_array"
   ; set_array, "set_array"
-  ; exit, "exit" ]
+  ; exit, "exit"
+  ; handle_argv, "handle_argv" ]
 ;;
 
 let emit_all f =

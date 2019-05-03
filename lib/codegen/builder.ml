@@ -11,6 +11,9 @@ type value =
   | RegisterValue of register
   | ConstantValue of int
 
+let stack_value s = StackValue s
+let register_value r = RegisterValue r
+let constat_value c = RegisterValue c
 let string_of_register = function Register n -> n
 let string_of_stack = function Stack num -> string_of_int num ^ "(%rbp)"
 let string_of_label = function Label n -> n
