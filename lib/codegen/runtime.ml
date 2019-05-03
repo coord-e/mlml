@@ -54,6 +54,27 @@ let handle_argv ctx buf _label _ret_label =
   free_register storage_ptr ctx
 ;;
 
+let c_str_to_string ctx buf _label _ret_label =
+  let a1 = nth_arg_stack ctx buf 0 |> stack_value in
+  let len =
+    safe_call ctx buf "strlen@PLT" [a1]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  let ptr =
+    call_runtime_mlml ctx buf "create_string" [RegisterValue len]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  let ptr_save = push_to_stack ctx buf (RegisterValue ptr) |> stack_value in
+  (* seek to the real content *)
+  B.emit_inst_fmt buf "subq $16, %s" (string_of_register ptr);
+  let _ = safe_call ctx buf "memcpy@PLT" [RegisterValue ptr; a1; RegisterValue len] in
+  free_register len ctx;
+  free_register ptr ctx;
+  assign_to_register buf ptr_save ret_register
+;;
+
 let print_int ctx buf _label _ret_label =
   (* emit data *)
   let str_label = new_label ctx ".string_of_print_int" in
@@ -473,6 +494,7 @@ let runtimes =
   ; get_array, "get_array"
   ; set_array, "set_array"
   ; exit, "exit"
+  ; c_str_to_string, "c_str_to_string"
   ; handle_argv, "handle_argv" ]
 ;;
 
