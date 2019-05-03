@@ -32,11 +32,14 @@ let handle_argv ctx buf _label _ret_label =
   (* emit function body *)
   let argc = nth_arg_stack ctx buf 0 |> stack_value in
   let argv = nth_arg_stack ctx buf 1 |> stack_value in
+  let size_tmp = assign_to_new_register ctx buf argc in
+  make_marked_int buf (RegisterValue size_tmp);
   let ptr =
-    call_runtime_mlml ctx buf "create_array" [argc]
+    call_runtime_mlml ctx buf "create_array" [RegisterValue size_tmp]
     |> register_value
     |> assign_to_new_register ctx buf
   in
+  free_register size_tmp ctx;
   let ptr_save = push_to_stack ctx buf (RegisterValue ptr) |> stack_value in
   (* loop until count = target *)
   let target = argc in
@@ -66,11 +69,14 @@ let c_str_to_string ctx buf _label _ret_label =
     |> register_value
     |> assign_to_new_register ctx buf
   in
+  let size_tmp = assign_to_new_register ctx buf (RegisterValue len) in
+  make_marked_int buf (RegisterValue size_tmp);
   let ptr =
-    call_runtime_mlml ctx buf "create_string" [RegisterValue len]
+    call_runtime_mlml ctx buf "create_string" [RegisterValue size_tmp]
     |> register_value
     |> assign_to_new_register ctx buf
   in
+  free_register size_tmp ctx;
   let ptr_save = push_to_stack ctx buf (RegisterValue ptr) |> stack_value in
   (* seek to the real content *)
   B.emit_inst_fmt buf "subq $16, %s" (string_of_register ptr);
