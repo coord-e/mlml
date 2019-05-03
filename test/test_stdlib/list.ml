@@ -84,3 +84,16 @@ let rec sort pred = function
     let greater = sort pred @@ List.filter is_greater t in
     smaller @ [h] @ greater
 ;;
+
+let assoc_opt a l =
+  let f (k, _) = k = a in
+  match find_opt f l with Some (_, v) -> Some v | None -> None
+;;
+
+let assoc a l = match assoc_opt a l with Some v -> v | None -> failwith "NotFound"
+let mem_assoc a l = match assoc_opt a l with Some _ -> true | None -> false
+
+let rec remove_assoc k = function
+  | [] -> []
+  | [(a, b)] :: t -> if a = k then t else remove_assoc k t
+;;
