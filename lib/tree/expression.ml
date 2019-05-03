@@ -94,10 +94,14 @@ let rec apply_on_names f g e =
   | Record l ->
     let aux (field, expr) = f field NS.Field, apply expr in
     Record (List.map aux l)
-  | RecordField (expr, field_name) -> RecordField (apply expr, field_name)
+  | RecordField (expr, field_name) ->
+    let expr = apply expr in
+    let field_name = f (Path.single field_name) NS.Field in
+    RecordField (expr, field_name)
   | RecordFieldAssign (record, field_name, expr) ->
     let record = apply record in
     let expr = apply expr in
+    let field_name = f (Path.single field_name) NS.Field in
     RecordFieldAssign (record, field_name, expr)
   | RecordUpdate (expr, l) ->
     let aux (field, expr) = f field NS.Field, apply expr in
