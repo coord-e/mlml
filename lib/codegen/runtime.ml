@@ -50,9 +50,14 @@ let handle_argv ctx buf _label _ret_label =
   B.emit_inst_fmt buf "subq $8, %s" (string_of_register ptr);
   let argv_tmp = alloc_register ctx in
   read_from_address ctx buf argv (RegisterValue argv_tmp) 0;
-  let ret = call_runtime ctx buf "c_str_to_string" [RegisterValue argv_tmp] in
+  let str =
+    call_runtime ctx buf "c_str_to_string" [RegisterValue argv_tmp]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
   free_register argv_tmp ctx;
-  assign_to_address ctx buf (RegisterValue ret) (RegisterValue ptr) 0;
+  assign_to_address ctx buf (RegisterValue str) (RegisterValue ptr) 0;
+  free_register str ctx;
   B.emit_inst_fmt buf "incq %s" (string_of_register count);
   B.emit_inst_fmt buf "decq %s" (string_of_value argv);
   branch_by_comparison ctx buf Ne target (RegisterValue count) loop_label;
