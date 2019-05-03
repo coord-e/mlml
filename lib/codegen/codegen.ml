@@ -373,8 +373,15 @@ and emit_function_value ctx buf is_rec name param ast =
   let label = emit_function ctx buf is_rec name param ast in
   function_ptr ctx buf label
 
-and emit_module ctx buf label items =
+and emit_main ctx buf label items =
   let emit ctx buf _label _ =
+    let argc, free1 = nth_arg_register ctx 0 in
+    let argv, free2 = nth_arg_register ctx 1 in
+    let _ =
+      call_runtime ctx buf "handle_argv" [RegisterValue argc; RegisterValue argv]
+    in
+    free1 ctx;
+    free2 ctx;
     codegen_module ctx buf items;
     assign_to_register buf (ConstantValue 0) ret_register
   in
@@ -392,6 +399,6 @@ let f ast =
   B.emit_inst buf ".text";
   let ctx = new_context () in
   Runtime.emit_all (emit_runtime ctx buf);
-  emit_module ctx buf (Label "main") ast;
+  emit_main ctx buf (Label "main") ast;
   B.contents buf
 ;;
