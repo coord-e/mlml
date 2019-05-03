@@ -59,7 +59,7 @@ let handle_argv ctx buf _label _ret_label =
   assign_to_address ctx buf (RegisterValue str) (RegisterValue ptr) 0;
   free_register str ctx;
   B.emit_inst_fmt buf "incq %s" (string_of_register count);
-  B.emit_inst_fmt buf "decq %s" (string_of_value argv);
+  B.emit_inst_fmt buf "addq $8, %s" (string_of_value argv);
   branch_by_comparison ctx buf Ne target (RegisterValue count) loop_label;
   free_register count ctx;
   free_register ptr ctx;
