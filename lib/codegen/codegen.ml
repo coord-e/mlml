@@ -395,10 +395,10 @@ let emit_runtime ctx buf name f =
 
 let f ast =
   let buf = B.create () in
-  B.emit_sub_inst buf ".section .rodata";
-  B.emit_inst buf ".text";
   let ctx = new_context () in
   Runtime.emit_all (emit_runtime ctx buf);
   emit_main ctx buf (Label "main") ast;
+  B.prepend_sub_inst buf ".section .rodata";
+  B.prepend_inst buf ".text";
   B.contents buf
 ;;
