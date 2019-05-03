@@ -88,6 +88,7 @@ let ret_register = Register "%rax"
 let make_name_of_runtime = Printf.sprintf "_mlml_%s"
 let match_fail_name = "match_fail"
 let match_fail_label = Label (make_name_of_runtime match_fail_name)
+let argv_label = Label (make_name_of_runtime "argv")
 
 let new_local_env () =
   {unused_registers = usable_registers; current_stack = -8; vars = Hashtbl.create 10}

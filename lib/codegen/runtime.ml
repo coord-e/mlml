@@ -17,10 +17,15 @@ let match_fail ctx buf _label _ret_label =
   ()
 ;;
 
+let get_argv ctx buf _label _ret_label =
+  let storage_ptr = alloc_register ctx in
+  label_ptr_to_register buf argv_label storage_ptr;
+  read_from_address ctx buf (RegisterValue storage_ptr) (RegisterValue ret_register) 0
+;;
+
 let handle_argv ctx buf _label _ret_label =
   (* emit data *)
   B.emit_sub_inst buf ".data";
-  let argv_label = new_label ctx ".mlml_argv" in
   B.emit_sub buf (B.Label (string_of_label argv_label));
   B.emit_sub_inst buf ".fill 8";
   B.emit_sub_inst buf ".section .rodata";
@@ -495,7 +500,8 @@ let runtimes =
   ; set_array, "set_array"
   ; exit, "exit"
   ; c_str_to_string, "c_str_to_string"
-  ; handle_argv, "handle_argv" ]
+  ; handle_argv, "handle_argv"
+  ; get_argv, "get_argv" ]
 ;;
 
 let emit_all f =
