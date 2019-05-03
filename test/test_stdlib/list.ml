@@ -95,5 +95,5 @@ let mem_assoc a l = match assoc_opt a l with Some _ -> true | None -> false
 
 let rec remove_assoc k = function
   | [] -> []
-  | [(a, b)] :: t -> if a = k then t else remove_assoc k t
+  | (a, b) :: t -> if a = k then t else remove_assoc k t
 ;;
