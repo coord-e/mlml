@@ -80,8 +80,8 @@ let rec sort pred = function
   | h :: t ->
     let is_smaller x = pred h x >= 0 in
     let is_greater x = not (is_smaller x) in
-    let smaller = sort pred @@ List.filter is_smaller t in
-    let greater = sort pred @@ List.filter is_greater t in
+    let smaller = sort pred @@ filter is_smaller t in
+    let greater = sort pred @@ filter is_greater t in
     smaller @ [h] @ greater
 ;;
 
