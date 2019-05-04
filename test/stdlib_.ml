@@ -62,5 +62,92 @@ Hashtbl.add t "hello" "world";
 let t2 = Hashtbl.copy t in
 Hashtbl.replace t "hello" "yeah";
 print_string @@ Hashtbl.find t2 "hello"
+  |};
+  (* List *)
+  Tester.f
+    {|
+let add a b = a + b in
+let sum = List.fold_left add 0 in
+let test l = print_int @@ sum l in
+test [3; 4; 5; 6];
+test [0; 2; 0];
+test [1200; 123; 100]
+  |};
+  Tester.f
+    {|
+let f x acc = print_int x; x :: acc in
+let fold l = List.fold_right f l [] in
+let test l = List.iter print_int @@ fold l in
+test [3; 4; 5; 6];
+test [0; 2; 0];
+test [1200; 123; 100]
+  |};
+  Tester.f
+    {|
+let test l x =
+  if List.mem x l
+  then print_string "found\n"
+  else print_string "notfound\n"
+in
+test [1; 2; 3] 0;
+test [2] 2;
+test [] 0;
+test [2; 3] 5
+  |};
+  Tester.f
+    {|
+let square x = x * x in
+let mul (a, b) = a * b in
+let test f l = List.iter print_int @@ List.map f l in
+test succ [2; 3; 1; 3];
+test square [4; 12; 23; 0];
+test mul [9, 6; 5, 6; 1, 2; 0, 3; 3, 4]
+  |};
+  Tester.f
+    {|
+let f i x = i * x in
+let test l = List.iter print_int @@ List.mapi f l in
+test [143; 21; 34];
+test [0; 6; 3; 2]
+  |};
+  Tester.f
+    {|
+let print = List.iteri (Printf.printf "%d -> %d, ") in
+print @@ List.sort compare [5; 2; 4; 6; 1; 6; 7; 12; 4; 2; 0]
+  |};
+  Tester.f
+    {|
+let cmp (a1, b1) (a2, b2) = compare (a1 * b1) (a2 * b2) in
+let print = List.iter (fun (a, b) -> Printf.printf "%d %d, " a b) in
+print @@ List.sort cmp [9, 6; 5, 6; 1, 2; 0, 3; 3, 4]
+  |};
+  Tester.f
+    {|
+let test a b =
+  if (List.rev a @ b <> List.rev_append a b)
+  then print_string "differs"
+in
+test [1; 2; 5; 3] [12; 3; 4];
+test [2; 3] [1; 3; 2]
+  |};
+  Tester.f
+    {|
+let test f l =
+  let a, b = List.partition f l in
+  List.iter print_int (a @ [0] @ b)
+in
+test (fun x -> x > 3) [4; 2; 5; 12; 0; 2]
+  |};
+  Tester.f
+    {|
+let a, b = List.split [4, 2; 5, 12; 0, 2; 5, 1; 12, 4] in
+List.iter print_int a;
+List.iter print_int b
+  |};
+  Tester.f
+    {|
+let test l = List.flatten l |> List.iter print_int in
+test [[4; 2]; [5]; [12; 0; 2]];
+test [[]; [2]; [0]; []; [1; 3]]
   |}
 ;;

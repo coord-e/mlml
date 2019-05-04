@@ -28,3 +28,10 @@ let failwith msg =
   prerr_string msg;
   exit 2
 ;;
+
+(* TODO: Use -1 *)
+let compare a b =
+  match a = b, a > b with true, _ -> 0 | _, true -> 1 | _, false -> 0 - 1
+;;
+
+let succ x = x + 1
