@@ -331,6 +331,8 @@ let label_ptr_to_register buf label reg =
 
 let alloc_heap_ptr_raw ctx buf size dest =
   let ptr = RegisterValue (safe_call ctx buf "malloc@PLT" [size]) in
+  B.emit_inst_fmt buf "addq %s, %s" (string_of_value size) (string_of_value ptr);
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_value ptr);
   match dest with
   | RegisterValue r -> assign_to_register buf ptr r
   | StackValue s -> assign_to_stack ctx buf ptr s
