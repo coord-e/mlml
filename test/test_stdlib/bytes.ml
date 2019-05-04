@@ -17,7 +17,7 @@ let blit src srcoff dst dstoff len =
     set dst dstidx @@ get src srcidx;
     if i != 0 then aux (i - 1)
   in
-  aux (len - 1)
+  match len with 0 -> () | len -> aux (len - 1)
 ;;
 
 let blit_string src srcoff dst dstoff len = blit src srcoff dst dstoff len |> to_string
@@ -36,7 +36,7 @@ let init n f =
     set b i (f i);
     if i != 0 then aux (i - 1)
   in
-  aux (n - 1);
+  (match n with 0 -> () | n -> aux (n - 1));
   b
 ;;
 
