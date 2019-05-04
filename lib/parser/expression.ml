@@ -130,7 +130,7 @@ and try_parse_literal tokens =
     (match Path.try_parse_path tokens with
     | rest, None -> rest, None
     | rest, Some path when Tree.Path.is_capitalized path ->
-      (match try_parse_literal rest with
+      (match try_parse_dot rest with
       | rest, Some p -> rest, Some (T.Ctor (path, Some p))
       | _, None -> rest, Some (T.Ctor (path, None)))
     | rest, Some path -> rest, Some (T.Var path))

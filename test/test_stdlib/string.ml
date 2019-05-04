@@ -20,14 +20,7 @@ let mapi f str =
 let rec concat d = function [] -> "" | h :: t -> h ^ d ^ concat d t
 
 (* does not exists in official stdlib *)
-let get_opt str i =
-  if length str > i
-  then
-    (* TODO: Some str.[i] (parsing precedence) *)
-    let c = str.[i] in
-    Some c
-  else None
-;;
+let get_opt str i = if length str > i then Some str.[i] else None
 
 let index_opt str chr =
   let rec aux i =
