@@ -3,6 +3,7 @@ module P = Parser
 module Expr = Tree.Expression
 module Mod = Tree.Module
 module Binop = Tree.Binop
+module Uop = Tree.Unaryop
 module B = Output_buffer
 
 let rec codegen_binop ctx buf lhs rhs = function
@@ -116,11 +117,20 @@ let rec codegen_binop ctx buf lhs rhs = function
     StackValue (turn_into_stack ctx buf (RegisterValue ret))
   | Binop.Custom _ -> failwith "custom infix operator is left in codegen"
 
+and codegen_unaryop ctx buf e = function
+  | Uop.Positate -> codegen_expr ctx buf e
+  | Uop.Negate ->
+    let e = codegen_expr ctx buf e |> assign_to_new_register ctx buf in
+    B.emit_inst_fmt buf "neg %s" (string_of_register e);
+    free_register e ctx;
+    turn_into_stack ctx buf (RegisterValue e) |> stack_value
+
 and codegen_expr ctx buf = function
   | Expr.Int num -> make_marked_const num
   | Expr.String s -> make_string_const ctx buf s
   | Expr.Format _ -> failwith "format string is left in codegen"
   | Expr.BinOp (op, lhs, rhs) -> codegen_binop ctx buf lhs rhs op
+  | Expr.UnaryOp (op, e) -> codegen_unaryop ctx buf e op
   | Expr.App (lhs, rhs) ->
     let lhs = codegen_expr ctx buf lhs in
     let rhs = codegen_expr ctx buf rhs in

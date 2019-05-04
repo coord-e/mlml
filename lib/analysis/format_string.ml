@@ -77,6 +77,7 @@ and convert_expr e =
   | Expr.Tuple l -> Expr.Tuple (List.map convert_expr l)
   | Expr.Array l -> Expr.Array (List.map convert_expr l)
   | Expr.BinOp (op, l, r) -> Expr.BinOp (op, convert_expr l, convert_expr r)
+  | Expr.UnaryOp (op, e) -> Expr.UnaryOp (op, convert_expr e)
   | Expr.IfThenElse (cond, then_, else_) ->
     Expr.IfThenElse (convert_expr cond, convert_expr then_, convert_expr else_)
   | Expr.App (l, r) -> Expr.App (convert_expr l, convert_expr r)

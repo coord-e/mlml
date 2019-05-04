@@ -40,11 +40,7 @@ type context =
 
 let usable_registers =
   SS.of_list
-    [ Register "%r8"
-    ; Register "%r9"
-    ; Register "%r10"
-    ; Register "%r11"
-    ; Register "%rdx" ]
+    [Register "%r8"; Register "%r9"; Register "%r10"; Register "%r11"; Register "%rdx"]
 ;;
 
 (* https://wiki.osdev.org/System_V_ABI#x86-64 *)
