@@ -120,10 +120,11 @@ let rec codegen_binop ctx buf lhs rhs = function
 and codegen_unaryop ctx buf e = function
   | Uop.Positate -> codegen_expr ctx buf e
   | Uop.Negate ->
-    let e = codegen_expr ctx buf e |> assign_to_new_register ctx buf in
-    B.emit_inst_fmt buf "neg %s" (string_of_register e);
-    free_register e ctx;
-    turn_into_stack ctx buf (RegisterValue e) |> stack_value
+    let e = codegen_expr ctx buf e in
+    let res = constant_value 2 |> assign_to_new_register ctx buf in
+    B.emit_inst_fmt buf "subq %s, %s" (string_of_value e) (string_of_register res);
+    free_register res ctx;
+    turn_into_stack ctx buf (RegisterValue res) |> stack_value
 
 and codegen_expr ctx buf = function
   | Expr.Int num -> make_marked_const num
