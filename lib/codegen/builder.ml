@@ -40,8 +40,7 @@ type context =
 
 let usable_registers =
   SS.of_list
-    [ Register "%rsi"
-    ; Register "%r8"
+    [ Register "%r8"
     ; Register "%r9"
     ; Register "%r10"
     ; Register "%r11"
