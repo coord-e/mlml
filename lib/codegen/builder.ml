@@ -143,7 +143,7 @@ let make_marked_int buf v =
 
 let calc_marked_const i = (i * 2) + 1
 let make_marked_const i = ConstantValue (calc_marked_const i)
-let restore_marked_int buf v = B.emit_inst_fmt buf "shrq $1, %s" (string_of_value v)
+let restore_marked_int buf v = B.emit_inst_fmt buf "sarq $1, %s" (string_of_value v)
 let start_label buf label = B.emit buf (B.Label (string_of_label label))
 
 let start_global_label buf label =
