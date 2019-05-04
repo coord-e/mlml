@@ -149,5 +149,38 @@ List.iter print_int b
 let test l = List.flatten l |> List.iter print_int in
 test [[4; 2]; [5]; [12; 0; 2]];
 test [[]; [2]; [0]; []; [1; 3]]
+  |};
+  (* String *)
+  Tester.f
+    {|
+let test s =
+  let aux c = match c with 'a' .. 'z' | 'A' .. 'Z' | '_' | '.' -> c | _ -> '_' in
+  print_string @@ String.map aux s
+in
+test "hello";
+test "2ks43(as";
+test "2\n3 as"
+  |};
+  Tester.f
+    {|
+print_string @@ String.uppercase_ascii "Hello World";
+print_string @@ String.lowercase_ascii "iOS 10";
+print_string @@ String.capitalize_ascii "hello";
+print_string @@ String.uncapitalize_ascii "HELLO"
+  |};
+  Tester.f
+    {|
+let test s = print_string @@ String.escaped s in
+test "hehehe";
+test "hello world\nthis is mlml";
+test "mlml\t@\tOCaml"
+  |};
+  Tester.f
+    {|
+let test c s =
+  List.iter (Printf.printf "%s, ") @@ String.split_on_char c s
+in
+test ',' "hello,world,mlml";
+test ' ' "happy new  year"
   |}
 ;;
