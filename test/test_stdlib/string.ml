@@ -58,11 +58,10 @@ let capitalize_ascii = apply_hd Char.uppercase_ascii
 let uncapitalize_ascii = apply_hd Char.lowercase_ascii
 
 let escaped str =
-  let rec aux acc = function
-    | 0 -> acc
-    | i ->
-      let e = Char.escaped str.[i] in
-      aux (e ^ acc) (i - 1)
+  let rec aux acc i =
+    let e = Char.escaped str.[i] in
+    let acc = e ^ acc in
+    match i with 0 -> acc | i -> aux acc (i - 1)
   in
   aux "" (length str - 1)
 ;;
