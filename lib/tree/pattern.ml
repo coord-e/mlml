@@ -1,4 +1,5 @@
 module NS = Namespace
+module SS = Simple_set
 
 type 'a t =
   | Var of string
@@ -71,8 +72,6 @@ let rec string_of_pattern f = function
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
   | Range (from, to_) -> Printf.sprintf "'%c' .. '%c'" from to_
 ;;
-
-module SS = Set.Make (String)
 
 let rec introduced_idents = function
   | Var x -> SS.singleton x
