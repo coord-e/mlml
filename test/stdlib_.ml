@@ -177,10 +177,24 @@ test "mlml\t@\tOCaml"
   |};
   Tester.f
     {|
+let test c =
+  match String.index_opt "hello, world" c with
+  | Some i -> print_int i
+  | None -> print_string "none"
+in
+test ',';
+test 'e';
+test 'h';
+test 'd';
+test 'o'
+  |};
+  Tester.f
+    {|
 let test c s =
   List.iter (Printf.printf "%s, ") @@ String.split_on_char c s
 in
 test ',' "hello,world,mlml";
-test ' ' "happy new  year"
+test ' ' "happy new  year";
+test '.' "...this is mlml. mlml has stdlib."
   |}
 ;;
