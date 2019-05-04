@@ -13,6 +13,7 @@ and 'a t =
   | Array of 'a t list
   | Format of Fmt.kind list
   | BinOp of Binop.t * 'a t * 'a t
+  | UnaryOp of Unaryop.t * 'a t
   | LetAnd of bool * 'a let_binding list * 'a t
   | IfThenElse of 'a t * 'a t * 'a t
   | App of 'a t * 'a t
@@ -48,6 +49,7 @@ let rec apply_on_names f g e =
       | _ -> op
     in
     BinOp (op, l, r)
+  | UnaryOp (op, e) -> UnaryOp (op, apply e)
   | LetAnd (is_rec, l, in_) ->
     let aux = function
       | VarBind (p, body) -> VarBind (Pat.apply_on_names f g p, apply body)
@@ -144,6 +146,8 @@ and string_of_expression f = function
       (Binop.string_of_binop op)
       (string_of_expression f lhs)
       (string_of_expression f rhs)
+  | UnaryOp (op, e) ->
+    Printf.sprintf "%s (%s)" (Unaryop.string_of_unaryop op) (string_of_expression f e)
   | App (lhs, rhs) ->
     Printf.sprintf
       "App (%s) (%s)"
