@@ -308,9 +308,20 @@ let call_runtime ctx buf name =
 ;;
 
 let define_ctor ctx ctor idx = Hashtbl.add ctx.ctors ctor idx
-let get_ctor_index ctx ctor = Hashtbl.find ctx.ctors ctor
+
+let get_ctor_index ctx ctor =
+  match Hashtbl.find_opt ctx.ctors ctor with
+  | Some i -> i
+  | None -> failwith @@ Printf.sprintf "could not find ctor named %s" ctor
+;;
+
 let define_field ctx field idx = Hashtbl.add ctx.fields field idx
-let get_field_index ctx field = Hashtbl.find ctx.fields field
+
+let get_field_index ctx field =
+  match Hashtbl.find_opt ctx.fields field with
+  | Some i -> i
+  | None -> failwith @@ Printf.sprintf "could not find field named %s" field
+;;
 
 let define_variable ctx buf ident v =
   (* TODO: Print warning when ident is accidentally "_" *)
@@ -319,7 +330,12 @@ let define_variable ctx buf ident v =
 ;;
 
 let undef_variable ctx ident = Hashtbl.remove ctx.current_env.vars ident
-let get_variable ctx ident = Hashtbl.find ctx.current_env.vars ident
+
+let get_variable ctx ident =
+  match Hashtbl.find_opt ctx.current_env.vars ident with
+  | Some s -> s
+  | None -> failwith @@ Printf.sprintf "could not find variable named %s" ident
+;;
 
 let label_ptr_to_register buf label reg =
   B.emit_inst_fmt
