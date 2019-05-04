@@ -126,6 +126,7 @@ and convert_expr env e =
   | Expr.BinOp (op, l, r) ->
     let op = match op with Binop.Custom sym -> Binop.Custom (find env sym) | _ -> op in
     Expr.BinOp (op, convert_expr env l, convert_expr env r)
+  | Expr.UnaryOp (op, e) -> Expr.UnaryOp (op, convert_expr env e)
   | Expr.IfThenElse (cond, then_, else_) ->
     Expr.IfThenElse
       (convert_expr env cond, convert_expr env then_, convert_expr env else_)

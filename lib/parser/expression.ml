@@ -4,6 +4,7 @@
 module L = Lexer
 module Pat = Pattern
 module Binop = Tree.Binop
+module Uop = Tree.Unaryop
 module T = Tree.Expression
 
 type t = Tree.Path.t T.t
@@ -200,18 +201,27 @@ and parse_app tokens =
   in
   aux f rest
 
+and parse_prefix = function
+  | L.Minus :: rest ->
+    let rest, expr = parse_prefix rest in
+    rest, T.UnaryOp (Uop.Negate, expr)
+  | L.Plus :: rest ->
+    let rest, expr = parse_prefix rest in
+    rest, T.UnaryOp (Uop.Positate, expr)
+  | tokens -> parse_app tokens
+
 and parse_mult tokens =
-  let tokens, lhs = parse_app tokens in
+  let tokens, lhs = parse_prefix tokens in
   let rec aux lhs tokens =
     match tokens with
     | L.Star :: rest ->
-      let rest, rhs = parse_app rest in
+      let rest, rhs = parse_prefix rest in
       aux (T.BinOp (Binop.Mul, lhs, rhs)) rest
     | L.Slash :: rest ->
-      let rest, rhs = parse_app rest in
+      let rest, rhs = parse_prefix rest in
       aux (T.BinOp (Binop.Div, lhs, rhs)) rest
     | L.Mod :: rest ->
-      let rest, rhs = parse_app rest in
+      let rest, rhs = parse_prefix rest in
       aux (T.BinOp (Binop.Mod, lhs, rhs)) rest
     | _ -> tokens, lhs
   in

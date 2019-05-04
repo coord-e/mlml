@@ -21,6 +21,7 @@ and free_variables = function
   | Expr.BinOp (op, l, r) ->
     let lr = SS.union (free_variables l) (free_variables r) in
     (match op with Binop.Custom sym -> SS.add sym lr | _ -> lr)
+  | Expr.UnaryOp (_op, e) -> free_variables e
   | Expr.App (l, r) -> SS.union (free_variables l) (free_variables r)
   | Expr.Array values | Expr.Tuple values ->
     List.map free_variables values |> List.fold_left SS.union SS.empty
@@ -131,6 +132,7 @@ and convert_expr' i expr =
       let l = aux i l in
       let r = aux i r in
       Expr.BinOp (op, l, r))
+  | Expr.UnaryOp (op, e) -> Expr.UnaryOp (op, aux i e)
   | Expr.IfThenElse (c, t, e) -> Expr.IfThenElse (aux i c, aux i t, aux i e)
   | Expr.Ctor (name, param) ->
     (match param with

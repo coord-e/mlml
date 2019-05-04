@@ -14,7 +14,7 @@ type value =
 
 let stack_value s = StackValue s
 let register_value r = RegisterValue r
-let constat_value c = RegisterValue c
+let constant_value c = ConstantValue c
 let string_of_register = function Register n -> n
 let string_of_stack = function Stack num -> string_of_int num ^ "(%rbp)"
 let string_of_label = function Label n -> n
@@ -40,11 +40,7 @@ type context =
 
 let usable_registers =
   SS.of_list
-    [ Register "%r8"
-    ; Register "%r9"
-    ; Register "%r10"
-    ; Register "%r11"
-    ; Register "%rdx" ]
+    [Register "%r8"; Register "%r9"; Register "%r10"; Register "%r11"; Register "%rdx"]
 ;;
 
 (* https://wiki.osdev.org/System_V_ABI#x86-64 *)
@@ -147,7 +143,7 @@ let make_marked_int buf v =
 
 let calc_marked_const i = (i * 2) + 1
 let make_marked_const i = ConstantValue (calc_marked_const i)
-let restore_marked_int buf v = B.emit_inst_fmt buf "shrq $1, %s" (string_of_value v)
+let restore_marked_int buf v = B.emit_inst_fmt buf "sarq $1, %s" (string_of_value v)
 let start_label buf label = B.emit buf (B.Label (string_of_label label))
 
 let start_global_label buf label =
