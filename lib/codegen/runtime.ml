@@ -17,6 +17,82 @@ let match_fail ctx buf _label _ret_label =
   ()
 ;;
 
+let get_argv ctx buf _label _ret_label =
+  let storage_ptr = alloc_register ctx in
+  label_ptr_to_register buf argv_label storage_ptr;
+  read_from_address ctx buf (RegisterValue storage_ptr) (RegisterValue ret_register) 0
+;;
+
+let handle_argv ctx buf _label _ret_label =
+  (* emit data *)
+  B.emit_sub_inst buf ".data";
+  B.emit_sub buf (B.Label (string_of_label argv_label));
+  B.emit_sub_inst buf ".fill 8";
+  B.emit_sub_inst buf ".section .rodata";
+  (* emit function body *)
+  let argc = nth_arg_stack ctx buf 0 |> stack_value in
+  let argv = nth_arg_stack ctx buf 1 |> stack_value in
+  let size_tmp = assign_to_new_register ctx buf argc in
+  make_marked_int buf (RegisterValue size_tmp);
+  let ptr =
+    call_runtime_mlml ctx buf "create_array" [RegisterValue size_tmp]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  free_register size_tmp ctx;
+  let ptr_save = push_to_stack ctx buf (RegisterValue ptr) |> stack_value in
+  (* loop until count = target *)
+  let target = argc in
+  let count = assign_to_new_register ctx buf (ConstantValue 0) in
+  let loop_label = new_unnamed_label ctx in
+  start_label buf loop_label;
+  (* loop block *)
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_register ptr);
+  let argv_tmp = alloc_register ctx in
+  read_from_address ctx buf argv (RegisterValue argv_tmp) 0;
+  let str =
+    call_runtime ctx buf "c_str_to_string" [RegisterValue argv_tmp]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  free_register argv_tmp ctx;
+  assign_to_address ctx buf (RegisterValue str) (RegisterValue ptr) 0;
+  free_register str ctx;
+  B.emit_inst_fmt buf "incq %s" (string_of_register count);
+  B.emit_inst_fmt buf "addq $8, %s" (string_of_value argv);
+  branch_by_comparison ctx buf Ne target (RegisterValue count) loop_label;
+  free_register count ctx;
+  free_register ptr ctx;
+  (* end of loop *)
+  let storage_ptr = alloc_register ctx in
+  label_ptr_to_register buf argv_label storage_ptr;
+  assign_to_address ctx buf ptr_save (RegisterValue storage_ptr) 0;
+  free_register storage_ptr ctx
+;;
+
+let c_str_to_string ctx buf _label _ret_label =
+  let a1 = nth_arg_stack ctx buf 0 |> stack_value in
+  let len =
+    safe_call ctx buf "strlen@PLT" [a1]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  let size_tmp = assign_to_new_register ctx buf (RegisterValue len) in
+  make_marked_int buf (RegisterValue size_tmp);
+  let ptr =
+    call_runtime_mlml ctx buf "create_string" [RegisterValue size_tmp]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  free_register size_tmp ctx;
+  let ptr_save = push_to_stack ctx buf (RegisterValue ptr) |> stack_value in
+  string_value_to_content ctx buf (RegisterValue ptr) (RegisterValue ptr);
+  let _ = safe_call ctx buf "memcpy@PLT" [RegisterValue ptr; a1; RegisterValue len] in
+  free_register len ctx;
+  free_register ptr ctx;
+  assign_to_register buf ptr_save ret_register
+;;
+
 let print_int ctx buf _label _ret_label =
   (* emit data *)
   let str_label = new_label ctx ".string_of_print_int" in
@@ -54,6 +130,20 @@ let print_string ctx buf _label _ret_label =
   (* assume reg is a pointer to string value *)
   string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
   B.emit_inst_fmt buf "movq stdout(%%rip), %s" (string_of_register a2);
+  let _ = safe_call ctx buf "fputs@PLT" [RegisterValue a1; RegisterValue a2] in
+  free1 ctx;
+  free2 ctx;
+  assign_to_register buf (make_tuple_const ctx buf []) ret_register
+;;
+
+let prerr_string ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  let a2, free2 = nth_arg_register ctx 1 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  B.emit_inst_fmt buf "movq stderr(%%rip), %s" (string_of_register a2);
   let _ = safe_call ctx buf "fputs@PLT" [RegisterValue a1; RegisterValue a2] in
   free1 ctx;
   free2 ctx;
@@ -394,11 +484,21 @@ let create_array ctx buf _label _ret_label =
   free_register ptr ctx
 ;;
 
+let exit ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  restore_marked_int buf (RegisterValue a1);
+  let _ = safe_call ctx buf "exit@PLT" [RegisterValue a1] in
+  free1 ctx
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_int, "print_int"
   ; print_char, "print_char"
   ; print_string, "print_string"
+  ; prerr_string, "prerr_string"
   ; equal, "equal"
   ; append_string, "append_string"
   ; length_string, "length_string"
@@ -410,7 +510,11 @@ let runtimes =
   ; length_array, "length_array"
   ; create_array, "create_array"
   ; get_array, "get_array"
-  ; set_array, "set_array" ]
+  ; set_array, "set_array"
+  ; exit, "exit"
+  ; c_str_to_string, "c_str_to_string"
+  ; handle_argv, "handle_argv"
+  ; get_argv, "get_argv" ]
 ;;
 
 let emit_all f =

@@ -11,6 +11,9 @@ type value =
   | RegisterValue of register
   | ConstantValue of int
 
+let stack_value s = StackValue s
+let register_value r = RegisterValue r
+let constat_value c = RegisterValue c
 let string_of_register = function Register n -> n
 let string_of_stack = function Stack num -> string_of_int num ^ "(%rbp)"
 let string_of_label = function Label n -> n
@@ -85,6 +88,7 @@ let ret_register = Register "%rax"
 let make_name_of_runtime = Printf.sprintf "_mlml_%s"
 let match_fail_name = "match_fail"
 let match_fail_label = Label (make_name_of_runtime match_fail_name)
+let argv_label = Label (make_name_of_runtime "argv")
 
 let new_local_env () =
   {unused_registers = usable_registers; current_stack = -8; vars = Hashtbl.create 10}
@@ -327,6 +331,8 @@ let label_ptr_to_register buf label reg =
 
 let alloc_heap_ptr_raw ctx buf size dest =
   let ptr = RegisterValue (safe_call ctx buf "malloc@PLT" [size]) in
+  B.emit_inst_fmt buf "addq %s, %s" (string_of_value size) (string_of_value ptr);
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_value ptr);
   match dest with
   | RegisterValue r -> assign_to_register buf ptr r
   | StackValue s -> assign_to_stack ctx buf ptr s

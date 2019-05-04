@@ -4,7 +4,7 @@ external copy : bytes -> bytes = "_mlml_shallow_copy"
 external create : int -> bytes = "_mlml_create_string"
 external length : bytes -> int = "_mlml_length_string"
 external _get : bytes * int -> char = "_mlml_get_string"
-external _set : (bytes * int -> char) -> unit = "_mlml_set_string"
+external _set : bytes * int * char -> unit = "_mlml_set_string"
 
 let get s n = _get (s, n)
 let set s n c = _set (s, n, c)
@@ -17,7 +17,7 @@ let blit src srcoff dst dstoff len =
     set dst dstidx @@ get src srcidx;
     if i != 0 then aux (i - 1)
   in
-  aux (len - 1)
+  match len with 0 -> () | len -> aux (len - 1)
 ;;
 
 let blit_string src srcoff dst dstoff len = blit src srcoff dst dstoff len |> to_string
@@ -36,7 +36,7 @@ let init n f =
     set b i (f i);
     if i != 0 then aux (i - 1)
   in
-  aux (n - 1);
+  (match n with 0 -> () | n -> aux (n - 1));
   b
 ;;
 

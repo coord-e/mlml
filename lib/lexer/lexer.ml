@@ -182,6 +182,7 @@ let rec tokenize_aux acc rest =
       tokenize_aux (IntLiteral num :: acc) rest
     | '"' ->
       (match read_format_string [] t with
+      | rest, [] -> tokenize_aux (StringLiteral "" :: acc) rest
       | rest, [Fmt.Const s] -> tokenize_aux (StringLiteral s :: acc) rest
       | rest, fmt -> tokenize_aux (FormatStringLiteral fmt :: acc) rest)
     | '\'' ->

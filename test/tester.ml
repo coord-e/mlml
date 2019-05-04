@@ -7,6 +7,7 @@ let stdlib_dir =
   | None -> "../../../test/test_stdlib"
 ;;
 
+let stdlibs = ["sys"; "array"; "bytes"; "char"; "string"; "printf"; "list"; "hashtbl"]
 let input_line_opt ch = try Some (input_line ch) with End_of_file -> None
 
 let input_all ch =
@@ -54,9 +55,9 @@ let bundle_libs libs =
 let exec_with_mlml source =
   let libs = collect_libs stdlib_dir in
   let p, libs = List.partition (fun (name, _) -> name = "pervasives") libs in
-  (* TODO: Remove these hacks *)
   let p2, libs = List.partition (fun (name, _) -> name = "pervasives2") libs in
-  let libs = List.sort (fun (n1, _) (n2, _) -> compare n1 n2) libs |> bundle_libs in
+  (* TODO: Remove these hacks *)
+  let libs = List.map (fun x -> x, List.assoc x libs) stdlibs |> bundle_libs in
   let p = bundle_libs p in
   let p2 = bundle_libs p2 in
   let source =

@@ -16,11 +16,17 @@ let create () = {main = []; sub = []; placeholder_index = 0}
 let emit buf line = buf.main <- line :: buf.main
 let emit_sub buf line = buf.sub <- line :: buf.sub
 
+(* prepend functions (slow) *)
+let prepend buf line = buf.main <- buf.main @ [line]
+let prepend_sub buf line = buf.sub <- buf.sub @ [line]
+
 (* auxiliary functions *)
 let emit_inst buf inst = emit buf (Inst inst)
 let emit_sub_inst buf inst = emit_sub buf (Inst inst)
 let emit_inst_fmt buf = Printf.ksprintf (fun x -> emit_inst buf x)
 let emit_sub_inst_fmt buf = Printf.ksprintf (fun x -> emit_sub_inst buf x)
+let prepend_inst buf inst = prepend buf (Inst inst)
+let prepend_sub_inst buf inst = prepend_sub buf (Inst inst)
 
 (* placeholder handlings *)
 let create_placeholder buf =
