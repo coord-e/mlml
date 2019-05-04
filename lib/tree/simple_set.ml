@@ -32,7 +32,8 @@ let choose_opt s = match s.data with [] -> None | h :: _ -> Some h
 let choose s = match choose_opt s with Some v -> v | None -> failwith "Empty"
 
 let diff a b =
-  let l = List.filter (fun x -> mem x b) a.data in
+  let f x = not (mem x b) in
+  let l = List.filter f a.data in
   of_list l
 ;;
 
