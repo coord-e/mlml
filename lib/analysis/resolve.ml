@@ -7,7 +7,7 @@ module Mod = Tree.Module
 module TyExpr = Tree.Type_expression
 module Pat = Tree.Pattern
 module NS = Tree.Namespace
-module SS = Set.Make (String)
+module SS = Tree.Simple_set
 
 type module_value =
   | Env of module_env
@@ -15,10 +15,10 @@ type module_value =
   | Alias of Path.t
 
 and module_env =
-  { mutable vars : SS.t
-  ; mutable types : SS.t
-  ; mutable ctors : SS.t
-  ; mutable fields : SS.t
+  { mutable vars : string SS.t
+  ; mutable types : string SS.t
+  ; mutable ctors : string SS.t
+  ; mutable fields : string SS.t
   ; modules : (string, module_value) Hashtbl.t }
 
 let create_module_env () =
@@ -161,7 +161,7 @@ let in_new_module env ctx name f =
 
 (* expression-local environment *)
 (* TODO: Replace this with some other generic mutable set type *)
-type local_env = {mutable local_vars : SS.t}
+type local_env = {mutable local_vars : string SS.t}
 
 let create_local_env () = {local_vars = SS.empty}
 

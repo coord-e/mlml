@@ -1,6 +1,7 @@
 module P = Parser
 module Pat = Tree.Pattern
 module B = Output_buffer
+module SS = Tree.Simple_set
 
 type register = Register of string
 type stack = Stack of int
@@ -25,34 +26,21 @@ let string_of_value = function
   | ConstantValue num -> string_of_constant num
 ;;
 
-module RS = Set.Make (struct
-  type t = register
-
-  let compare = compare
-end)
-
-module LS = Set.Make (struct
-  type t = label
-
-  let compare = compare
-end)
-
 (* function-local environment *)
 type local_env =
-  { mutable unused_registers : RS.t
+  { mutable unused_registers : register SS.t
   ; mutable current_stack : int
   ; mutable vars : (string, stack) Hashtbl.t }
 
 type context =
-  { mutable used_labels : LS.t
+  { mutable used_labels : label SS.t
   ; mutable ctors : (string, int) Hashtbl.t
   ; mutable fields : (string, int) Hashtbl.t
   ; mutable current_env : local_env }
 
 let usable_registers =
-  RS.of_list
-    [ Register "%rsi"
-    ; Register "%r8"
+  SS.of_list
+    [ Register "%r8"
     ; Register "%r9"
     ; Register "%r10"
     ; Register "%r11"
@@ -61,7 +49,7 @@ let usable_registers =
 
 (* https://wiki.osdev.org/System_V_ABI#x86-64 *)
 let volatile_registers =
-  RS.of_list
+  SS.of_list
     [ Register "%rax"
     ; Register "%rdi"
     ; Register "%rsi"
@@ -74,7 +62,7 @@ let volatile_registers =
 ;;
 
 let non_volatile_registers =
-  RS.of_list
+  SS.of_list
     [ Register "%rbx"
     ; Register "%rsp"
     ; Register "%rbp"
@@ -95,7 +83,7 @@ let new_local_env () =
 ;;
 
 let new_context () =
-  { used_labels = LS.empty
+  { used_labels = SS.empty
   ; ctors = Hashtbl.create 32
   ; fields = Hashtbl.create 32
   ; current_env = new_local_env () }
@@ -114,9 +102,9 @@ let escape_label_name name =
 
 let new_label ctx name =
   let name = escape_label_name name in
-  let is_used label = LS.mem label ctx.used_labels in
+  let is_used label = SS.mem label ctx.used_labels in
   let use_label label =
-    ctx.used_labels <- LS.add label ctx.used_labels;
+    ctx.used_labels <- SS.add label ctx.used_labels;
     label
   in
   let rec aux i =
@@ -130,25 +118,25 @@ let new_label ctx name =
 let new_unnamed_label ctx = new_label ctx ".L"
 
 let use_register ctx reg =
-  if RS.mem reg ctx.current_env.unused_registers
+  if SS.mem reg ctx.current_env.unused_registers
   then
     (ctx.current_env).unused_registers
-    <- RS.filter (fun x -> x != reg) ctx.current_env.unused_registers
+    <- SS.filter (fun x -> x != reg) ctx.current_env.unused_registers
   else failwith @@ Printf.sprintf "Register '%s' is unavailable" (string_of_register reg)
 ;;
 
 let alloc_register context =
-  match RS.choose_opt context.current_env.unused_registers with
+  match SS.choose_opt context.current_env.unused_registers with
   | Some h ->
     (context.current_env).unused_registers
-    <- RS.remove h context.current_env.unused_registers;
+    <- SS.remove h context.current_env.unused_registers;
     h
   | None -> failwith "Could not allocate register"
 ;;
 
 let free_register reg ctx =
-  if not (RS.mem reg ctx.current_env.unused_registers)
-  then (ctx.current_env).unused_registers <- RS.add reg ctx.current_env.unused_registers
+  if not (SS.mem reg ctx.current_env.unused_registers)
+  then (ctx.current_env).unused_registers <- SS.add reg ctx.current_env.unused_registers
 ;;
 
 let make_marked_int buf v =
@@ -257,7 +245,7 @@ let nth_arg_register context n =
     | 5 -> Register "%r9"
     | _ -> failwith "Too many arguments"
   in
-  if RS.mem r usable_registers
+  if SS.mem r usable_registers
   then (
     use_register context r;
     r, free_register r )
@@ -282,16 +270,16 @@ let safe_call ctx buf name args =
   let arg_regs, free_fns = List.mapi aux args |> List.split in
   let filt x =
     not
-      ( RS.mem x ctx.current_env.unused_registers
+      ( SS.mem x ctx.current_env.unused_registers
       || List.mem x arg_regs
       || x = ret_register )
   in
-  let regs_to_save = RS.filter filt volatile_registers in
+  let regs_to_save = SS.filter filt volatile_registers in
   let saver x =
     let s = push_to_stack ctx buf (RegisterValue x) in
     x, s
   in
-  let saved_regs = RS.elements regs_to_save |> List.map saver in
+  let saved_regs = SS.elements regs_to_save |> List.map saver in
   B.emit_inst buf @@ "call " ^ name;
   List.iter (fun f -> f ctx) free_fns;
   let restore (x, s) = assign_to_register buf (StackValue s) x in
@@ -301,7 +289,7 @@ let safe_call ctx buf name args =
 
 let call_runtime ctx buf name =
   let real_name = make_name_of_runtime name in
-  if LS.mem (Label real_name) ctx.used_labels
+  if SS.mem (Label real_name) ctx.used_labels
   then safe_call ctx buf real_name
   else
     failwith @@ Printf.sprintf "could not find a runtime function named '%s'" real_name

@@ -1,7 +1,7 @@
 module Expr = Tree.Expression
 module Mod = Tree.Module
 module Pat = Tree.Pattern
-module SS = Set.Make (String)
+module SS = Tree.Simple_set
 module Binop = Tree.Binop
 
 (* TODO: Improve this function's name *)

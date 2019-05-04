@@ -301,7 +301,7 @@ and emit_function_with ctx main_buf label fn =
   in
   let saver r = r, turn_into_stack ctx buf (RegisterValue r) in
   let saved_stacks =
-    non_volatile_registers |> RS.filter exclude_rbp_rsp |> RS.elements |> List.map saver
+    non_volatile_registers |> SS.filter exclude_rbp_rsp |> SS.elements |> List.map saver
   in
   fn ctx buf label ret_label;
   start_label buf ret_label;
