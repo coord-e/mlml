@@ -101,5 +101,46 @@ end
     | B -> 2
     | C -> 3
   in print_int (f A)
-  |}
+    |};
+  Tester.f
+    {|
+let var = 1
+module A = struct
+  let var = 2
+  module B = struct
+    let var = 3
+    module C = struct
+      ;;
+      print_int var
+    end
+  end
+end
+    |};
+  Tester.f
+    {|
+let var = 1
+module A = struct
+  let var = 2
+  module B = struct
+    module C = struct
+      ;;
+      print_int var
+    end
+  end
+end
+    |};
+  Tester.f
+    {|
+module A = struct
+  module D = struct
+    let var = 2
+  end
+  module B = struct
+    module C = struct
+      ;;
+      print_int D.var
+    end
+  end
+end
+    |}
 ;;
