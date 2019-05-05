@@ -15,6 +15,6 @@ ENV SRC_DIR=${HOME}/src
 VOLUME ${SRC_DIR}
 WORKDIR ${SRC_DIR}
 
-ENV MLML_STDLIB_DIR ${SRC_DIR}/test/test_stdlib
+ENV MLML_STDLIB_DIR ${SRC_DIR}/stdlib
 
 CMD ["dune", "runtest", "-w"]

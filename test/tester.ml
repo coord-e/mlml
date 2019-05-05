@@ -4,7 +4,7 @@ open Mlml
 let stdlib_dir =
   match Sys.getenv_opt "MLML_STDLIB_DIR" with
   | Some d -> d
-  | None -> "../../../test/test_stdlib"
+  | None -> "../../../stdlib"
 ;;
 
 let stdlibs = ["sys"; "array"; "bytes"; "char"; "string"; "printf"; "list"; "hashtbl"]
