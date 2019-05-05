@@ -81,11 +81,17 @@ let find_module env path =
   match find_module_opt env path with Some v -> v | None -> failwith "NotFound"
 ;;
 
+let canonical_opt env path =
+  match find_aux env path with Some (p, _) -> Some p | None -> None
+;;
+
 (* `canonical env path` returns canonical form of `path` in `env` *)
 let canonical env path =
-  (* Keep the original form when not found to support external functions *)
-  (* TODO: Remove this behavior after an implementation of "external"    *)
-  match find_aux env path with Some (p, _) -> p | None -> path
+  match canonical_opt env path with
+  | Some p -> p
+  | None ->
+    failwith
+    @@ Printf.sprintf "could not canonicalize path %s" (Path.string_of_path path)
 ;;
 
 (* `mem env path` checks if `path` is reachable in `env` *)
