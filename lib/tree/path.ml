@@ -53,3 +53,15 @@ let tail path = head_tail path |> snd
 let compare = compare
 let is_capitalized path = match (last path).[0] with 'A' .. 'Z' -> true | _ -> false
 let is_single path = length path == 1
+
+let subpaths path =
+  let rec aux path =
+    match length path with
+    | 0 -> [root]
+    | _ ->
+      let t, _ = init_last path in
+      let acc = aux (of_list t) in
+      path :: acc
+  in
+  aux path
+;;

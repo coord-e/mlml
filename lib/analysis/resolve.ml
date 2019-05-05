@@ -105,7 +105,8 @@ let absolute_name ctx name = absolute ctx (Path.single name)
 let resolve env ctx path =
   (* resolve aliases first *)
   let path = canonical env path in
-  let candidates = ctx.opened_paths @ [ctx.primary; Path.root] in
+  let subpaths = Path.subpaths ctx.primary in
+  let candidates = ctx.opened_paths @ subpaths in
   let make_abs c = Path.join c path in
   match List.find_opt (mem env) (List.map make_abs candidates) with
   (* the path is relative *)
