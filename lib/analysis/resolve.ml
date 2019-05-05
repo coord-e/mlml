@@ -34,6 +34,7 @@ let mem_name_local env name =
   || SS.mem name env.ctors
   || SS.mem name env.vars
   || SS.mem name env.fields
+  || SS.mem name env.types
 ;;
 
 let find_module_local env name = Hashtbl.find_opt env.modules name
