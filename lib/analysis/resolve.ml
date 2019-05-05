@@ -262,6 +262,7 @@ let rec convert_defn env ctx defn =
   | Mod.TypeDef l ->
     let aux (tyvars, bind, def) =
       let bind = absolute_name ctx bind in
+      add_with_ns env bind NS.Type;
       let def = convert_type_def env ctx def in
       tyvars, Path.string_of_path bind, def
     in
