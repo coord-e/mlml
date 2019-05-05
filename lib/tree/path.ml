@@ -56,9 +56,9 @@ let is_single path = length path == 1
 
 let subpaths path =
   let rec aux path =
-    match is_single path with
-    | true -> [path]
-    | false ->
+    match length path with
+    | 0 -> []
+    | _ ->
       let t, _ = init_last path in
       let acc = aux (of_list t) in
       path :: acc
