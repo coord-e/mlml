@@ -264,6 +264,7 @@ let rec convert_defn env ctx defn =
     [Mod.Definition (Mod.TypeDef (List.map aux l))]
   | Mod.Module (name, Mod.Path path) ->
     let t = absolute_name ctx name in
+    let path = resolve env ctx path in
     insert_alias env t path;
     []
   | Mod.Module (name, Mod.Struct l) ->
