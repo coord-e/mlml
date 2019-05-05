@@ -51,17 +51,29 @@ let rec apply_on_names f g e =
     BinOp (op, l, r)
   | UnaryOp (op, e) -> UnaryOp (op, apply e)
   | LetAnd (is_rec, l, in_) ->
-    let aux = function
-      | VarBind (p, body) -> VarBind (Pat.apply_on_names f g p, apply body)
-      | FunBind (bind, p, body) ->
-        (* TODO: Improve control flow *)
+    (* can't use `let_binding` between `intros` and `bodies` *)
+    (* because type differs in body and pattern              *)
+    (* using `string option * 'a Pat.t * 'b t` instead       *)
+    let destruct = function
+      | VarBind (p, body) -> None, p, body
+      | FunBind (bind, p, body) -> Some bind, p, body
+    and construct = function
+      | None, p, body -> VarBind (p, body)
+      | Some bind, p, body -> FunBind (bind, p, body)
+    and intros = function
+      | None, p, body -> None, Pat.apply_on_names f g p, body
+      | Some bind, p, body ->
         let bind = if is_rec then g bind NS.Var else bind in
         let p = Pat.apply_on_names f g p in
-        let body = apply body in
-        let bind = if not is_rec then g bind NS.Var else bind in
-        FunBind (bind, p, body)
+        Some bind, p, body
+    and bodies (b_opt, p, body) = b_opt, p, apply body in
+    let l = List.map destruct l in
+    let l =
+      match is_rec with
+      | true -> List.map intros l |> List.map bodies
+      | false -> List.map bodies l |> List.map intros
     in
-    let l = List.map aux l in
+    let l = List.map construct l in
     let in_ = apply in_ in
     LetAnd (is_rec, l, in_)
   | IfThenElse (c, t, e) ->
