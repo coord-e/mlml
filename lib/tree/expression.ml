@@ -81,8 +81,8 @@ let rec apply_on_names f g e =
   | Var name -> Var (f name NS.Var)
   | Match (expr, l) ->
     let aux (p, when_, arm) =
-      let when_ = match when_ with Some when_ -> Some (apply when_) | None -> None in
       let p = Pat.apply_on_names f g p in
+      let when_ = match when_ with Some when_ -> Some (apply when_) | None -> None in
       let arm = apply arm in
       p, when_, arm
     in

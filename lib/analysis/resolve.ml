@@ -34,6 +34,7 @@ let mem_name_local env name =
   || SS.mem name env.ctors
   || SS.mem name env.vars
   || SS.mem name env.fields
+  || SS.mem name env.types
 ;;
 
 let find_module_local env name = Hashtbl.find_opt env.modules name
@@ -81,11 +82,17 @@ let find_module env path =
   match find_module_opt env path with Some v -> v | None -> failwith "NotFound"
 ;;
 
+let canonical_opt env path =
+  match find_aux env path with Some (p, _) -> Some p | None -> None
+;;
+
 (* `canonical env path` returns canonical form of `path` in `env` *)
 let canonical env path =
-  (* Keep the original form when not found to support external functions *)
-  (* TODO: Remove this behavior after an implementation of "external"    *)
-  match find_aux env path with Some (p, _) -> p | None -> path
+  match canonical_opt env path with
+  | Some p -> p
+  | None ->
+    failwith
+    @@ Printf.sprintf "could not canonicalize path %s" (Path.string_of_path path)
 ;;
 
 (* `mem env path` checks if `path` is reachable in `env` *)
@@ -103,16 +110,13 @@ let absolute ctx path = Path.join ctx.primary path
 let absolute_name ctx name = absolute ctx (Path.single name)
 
 let resolve env ctx path =
-  (* resolve aliases first *)
-  let path = canonical env path in
   let subpaths = Path.subpaths ctx.primary in
   let candidates = ctx.opened_paths @ subpaths in
   let make_abs c = Path.join c path in
   match List.find_opt (mem env) (List.map make_abs candidates) with
-  (* the path is relative *)
-  | Some p -> p
-  (* the path is absolute *)
-  | None -> path
+  | Some p -> canonical env p
+  | None ->
+    failwith @@ Printf.sprintf "could not resolve path %s" (Path.string_of_path path)
 ;;
 
 (* convert a path to a pair of `module_env` and local name in returned env *)
@@ -258,12 +262,14 @@ let rec convert_defn env ctx defn =
   | Mod.TypeDef l ->
     let aux (tyvars, bind, def) =
       let bind = absolute_name ctx bind in
+      add_with_ns env bind NS.Type;
       let def = convert_type_def env ctx def in
       tyvars, Path.string_of_path bind, def
     in
     [Mod.Definition (Mod.TypeDef (List.map aux l))]
   | Mod.Module (name, Mod.Path path) ->
     let t = absolute_name ctx name in
+    let path = resolve env ctx path in
     insert_alias env t path;
     []
   | Mod.Module (name, Mod.Struct l) ->
@@ -285,8 +291,15 @@ and convert_module_item env ctx = function
   | Mod.Definition defn -> convert_defn env ctx defn
 ;;
 
+let add_primitives env =
+  let types = ["unit"; "int"; "bool"; "char"; "string"; "bytes"; "array"; "list"] in
+  let adder x = add_local_with_ns env x NS.Type in
+  List.iter adder types
+;;
+
 let f l =
   let env = create_module_env () in
   let ctx = create_context () in
+  add_primitives env;
   List.map (convert_module_item env ctx) l |> List.flatten
 ;;
