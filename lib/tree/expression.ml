@@ -12,7 +12,7 @@ and 'a t =
   | String of string
   | Array of 'a t list
   | Format of Fmt.kind list
-  | BinOp of Binop.t * 'a t * 'a t
+  | BinOp of 'a Binop.t * 'a t * 'a t
   | UnaryOp of Unaryop.t * 'a t
   | LetAnd of bool * 'a let_binding list * 'a t
   | IfThenElse of 'a t * 'a t * 'a t
@@ -23,15 +23,54 @@ and 'a t =
   | Lambda of 'a Pat.t * 'a t
   | Nil
   | Record of ('a * 'a t) list
-  | RecordField of 'a t * string
-  | RecordFieldAssign of 'a t * string * 'a t
+  | RecordField of 'a t * 'a
+  | RecordFieldAssign of 'a t * 'a * 'a t
   | RecordUpdate of 'a t * ('a * 'a t) list
   | ArrayAssign of 'a t * 'a t * 'a t
 
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
+type ('a, 'b, 'c, 'd) let_binding_internal =
+  | InternalVarBind of 'a Pat.t * 'b t
+  | InternalFunBind of string * 'c Pat.t * 'd t
+
+(* apply `f` on reference names, apply `g true` on local binding names, and apply `g
+   false` on new binding names *)
+let rec apply_on_let_bindings f g is_rec l =
+  (* can't use `let_binding` between `intros` and `bodies` *)
+  (* because type differs in body and pattern              *)
+  (* using `let_binding_internal` instead *)
+  let g_local = g true in
+  let g_new = g false in
+  let apply = apply_on_names f g_local in
+  let destruct = function
+    | VarBind (p, body) -> InternalVarBind (p, body)
+    | FunBind (bind, p, body) -> InternalFunBind (bind, p, body)
+  and construct = function
+    | InternalVarBind (p, body) -> VarBind (p, body)
+    | InternalFunBind (bind, p, body) -> FunBind (bind, p, body)
+  and intros = function
+    | InternalVarBind (p, body) -> InternalVarBind (Pat.apply_on_names f g_new p, body)
+    | InternalFunBind (bind, p, body) ->
+      let bind = g_new bind NS.Var in
+      InternalFunBind (bind, p, body)
+  and bodies = function
+    | InternalFunBind (bind, p, body) ->
+      let p = Pat.apply_on_names f g_local p in
+      let body = apply body in
+      InternalFunBind (bind, p, body)
+    | InternalVarBind (p, body) -> InternalVarBind (p, apply body)
+  in
+  let l = List.map destruct l in
+  let l =
+    match is_rec with
+    | true -> List.map intros l |> List.map bodies
+    | false -> List.map bodies l |> List.map intros
+  in
+  List.map construct l
+
 (* apply `f` on reference names, apply `g` on binding names *)
-let rec apply_on_names f g e =
+and apply_on_names f g e =
   let apply = apply_on_names f g in
   match e with
   | Int i -> Int i
@@ -43,25 +82,12 @@ let rec apply_on_names f g e =
   | BinOp (op, l, r) ->
     let l = apply l in
     let r = apply r in
-    let op =
-      match op with
-      | Binop.Custom sym -> Binop.Custom (f (Path.single sym) NS.Var)
-      | _ -> op
-    in
+    let op = Binop.apply_on_custom (fun x -> f x NS.Var) op in
     BinOp (op, l, r)
   | UnaryOp (op, e) -> UnaryOp (op, apply e)
   | LetAnd (is_rec, l, in_) ->
-    let aux = function
-      | VarBind (p, body) -> VarBind (Pat.apply_on_names f g p, apply body)
-      | FunBind (bind, p, body) ->
-        (* TODO: Improve control flow *)
-        let bind = if is_rec then g bind NS.Var else bind in
-        let p = Pat.apply_on_names f g p in
-        let body = apply body in
-        let bind = if not is_rec then g bind NS.Var else bind in
-        FunBind (bind, p, body)
-    in
-    let l = List.map aux l in
+    (* ignore local/global flag *)
+    let l = apply_on_let_bindings f (fun _ -> g) is_rec l in
     let in_ = apply in_ in
     LetAnd (is_rec, l, in_)
   | IfThenElse (c, t, e) ->
@@ -96,15 +122,15 @@ let rec apply_on_names f g e =
   | Record l ->
     let aux (field, expr) = f field NS.Field, apply expr in
     Record (List.map aux l)
-  | RecordField (expr, field_name) ->
+  | RecordField (expr, field) ->
     let expr = apply expr in
-    let field_name = f (Path.single field_name) NS.Field in
-    RecordField (expr, field_name)
-  | RecordFieldAssign (record, field_name, expr) ->
+    let field = f field NS.Field in
+    RecordField (expr, field)
+  | RecordFieldAssign (record, field, expr) ->
     let record = apply record in
     let expr = apply expr in
-    let field_name = f (Path.single field_name) NS.Field in
-    RecordFieldAssign (record, field_name, expr)
+    let field = f field NS.Field in
+    RecordFieldAssign (record, field, expr)
   | RecordUpdate (expr, l) ->
     let aux (field, expr) = f field NS.Field, apply expr in
     let expr = apply expr in
@@ -143,7 +169,7 @@ and string_of_expression f = function
   | BinOp (op, lhs, rhs) ->
     Printf.sprintf
       "%s (%s) (%s)"
-      (Binop.string_of_binop op)
+      (Binop.string_of_binop f op)
       (string_of_expression f lhs)
       (string_of_expression f rhs)
   | UnaryOp (op, e) ->
@@ -195,12 +221,12 @@ and string_of_expression f = function
     in
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
   | RecordField (v, field) ->
-    Printf.sprintf "RecordField (%s).%s" (string_of_expression f v) field
+    Printf.sprintf "RecordField (%s).%s" (string_of_expression f v) (f field)
   | RecordFieldAssign (v, field, e) ->
     Printf.sprintf
       "RecordFieldAssign (%s).%s <- (%s)"
       (string_of_expression f v)
-      field
+      (f field)
       (string_of_expression f e)
   | RecordUpdate (e, fields) ->
     let aux (name, expr) =

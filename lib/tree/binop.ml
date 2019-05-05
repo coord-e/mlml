@@ -1,4 +1,4 @@
-type t =
+type 'a t =
   | Add
   | Sub
   | Mul
@@ -15,9 +15,9 @@ type t =
   | Mod
   | Div
   (* non-keyword operators *)
-  | Custom of string
+  | Custom of 'a
 
-let string_of_binop = function
+let string_of_binop f = function
   | Add -> "+"
   | Sub -> "-"
   | Mul -> "*"
@@ -33,5 +33,24 @@ let string_of_binop = function
   | Cons -> "::"
   | StringIndex -> ".[]"
   | ArrayIndex -> ".()"
-  | Custom s -> s
+  | Custom s -> f s
+;;
+
+let apply_on_custom f = function
+  | Add -> Add
+  | Sub -> Sub
+  | Mul -> Mul
+  | Follow -> Follow
+  | Equal -> Equal
+  | NotPhysicalEqual -> NotPhysicalEqual
+  | Lt -> Lt
+  | Gt -> Gt
+  | And -> And
+  | Or -> Or
+  | Cons -> Cons
+  | StringIndex -> StringIndex
+  | ArrayIndex -> ArrayIndex
+  | Mod -> Mod
+  | Div -> Div
+  | Custom s -> Custom (f s)
 ;;
