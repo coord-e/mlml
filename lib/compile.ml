@@ -1,1 +1,1 @@
-let f source = Lexer.f source |> Parser.Compilation_unit.f |> Analysis.f |> Codegen.f
+let f file = Bundler.f file |> Analysis.f |> Codegen.f

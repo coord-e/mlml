@@ -2,9 +2,7 @@ open Mlml
 
 (* TODO: replace test stdlib with real stdlib *)
 let stdlib_dir =
-  match Sys.getenv_opt "MLML_STDLIB_DIR" with
-  | Some d -> d
-  | None -> "../../../stdlib"
+  match Sys.getenv_opt "MLML_STDLIB_DIR" with Some d -> d | None -> "../../../stdlib"
 ;;
 
 let stdlibs = ["sys"; "array"; "bytes"; "char"; "string"; "printf"; "list"; "hashtbl"]

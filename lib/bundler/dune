@@ -1,4 +1,5 @@
 (library
- (name mlml)
- (libraries bundler analysis codegen)
+ (name bundler)
+ (libraries lexer parser tree)
  (preprocess (pps bisect_ppx -conditional)))
+
