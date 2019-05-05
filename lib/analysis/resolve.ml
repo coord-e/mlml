@@ -290,8 +290,15 @@ and convert_module_item env ctx = function
   | Mod.Definition defn -> convert_defn env ctx defn
 ;;
 
+let add_primitives env =
+  let types = ["unit"; "int"; "bool"; "char"; "string"; "bytes"; "array"; "list"] in
+  let adder x = add_local_with_ns env x NS.Type in
+  List.iter adder types
+;;
+
 let f l =
   let env = create_module_env () in
   let ctx = create_context () in
+  add_primitives env;
   List.map (convert_module_item env ctx) l |> List.flatten
 ;;
