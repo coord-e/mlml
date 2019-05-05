@@ -49,7 +49,7 @@ let rec apply_on_let_bindings f g is_rec l =
   and intros = function
     | InternalVarBind (p, body) -> InternalVarBind (Pat.apply_on_names f g p, body)
     | InternalFunBind (bind, p, body) ->
-      let bind = if is_rec then g bind NS.Var else bind in
+      let bind = g bind NS.Var in
       InternalFunBind (bind, p, body)
   and bodies = function
     | InternalFunBind (bind, p, body) ->
