@@ -57,7 +57,7 @@ let is_single path = length path == 1
 let subpaths path =
   let rec aux path =
     match length path with
-    | 0 -> []
+    | 0 -> [root]
     | _ ->
       let t, _ = init_last path in
       let acc = aux (of_list t) in
