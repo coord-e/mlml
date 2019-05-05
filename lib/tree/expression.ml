@@ -34,12 +34,15 @@ type ('a, 'b, 'c, 'd) let_binding_internal =
   | InternalVarBind of 'a Pat.t * 'b t
   | InternalFunBind of string * 'c Pat.t * 'd t
 
-(* apply `f` on reference names, apply `g` on binding names *)
+(* apply `f` on reference names, apply `g true` on local binding names, and apply `g
+   false` on new binding names *)
 let rec apply_on_let_bindings f g is_rec l =
   (* can't use `let_binding` between `intros` and `bodies` *)
   (* because type differs in body and pattern              *)
   (* using `let_binding_internal` instead *)
-  let apply = apply_on_names f g in
+  let g_local = g true in
+  let g_new = g false in
+  let apply = apply_on_names f g_local in
   let destruct = function
     | VarBind (p, body) -> InternalVarBind (p, body)
     | FunBind (bind, p, body) -> InternalFunBind (bind, p, body)
@@ -47,13 +50,13 @@ let rec apply_on_let_bindings f g is_rec l =
     | InternalVarBind (p, body) -> VarBind (p, body)
     | InternalFunBind (bind, p, body) -> FunBind (bind, p, body)
   and intros = function
-    | InternalVarBind (p, body) -> InternalVarBind (Pat.apply_on_names f g p, body)
+    | InternalVarBind (p, body) -> InternalVarBind (Pat.apply_on_names f g_new p, body)
     | InternalFunBind (bind, p, body) ->
-      let bind = g bind NS.Var in
+      let bind = g_new bind NS.Var in
       InternalFunBind (bind, p, body)
   and bodies = function
     | InternalFunBind (bind, p, body) ->
-      let p = Pat.apply_on_names f g p in
+      let p = Pat.apply_on_names f g_local p in
       let body = apply body in
       InternalFunBind (bind, p, body)
     | InternalVarBind (p, body) -> InternalVarBind (p, apply body)
@@ -83,7 +86,8 @@ and apply_on_names f g e =
     BinOp (op, l, r)
   | UnaryOp (op, e) -> UnaryOp (op, apply e)
   | LetAnd (is_rec, l, in_) ->
-    let l = apply_on_let_bindings f g is_rec l in
+    (* ignore local/global flag *)
+    let l = apply_on_let_bindings f (fun _ -> g) is_rec l in
     let in_ = apply in_ in
     LetAnd (is_rec, l, in_)
   | IfThenElse (c, t, e) ->

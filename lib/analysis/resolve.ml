@@ -231,34 +231,17 @@ let convert_type_def env ctx defn =
 let rec convert_defn env ctx defn =
   match defn with
   | Mod.LetAnd (is_rec, l) ->
-    let aux = function
-      | Expr.VarBind (p, body) ->
-        let binds x ns =
-          let path = absolute_name ctx x in
-          add_with_ns env path ns;
-          Path.string_of_path path
-        and vars x _ns =
-          let path = resolve env ctx x in
-          Path.string_of_path path
-        in
-        let body = convert_expr env ctx body in
-        let p = Pat.apply_on_names vars binds p in
-        Expr.VarBind (p, body)
-      | Expr.FunBind (bind, p, body) ->
-        let inner_env = create_local_env () in
-        let f = apply_vars inner_env env ctx in
-        let g = apply_binds inner_env in
-        let bind = absolute_name ctx bind in
-        (* TODO: Improve control flow *)
-        if is_rec then add_with_ns env bind NS.Var;
-        (* body conversion *)
-        let p = Pat.apply_on_names f g p in
-        let body = Expr.apply_on_names f g body in
-        (* bound name (non-rec) *)
-        if not is_rec then add_with_ns env bind NS.Var;
-        Expr.FunBind (Path.string_of_path bind, p, body)
+    let local_env = create_local_env () in
+    let binds is_local x ns =
+      match is_local with
+      | true -> apply_binds local_env x ns
+      | false ->
+        let path = absolute_name ctx x in
+        add_with_ns env path ns;
+        Path.string_of_path path
     in
-    [Mod.Definition (Mod.LetAnd (is_rec, List.map aux l))]
+    let l = Expr.apply_on_let_bindings (apply_vars local_env env ctx) binds is_rec l in
+    [Mod.Definition (Mod.LetAnd (is_rec, l))]
   | Mod.TypeDef l ->
     let aux (tyvars, bind, def) =
       let bind = absolute_name ctx bind in
