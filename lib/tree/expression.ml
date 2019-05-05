@@ -31,7 +31,34 @@ and 'a t =
 let is_fun_bind = function FunBind _ -> true | VarBind _ -> false
 
 (* apply `f` on reference names, apply `g` on binding names *)
-let rec apply_on_names f g e =
+let rec apply_on_let_bindings f g is_rec l =
+  (* can't use `let_binding` between `intros` and `bodies` *)
+  (* because type differs in body and pattern              *)
+  (* using `string option * 'a Pat.t * 'b t` instead       *)
+  let apply = apply_on_names f g in
+  let destruct = function
+    | VarBind (p, body) -> None, p, body
+    | FunBind (bind, p, body) -> Some bind, p, body
+  and construct = function
+    | None, p, body -> VarBind (p, body)
+    | Some bind, p, body -> FunBind (bind, p, body)
+  and intros = function
+    | None, p, body -> None, Pat.apply_on_names f g p, body
+    | Some bind, p, body ->
+      let bind = if is_rec then g bind NS.Var else bind in
+      let p = Pat.apply_on_names f g p in
+      Some bind, p, body
+  and bodies (b_opt, p, body) = b_opt, p, apply body in
+  let l = List.map destruct l in
+  let l =
+    match is_rec with
+    | true -> List.map intros l |> List.map bodies
+    | false -> List.map bodies l |> List.map intros
+  in
+  List.map construct l
+
+(* apply `f` on reference names, apply `g` on binding names *)
+and apply_on_names f g e =
   let apply = apply_on_names f g in
   match e with
   | Int i -> Int i
@@ -51,29 +78,7 @@ let rec apply_on_names f g e =
     BinOp (op, l, r)
   | UnaryOp (op, e) -> UnaryOp (op, apply e)
   | LetAnd (is_rec, l, in_) ->
-    (* can't use `let_binding` between `intros` and `bodies` *)
-    (* because type differs in body and pattern              *)
-    (* using `string option * 'a Pat.t * 'b t` instead       *)
-    let destruct = function
-      | VarBind (p, body) -> None, p, body
-      | FunBind (bind, p, body) -> Some bind, p, body
-    and construct = function
-      | None, p, body -> VarBind (p, body)
-      | Some bind, p, body -> FunBind (bind, p, body)
-    and intros = function
-      | None, p, body -> None, Pat.apply_on_names f g p, body
-      | Some bind, p, body ->
-        let bind = if is_rec then g bind NS.Var else bind in
-        let p = Pat.apply_on_names f g p in
-        Some bind, p, body
-    and bodies (b_opt, p, body) = b_opt, p, apply body in
-    let l = List.map destruct l in
-    let l =
-      match is_rec with
-      | true -> List.map intros l |> List.map bodies
-      | false -> List.map bodies l |> List.map intros
-    in
-    let l = List.map construct l in
+    let l = apply_on_let_bindings f g is_rec l in
     let in_ = apply in_ in
     LetAnd (is_rec, l, in_)
   | IfThenElse (c, t, e) ->
