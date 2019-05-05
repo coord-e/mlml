@@ -12,7 +12,7 @@ let fmt_char_function = Path.path_of_string "MlmlInternalFormat.fmt_char"
 let convert_format_string fmt =
   let join a_opt b =
     match a_opt with
-    | Some a -> Some (Expr.BinOp (Binop.Custom "^", a, b))
+    | Some a -> Some (Expr.BinOp (Binop.Custom (Path.single "^"), a, b))
     | None -> Some b
   in
   let call_path path b = Expr.App (Expr.Var path, Expr.Var (Path.single b)) in

@@ -12,7 +12,7 @@ and 'a t =
   | String of string
   | Array of 'a t list
   | Format of Fmt.kind list
-  | BinOp of Binop.t * 'a t * 'a t
+  | BinOp of 'a Binop.t * 'a t * 'a t
   | UnaryOp of Unaryop.t * 'a t
   | LetAnd of bool * 'a let_binding list * 'a t
   | IfThenElse of 'a t * 'a t * 'a t
@@ -23,8 +23,8 @@ and 'a t =
   | Lambda of 'a Pat.t * 'a t
   | Nil
   | Record of ('a * 'a t) list
-  | RecordField of 'a t * string
-  | RecordFieldAssign of 'a t * string * 'a t
+  | RecordField of 'a t * 'a
+  | RecordFieldAssign of 'a t * 'a * 'a t
   | RecordUpdate of 'a t * ('a * 'a t) list
   | ArrayAssign of 'a t * 'a t * 'a t
 
@@ -79,11 +79,7 @@ and apply_on_names f g e =
   | BinOp (op, l, r) ->
     let l = apply l in
     let r = apply r in
-    let op =
-      match op with
-      | Binop.Custom sym -> Binop.Custom (f (Path.single sym) NS.Var)
-      | _ -> op
-    in
+    let op = Binop.apply_on_custom (fun x -> f x NS.Var) op in
     BinOp (op, l, r)
   | UnaryOp (op, e) -> UnaryOp (op, apply e)
   | LetAnd (is_rec, l, in_) ->
@@ -122,15 +118,15 @@ and apply_on_names f g e =
   | Record l ->
     let aux (field, expr) = f field NS.Field, apply expr in
     Record (List.map aux l)
-  | RecordField (expr, field_name) ->
+  | RecordField (expr, field) ->
     let expr = apply expr in
-    let field_name = f (Path.single field_name) NS.Field in
-    RecordField (expr, field_name)
-  | RecordFieldAssign (record, field_name, expr) ->
+    let field = f field NS.Field in
+    RecordField (expr, field)
+  | RecordFieldAssign (record, field, expr) ->
     let record = apply record in
     let expr = apply expr in
-    let field_name = f (Path.single field_name) NS.Field in
-    RecordFieldAssign (record, field_name, expr)
+    let field = f field NS.Field in
+    RecordFieldAssign (record, field, expr)
   | RecordUpdate (expr, l) ->
     let aux (field, expr) = f field NS.Field, apply expr in
     let expr = apply expr in
@@ -169,7 +165,7 @@ and string_of_expression f = function
   | BinOp (op, lhs, rhs) ->
     Printf.sprintf
       "%s (%s) (%s)"
-      (Binop.string_of_binop op)
+      (Binop.string_of_binop f op)
       (string_of_expression f lhs)
       (string_of_expression f rhs)
   | UnaryOp (op, e) ->
@@ -221,12 +217,12 @@ and string_of_expression f = function
     in
     List.map aux fields |> String.concat "; " |> Printf.sprintf "{%s}"
   | RecordField (v, field) ->
-    Printf.sprintf "RecordField (%s).%s" (string_of_expression f v) field
+    Printf.sprintf "RecordField (%s).%s" (string_of_expression f v) (f field)
   | RecordFieldAssign (v, field, e) ->
     Printf.sprintf
       "RecordFieldAssign (%s).%s <- (%s)"
       (string_of_expression f v)
-      field
+      (f field)
       (string_of_expression f e)
   | RecordUpdate (e, fields) ->
     let aux (name, expr) =

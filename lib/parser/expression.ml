@@ -171,7 +171,8 @@ and try_parse_dot tokens =
   match lhs_opt with
   | Some lhs ->
     (match rest with
-    | L.Dot :: L.LowerIdent ident :: rest -> rest, Some (T.RecordField (lhs, ident))
+    | L.Dot :: L.LowerIdent ident :: rest ->
+      rest, Some (T.RecordField (lhs, Tree.Path.single ident))
     | L.Dot :: L.LBracket :: rest ->
       let rest, rhs = parse_expression rest in
       (match rest with
@@ -255,7 +256,7 @@ and parse_infix tokens =
     match tokens with
     | L.InfixSymbol sym :: rest ->
       let rest, rhs = parse_cons rest in
-      aux (T.BinOp (Binop.Custom sym, lhs, rhs)) rest
+      aux (T.BinOp (Binop.Custom (Tree.Path.single sym), lhs, rhs)) rest
     | _ -> tokens, lhs
   in
   aux lhs tokens
@@ -317,7 +318,7 @@ and parse_assign tokens =
   | L.LeftArrow :: tokens ->
     let tokens, rhs = parse_let tokens in
     (match lhs with
-    | T.RecordField (e, name) -> tokens, T.RecordFieldAssign (e, name, rhs)
+    | T.RecordField (e, field) -> tokens, T.RecordFieldAssign (e, field, rhs)
     | T.BinOp (Binop.ArrayIndex, e, idx) -> tokens, T.ArrayAssign (e, idx, rhs)
     | _ -> failwith "lhs of <- must be record field or array index")
   | _ -> tokens, lhs
