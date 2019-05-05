@@ -11,7 +11,7 @@ let string_of_int i =
 ;;
 
 module MlmlInternalFormat = struct
-  let fmt_int d = Pervasives2.string_of_int d
+  let fmt_int d = string_of_int d
   let fmt_string s = s
   let fmt_char c = String.make 1 c
 end
