@@ -1,3 +1,6 @@
+module SS = Tree.Simple_set
+module DepTree = Dependency_tree
+
 let stdlib_dir =
   match Sys.getenv_opt "MLML_STDLIB_DIR" with Some d -> d | None -> "../../../stdlib"
 ;;
@@ -14,6 +17,29 @@ let collect_libs dir =
   in
   Array.map read (Sys.readdir dir) |> Array.to_list
 ;;
+
+let find_module_opt name =
+  let name = String.uncapitalize_ascii name in
+  let std_filename = Printf.sprintf "%s/%s.ml" stdlib_dir name in
+  match Sys.file_exists std_filename with true -> Some std_filename | _ -> None
+;;
+
+let find_module name =
+  match find_module_opt name with
+  | Some file -> file
+  | None -> failwith @@ Printf.sprintf "could not find module named %s" name
+;;
+
+let rec build_tree' file =
+  let ic = open_in file in
+  let content = really_input_string ic @@ in_channel_length ic in
+  close_in ic;
+  let tree = Lexer.f content |> Parser.Compilation_unit.f in
+  Find_deps.f tree |> SS.elements |> List.map build_tree_node
+
+and build_tree_node name = DepTree.Node (name, build_tree' @@ find_module name)
+
+let build_tree_root file = DepTree.Root (build_tree' file)
 
 let bundle_libs libs =
   let aux (name, content) =
