@@ -47,7 +47,7 @@ and build_tree_node cache name =
 
 let build_tree_root cache file =
   let name = Printf.sprintf "//%s//" file in
-  DepTree.Root (build_tree' cache name false file)
+  DepTree.Node (file, build_tree' cache name false file)
 ;;
 
 let bundle_libs cache libs = List.rev_map (ModCache.load cache) libs |> List.flatten
