@@ -1,3 +1,4 @@
+module ModCache = Modules_cache
 module SS = Tree.Simple_set
 module DepTree = Dependency_tree
 
@@ -30,16 +31,17 @@ let find_module name =
   | None -> failwith @@ Printf.sprintf "could not find module named %s" name
 ;;
 
-let rec build_tree' file =
-  let ic = open_in file in
-  let content = really_input_string ic @@ in_channel_length ic in
-  close_in ic;
-  let tree = Lexer.f content |> Parser.Compilation_unit.f in
-  Find_deps.f tree |> SS.elements |> List.map build_tree_node
+let rec build_tree' cache file =
+  ModCache.load cache file
+  |> Find_deps.f
+  |> SS.elements
+  |> List.map (build_tree_node cache)
 
-and build_tree_node name = DepTree.Node (name, build_tree' @@ find_module name)
+and build_tree_node cache name =
+  DepTree.Node (name, build_tree' cache @@ find_module name)
+;;
 
-let build_tree_root file = DepTree.Root (build_tree' file)
+let build_tree_root cache file = DepTree.Root (build_tree' cache file)
 
 let bundle_libs libs =
   let aux (name, content) =
@@ -49,7 +51,7 @@ let bundle_libs libs =
   List.map aux libs |> String.concat "\n"
 ;;
 
-let bundle_file file =
+let bundle_file cache file =
   let ic = open_in file in
   let content = really_input_string ic @@ in_channel_length ic in
   close_in ic;
@@ -67,4 +69,7 @@ let bundle_file file =
   tree
 ;;
 
-let f = bundle_file
+let f file =
+  let cache = ModCache.empty () in
+  bundle_file cache file
+;;
