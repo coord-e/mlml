@@ -1,3 +1,5 @@
+module Mod = Tree.Module
+module Path = Tree.Path
 module ModCache = Modules_cache
 module SS = Tree.Simple_set
 module DepTree = Dependency_tree
@@ -19,6 +21,13 @@ let collect_libs dir =
   Array.map read (Sys.readdir dir) |> Array.to_list
 ;;
 
+let preprocess name tree =
+  let name = String.capitalize_ascii name in
+  let form_open name = Mod.Definition (Mod.Open (Path.single name)) in
+  let tree = form_open "Pervasives" :: form_open "Pervasives2" :: tree in
+  [Mod.Definition (Mod.Module (name, Mod.Struct tree))]
+;;
+
 let find_module_opt name =
   let name = String.uncapitalize_ascii name in
   let std_filename = Printf.sprintf "%s/%s.ml" stdlib_dir name in
@@ -31,25 +40,21 @@ let find_module name =
   | None -> failwith @@ Printf.sprintf "could not find module named %s" name
 ;;
 
-let rec build_tree' cache file =
+let rec build_tree' cache name file =
   ModCache.load cache file
+  |> preprocess name
   |> Find_deps.f
   |> SS.elements
   |> List.map (build_tree_node cache)
 
 and build_tree_node cache name =
   let file = find_module name in
-  DepTree.Node ((name, file), build_tree' cache file)
+  DepTree.Node (file, build_tree' cache name file)
 ;;
 
-let build_tree_root cache file = DepTree.Root (build_tree' cache file)
-
-let bundle_libs libs =
-  let aux (name, content) =
-    let mod_name = String.capitalize_ascii name in
-    Printf.sprintf "module %s = struct\n%s\nend" mod_name content
-  in
-  List.map aux libs |> String.concat "\n"
+let build_tree_root cache file =
+  let name = Printf.sprintf "//%s//" file in
+  DepTree.Root (build_tree' cache name file)
 ;;
 
 let bundle_file cache file =
