@@ -8,19 +8,6 @@ let stdlib_dir =
   match Sys.getenv_opt "MLML_STDLIB_DIR" with Some d -> d | None -> "../../../stdlib"
 ;;
 
-let stdlibs = ["sys"; "array"; "bytes"; "char"; "string"; "printf"; "list"; "hashtbl"]
-
-let collect_libs dir =
-  let read file =
-    let ic = open_in @@ Printf.sprintf "%s/%s" dir file in
-    let content = really_input_string ic @@ in_channel_length ic in
-    close_in ic;
-    let name = String.split_on_char '.' file |> List.hd in
-    name, content
-  in
-  Array.map read (Sys.readdir dir) |> Array.to_list
-;;
-
 let preprocess name is_stdlib tree =
   let form_open name = Mod.Definition (Mod.Open (Path.single name)) in
   let tree =
