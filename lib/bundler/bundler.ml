@@ -38,7 +38,8 @@ let rec build_tree' cache file =
   |> List.map (build_tree_node cache)
 
 and build_tree_node cache name =
-  DepTree.Node (name, build_tree' cache @@ find_module name)
+  let file = find_module name in
+  DepTree.Node (file, build_tree' cache file)
 ;;
 
 let build_tree_root cache file = DepTree.Root (build_tree' cache file)
