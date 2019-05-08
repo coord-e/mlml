@@ -4,6 +4,7 @@ type 'a t = (string, 'a ast) Hashtbl.t
 let empty () = Hashtbl.create 32
 let add = Hashtbl.add
 let find_opt = Hashtbl.find_opt
+let find = Hashtbl.find
 
 let load_direct file =
   let ic = open_in file in
@@ -24,3 +25,4 @@ let load_with_opt init_opt s file =
 
 let load_with f = load_with_opt (Some f)
 let load = load_with_opt None
+let get = find
