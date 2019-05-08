@@ -47,8 +47,8 @@ let find_module name =
 ;;
 
 let rec build_tree' cache name is_stdlib file =
-  ModCache.load cache file
-  |> preprocess name is_stdlib
+  (* run preprocess in first load *)
+  ModCache.load_with (preprocess name is_stdlib) cache file
   |> Find_deps.f
   |> SS.elements
   |> List.map (build_tree_node cache)

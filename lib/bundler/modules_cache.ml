@@ -12,11 +12,15 @@ let load_direct file =
   Lexer.f content |> Parser.Compilation_unit.f
 ;;
 
-let load s file =
+let load_with_opt init_opt s file =
   match find_opt s file with
   | Some tree -> tree
   | None ->
     let tree = load_direct file in
+    let tree = match init_opt with Some f -> f tree | None -> tree in
     add s file tree;
     tree
 ;;
+
+let load_with f = load_with_opt (Some f)
+let load = load_with_opt None
