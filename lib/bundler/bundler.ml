@@ -63,22 +63,10 @@ let build_tree_root cache file =
   DepTree.Root (build_tree' cache name false file)
 ;;
 
+let bundle_libs cache libs = List.rev_map (ModCache.load cache) libs |> List.flatten
+
 let bundle_file cache file =
-  let ic = open_in file in
-  let content = really_input_string ic @@ in_channel_length ic in
-  close_in ic;
-  let libs = collect_libs stdlib_dir in
-  let p, libs = List.partition (fun (name, _) -> name = "pervasives") libs in
-  let p2, libs = List.partition (fun (name, _) -> name = "pervasives2") libs in
-  (* TODO: Remove these hacks *)
-  let libs = List.map (fun x -> x, List.assoc x libs) stdlibs |> bundle_libs in
-  let p = bundle_libs p in
-  let p2 = bundle_libs p2 in
-  let source =
-    Printf.sprintf "%s;;open Pervasives;;%s;;%s;;open Pervasives2;;%s" p libs p2 content
-  in
-  let tree = Lexer.f source |> Parser.Compilation_unit.f in
-  tree
+  build_tree_root cache file |> DepTree.collapse |> bundle_libs cache
 ;;
 
 let f file =
