@@ -1,7 +1,7 @@
 type 'a node = Node of 'a * 'a node list
 type 'a root = Root of 'a node list
 
-let merge a b =
+let merge_list a b =
   let rec aux acc = function
     | h :: t ->
       let f x = x <> h in
@@ -13,7 +13,7 @@ let merge a b =
   aux [] l
 ;;
 
-let rec collapse_list l = List.map collapse_node l |> List.fold_left merge []
+let rec collapse_list l = List.map collapse_node l |> List.fold_left merge_list []
 
 and collapse_node = function
   | Node (name, []) -> [name]
