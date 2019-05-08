@@ -39,7 +39,7 @@ let rec build_tree' cache file =
 
 and build_tree_node cache name =
   let file = find_module name in
-  DepTree.Node (file, build_tree' cache file)
+  DepTree.Node ((name, file), build_tree' cache file)
 ;;
 
 let build_tree_root cache file = DepTree.Root (build_tree' cache file)
