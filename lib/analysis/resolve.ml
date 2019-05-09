@@ -243,13 +243,17 @@ let rec convert_defn env ctx defn =
     let l = Expr.apply_on_let_bindings (apply_vars local_env env ctx) binds is_rec l in
     [Mod.Definition (Mod.LetAnd (is_rec, l))]
   | Mod.TypeDef l ->
-    let aux (tyvars, bind, def) =
+    let intros (tyvars, bind, def) =
       let bind = absolute_name ctx bind in
       add_with_ns env bind NS.Type;
+      tyvars, bind, def
+    in
+    let aux (tyvars, bind, def) =
       let def = convert_type_def env ctx def in
       tyvars, Path.string_of_path bind, def
     in
-    [Mod.Definition (Mod.TypeDef (List.map aux l))]
+    let l = List.map intros l |> List.map aux in
+    [Mod.Definition (Mod.TypeDef l)]
   | Mod.Module (name, Mod.Path path) ->
     let t = absolute_name ctx name in
     let path = resolve env ctx path in
