@@ -35,3 +35,5 @@ let compare a b =
 ;;
 
 let succ x = x + 1
+let fst (a, _) = a
+let snd (_, b) = b
