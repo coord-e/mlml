@@ -62,12 +62,7 @@ type token =
   | RArray
 
 let to_digit c = int_of_char c - int_of_char '0'
-
-let string_of_chars chars =
-  let buf = Buffer.create 8 in
-  List.iter (Buffer.add_char buf) chars;
-  Buffer.contents buf
-;;
+let string_of_chars chars = String.init (List.length chars) (List.nth chars)
 
 let rec read_int acc rest =
   match rest with
