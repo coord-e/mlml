@@ -76,20 +76,26 @@ let rec read_int acc rest =
   | _ -> [], acc
 ;;
 
+type char_aux =
+  | Raw of char
+  | Escaped of char
+
+let to_raw_char = function Raw c | Escaped c -> c
+
 let read_one_char = function
   | '\\' :: t ->
     (match t with
-    | '\\' :: rest -> rest, '\\'
-    | '"' :: rest -> rest, '"'
-    | '\'' :: rest -> rest, '\''
-    | 'n' :: rest -> rest, '\n'
-    | 'r' :: rest -> rest, '\r'
-    | 't' :: rest -> rest, '\t'
-    | 'b' :: rest -> rest, '\b'
-    | ' ' :: rest -> rest, ' '
+    | '\\' :: rest -> rest, Escaped '\\'
+    | '"' :: rest -> rest, Escaped '"'
+    | '\'' :: rest -> rest, Escaped '\''
+    | 'n' :: rest -> rest, Escaped '\n'
+    | 'r' :: rest -> rest, Escaped '\r'
+    | 't' :: rest -> rest, Escaped '\t'
+    | 'b' :: rest -> rest, Escaped '\b'
+    | ' ' :: rest -> rest, Escaped ' '
     | _ ->
       failwith "Invalid escape sequence" (* TODO: Implement ASCII escape sequences *))
-  | c :: rest -> rest, c
+  | c :: rest -> rest, Raw c
   | [] -> failwith "attempt to read a char from empty input"
 ;;
 
@@ -97,8 +103,9 @@ let read_string_part chars =
   let rec aux acc chars =
     let rest, c = read_one_char chars in
     match c with
-    | '%' | '"' -> chars, acc
-    | c ->
+    | Raw '%' | Raw '"' -> chars, acc
+    | _ ->
+      let c = to_raw_char c in
       let rest, acc = aux acc rest in
       rest, c :: acc
   in
@@ -109,11 +116,11 @@ let read_string_part chars =
 let rec read_format_string acc chars =
   let rest, c = read_one_char chars in
   match c with
-  | '"' -> rest, acc
-  | '%' ->
+  | Raw '"' -> rest, acc
+  | Raw '%' ->
     let rest, ty_char = read_one_char rest in
     let spec =
-      match ty_char with
+      match to_raw_char ty_char with
       | 'd' -> Fmt.Int
       | 'c' -> Fmt.Char
       | 's' -> Fmt.String
@@ -128,8 +135,9 @@ let rec read_format_string acc chars =
 ;;
 
 let try_read_char tokens =
-  let rest, c = read_one_char tokens in
-  match rest with '\'' :: rest -> rest, Some c | _ -> tokens, None
+  match read_one_char tokens with
+  | '\'' :: rest, c -> rest, Some (to_raw_char c)
+  | _ -> tokens, None
 ;;
 
 let read_char tokens =

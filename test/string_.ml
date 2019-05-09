@@ -20,6 +20,9 @@ print_string (s1 ^ ", " ^ s2)
   Tester.bool_expr {|
   "hello" != "hello"
   |};
+  Tester.f {|
+  print_string "this is \"quoted\" string"
+  |};
   Tester.f
     {|
 let f = function 'a' -> "AHHHH" | 'b' -> "BEEEE" | _ -> "huh, idk" in
