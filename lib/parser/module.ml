@@ -71,7 +71,11 @@ let rec try_parse_type_bindings tokens =
     let rest, def =
       match rest with
       | L.LBrace :: _ -> parse_record rest
-      | L.Vertical :: _ | L.CapitalIdent _ :: _ -> parse_variant rest
+      (* TODO: distinguish variant and alias by checking the ability to be parsed as type
+         expression *)
+      | L.Vertical :: _
+      | L.CapitalIdent _ :: L.Vertical :: _
+      | L.CapitalIdent _ :: L.Of :: _ -> parse_variant rest
       | _ ->
         let rest, ty = TyExpr.parse_type_expression rest in
         rest, T.Alias ty
