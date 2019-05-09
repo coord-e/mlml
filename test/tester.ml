@@ -73,11 +73,10 @@ let bool_expr source =
   expr source
 ;;
 
-let file path =
+let file path expected_result =
   let mlml_result = exec_with_mlml_file path in
-  let ocaml_result = exec_with_ocaml_file path in
-  if not (mlml_result = ocaml_result)
+  if not (mlml_result = expected_result)
   then (
-    Printf.eprintf "mlml: (%s)\nocaml: (%s)\n" mlml_result ocaml_result;
+    Printf.eprintf "mlml: (%s)\nexpected: (%s)\n" mlml_result expected_result;
     failwith "assertion failed" )
 ;;
