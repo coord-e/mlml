@@ -1,5 +1,5 @@
 (library
  (name bundler)
- (libraries lexer parser tree resolver)
+ (libraries lexer parser tree)
  (preprocess (pps bisect_ppx -conditional)))
 
