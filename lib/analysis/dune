@@ -1,4 +1,4 @@
 (library
  (name analysis)
- (libraries parser)
+ (libraries parser resolver)
  (preprocess (pps bisect_ppx -conditional)))
