@@ -13,7 +13,14 @@ type t =
 let create () = {main = []; sub = []; placeholder_index = 0}
 
 (* basic emit functions *)
-let emit buf line = buf.main <- line :: buf.main
+let emit buf line =
+  match line, buf.main with
+  | Inst i1, Inst i2 :: t ->
+    let inst = Printf.sprintf "%s\n%s" i2 i1 in
+    buf.main <- Inst inst :: t
+  | _ -> buf.main <- line :: buf.main
+;;
+
 let emit_sub buf line = buf.sub <- line :: buf.sub
 
 (* prepend functions (slow) *)
