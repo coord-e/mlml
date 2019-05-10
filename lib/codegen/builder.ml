@@ -599,6 +599,16 @@ let rec pattern_match ctx buf pat v fail_label =
     free_register reg ctx
 ;;
 
+let basic_pattern_match ctx buf pat v =
+  let merge = new_unnamed_label ctx in
+  let fail = new_unnamed_label ctx in
+  pattern_match ctx buf pat v fail;
+  B.emit_inst_fmt buf "jmp %s" (string_of_label merge);
+  start_label buf fail;
+  let _ = safe_call ctx buf (string_of_label match_fail_label) [] in
+  start_label buf merge
+;;
+
 let calc_div ctx buf lhs rhs quot rem =
   let rax = Register "%rax" in
   assign_to_register buf (RegisterValue lhs) rax;

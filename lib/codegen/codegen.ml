@@ -208,7 +208,7 @@ and codegen_expr ctx buf = function
         start_label buf next_label;
         aux t
       | [] ->
-        B.emit_inst_fmt buf "jmp %s" (string_of_label match_fail_label);
+        let _ = safe_call ctx buf (string_of_label match_fail_label) [] in
         start_label buf join_label;
         StackValue eval_stack
     in
@@ -341,7 +341,7 @@ and emit_let_bindings ctx buf is_rec l =
   let labels, funs = List.map make_convenient_data funs |> List.split in
   let emit param ast ctx buf _label _ =
     let arg = nth_arg_stack ctx buf 0 in
-    pattern_match ctx buf param (StackValue arg) match_fail_label;
+    basic_pattern_match ctx buf param (StackValue arg);
     (if is_rec
     then
       (* forward definition of functions *)
@@ -356,7 +356,7 @@ and emit_let_bindings ctx buf is_rec l =
   let aux_vars = function
     | Expr.VarBind (pat, body) ->
       let body = codegen_expr ctx buf body in
-      pattern_match ctx buf pat body match_fail_label;
+      basic_pattern_match ctx buf pat body;
       pat
     | _ -> failwith "unreachable"
   in
