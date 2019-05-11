@@ -130,7 +130,9 @@ and try_parse_literal tokens =
   | L.CapitalIdent _ :: _ ->
     (match Path.try_parse_path tokens with
     | rest, None -> rest, None
-    | _, Some path when Tree.Path.is_capitalized path -> tokens, None
+    | rest, Some path when Tree.Path.is_capitalized path ->
+      (* Ctor with param should be parsed in parse_ctor_with_param *)
+      rest, Some (T.Ctor (path, None))
     | rest, Some path -> rest, Some (T.Var path))
   | L.LBrace :: rest ->
     let rest, r = parse_record rest in
@@ -199,14 +201,15 @@ and parse_app tokens =
   in
   aux f rest
 
-and parse_ctor tokens =
+and parse_ctor_with_param tokens =
   match tokens with
   | L.CapitalIdent _ :: _ ->
     (match Path.try_parse_path tokens with
     | rest, Some path when Tree.Path.is_capitalized path ->
+      (* Ctor without param should be parsed in parse_literal *)
       (match try_parse_dot rest with
       | rest, Some p -> rest, T.Ctor (path, Some p)
-      | _, None -> rest, T.Ctor (path, None))
+      | _, None -> parse_app tokens)
     | _ -> parse_app tokens)
   | _ -> parse_app tokens
 
@@ -217,7 +220,7 @@ and parse_prefix = function
   | L.Plus :: rest ->
     let rest, expr = parse_prefix rest in
     rest, T.UnaryOp (Uop.Positate, expr)
-  | tokens -> parse_ctor tokens
+  | tokens -> parse_ctor_with_param tokens
 
 and parse_mult tokens =
   let tokens, lhs = parse_prefix tokens in
