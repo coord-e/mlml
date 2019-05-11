@@ -33,7 +33,7 @@ a compiler for a tiny subset of OCaml, which is written just for fun.
   - [x] definition
   - [x] aliases
   - [x] `open`
-  - [ ] importing from other files
+  - [x] importing from other files
 - [ ] **self-hosting!**
 - [ ] exceptions
 - [ ] type checker & type inference
