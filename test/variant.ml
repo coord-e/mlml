@@ -69,5 +69,16 @@ let complex_match = function
 let a = complex_match (C (A (4, 5), (6, 7))) in
 let b = complex_match (C (B 12, (3, 4))) in
 print_int (a + b)
+  |};
+  (* parser precedence *)
+  Tester.f
+    {|
+type t = A | B
+;;
+let f a b =
+  match a with
+  | A -> b + 1
+  | B -> b
+in print_int (f A 10)
   |}
 ;;
