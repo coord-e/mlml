@@ -7,6 +7,12 @@ external char_of_int : int -> char = "_mlml_identity"
 external _append_string : string * string -> string = "_mlml_append_string"
 
 let string_of_bool = function true -> "true" | false -> "false"
+
+let print_endline s =
+  print_string s;
+  print_char '\n'
+;;
+
 let not c = if c then false else true
 let ( <> ) a b = not (a = b)
 let ( == ) a b = not (a != b)
