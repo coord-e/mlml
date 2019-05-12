@@ -62,13 +62,15 @@ let rec build_tree_perm cache name is_stdlib file =
   let is_some = function Some _ -> true | None -> false
   and unwrap = function Some v -> v | None -> failwith "unreachable" in
   build_tree_pre cache name is_stdlib file
-  |> List.map (find_module_opt @@ Filename.dirname file)
+  |> List.map (build_tree_node_perm cache @@ Filename.dirname file)
   |> List.filter is_some
   |> List.map unwrap
-  |> List.map (build_tree_node_perm cache name)
 
-and build_tree_node_perm cache name (is_stdlib, file) =
-  DepTree.Node (file, build_tree_perm cache name is_stdlib file)
+and build_tree_node_perm cache dir name =
+  match find_module_opt dir name with
+  | Some (is_stdlib, file) ->
+    Some (DepTree.Node (file, build_tree_perm cache name is_stdlib file))
+  | None -> None
 ;;
 
 let build_tree_root_perm cache file =
