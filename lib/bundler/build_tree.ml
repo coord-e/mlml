@@ -77,3 +77,5 @@ let build_tree_root_perm cache file =
   let name = Printf.sprintf "//%s//" file in
   DepTree.Node (file, build_tree_perm cache name false file)
 ;;
+
+let bundle_libs cache libs = List.rev_map (ModCache.get cache) libs |> List.flatten

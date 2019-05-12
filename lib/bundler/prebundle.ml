@@ -8,8 +8,7 @@ let filename_to_module path =
   String.capitalize_ascii name
 ;;
 
-(* `prebundle cache path` bundles files under `path` in one module *)
-let prebundle cache path =
+let prebundle_aux cache path =
   let name = Filename.basename path in
   let entry_path = Filename.concat path name ^ ".ml" in
   match Sys.file_exists entry_path with
@@ -26,4 +25,13 @@ let prebundle cache path =
     |> List.map (Filename.concat path)
     |> List.map build
     |> DepTree.collapse_list
+;;
+
+(* `prebundle cache path` bundles files under `path` in one module and save it in cache *)
+let prebundle cache path =
+  let local_cache = ModCache.copy cache in
+  let module_name = Filename.basename path |> String.capitalize_ascii in
+  prebundle_aux local_cache path
+  |> Build.bundle_libs local_cache
+  |> ModCache.add cache module_name
 ;;
