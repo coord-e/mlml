@@ -37,19 +37,41 @@ let find_module dir name =
   | None -> failwith @@ Printf.sprintf "could not find module named %s" name
 ;;
 
-let rec build_tree' cache name is_stdlib file =
+let build_tree_pre cache name is_stdlib file =
   (* run preprocess in first load *)
-  ModCache.load_with (preprocess name is_stdlib) cache file
-  |> Find_deps.f
-  |> SS.elements
+  ModCache.load_with (preprocess name is_stdlib) cache file |> Find_deps.f |> SS.elements
+;;
+
+(* non-permissive builder: fails when the name is not found *)
+let rec build_tree cache name is_stdlib file =
+  build_tree_pre cache name is_stdlib file
   |> List.map (build_tree_node cache @@ Filename.dirname file)
 
 and build_tree_node cache dir name =
   let is_stdlib, file = find_module dir name in
-  DepTree.Node (file, build_tree' cache name is_stdlib file)
+  DepTree.Node (file, build_tree cache name is_stdlib file)
 ;;
 
 let build_tree_root cache file =
   let name = Printf.sprintf "//%s//" file in
-  DepTree.Node (file, build_tree' cache name false file)
+  DepTree.Node (file, build_tree cache name false file)
+;;
+
+(* permissive builder: correct only existing modules *)
+let rec build_tree_perm cache name is_stdlib file =
+  let is_some = function Some _ -> true | None -> false
+  and unwrap = function Some v -> v | None -> failwith "unreachable" in
+  build_tree_pre cache name is_stdlib file
+  |> List.map (find_module_opt @@ Filename.dirname file)
+  |> List.filter is_some
+  |> List.map unwrap
+  |> List.map (build_tree_node_perm cache name)
+
+and build_tree_node_perm cache name (is_stdlib, file) =
+  DepTree.Node (file, build_tree_perm cache name is_stdlib file)
+;;
+
+let build_tree_root_perm cache file =
+  let name = Printf.sprintf "//%s//" file in
+  DepTree.Node (file, build_tree_perm cache name false file)
 ;;
