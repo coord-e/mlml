@@ -30,8 +30,7 @@ let prebundle_aux cache path =
 (* `prebundle cache path` bundles files under `path` in one module and save it in cache *)
 let prebundle cache path =
   let local_cache = ModCache.copy cache in
-  let module_name = Filename.basename path |> String.capitalize_ascii in
   prebundle_aux local_cache path
   |> Build.bundle_libs local_cache
-  |> ModCache.add cache module_name
+  |> ModCache.add cache path
 ;;

@@ -21,18 +21,23 @@ let preprocess name is_stdlib tree =
   [Mod.Definition (Mod.Module (name, Mod.Struct tree))]
 ;;
 
-let find_module_opt dir name =
+let find_module_opt cache dir name =
   let name = String.uncapitalize_ascii name in
   let std_filename = Printf.sprintf "%s/%s.ml" stdlib_dir name in
   let local_filename = Printf.sprintf "%s/%s.ml" dir name in
-  match Sys.file_exists local_filename, Sys.file_exists std_filename with
-  | true, _ when dir <> stdlib_dir -> Some (false, local_filename)
-  | _, true -> Some (true, std_filename)
-  | _ -> None
+  (* find registered dune modules first *)
+  let f x = Filename.basename x = name in
+  match ModCache.find_key_opt f cache with
+  | Some path -> Some (false, path)
+  | None ->
+    (match Sys.file_exists local_filename, Sys.file_exists std_filename with
+    | true, _ when dir <> stdlib_dir -> Some (false, local_filename)
+    | _, true -> Some (true, std_filename)
+    | _ -> None)
 ;;
 
-let find_module dir name =
-  match find_module_opt dir name with
+let find_module cache dir name =
+  match find_module_opt cache dir name with
   | Some (is_stdlib, file) -> is_stdlib, file
   | None -> failwith @@ Printf.sprintf "could not find module named %s" name
 ;;
@@ -48,7 +53,7 @@ let rec build_tree cache name is_stdlib file =
   |> List.map (build_tree_node cache @@ Filename.dirname file)
 
 and build_tree_node cache dir name =
-  let is_stdlib, file = find_module dir name in
+  let is_stdlib, file = find_module cache dir name in
   DepTree.Node (file, build_tree cache name is_stdlib file)
 ;;
 
@@ -67,7 +72,7 @@ let rec build_tree_perm cache name is_stdlib file =
   |> List.map unwrap
 
 and build_tree_node_perm cache dir name =
-  match find_module_opt dir name with
+  match find_module_opt cache dir name with
   | Some (is_stdlib, file) ->
     Some (DepTree.Node (file, build_tree_perm cache name is_stdlib file))
   | None -> None

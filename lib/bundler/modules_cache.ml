@@ -7,6 +7,11 @@ let find_opt = Hashtbl.find_opt
 let find = Hashtbl.find
 let copy = Hashtbl.copy
 
+let find_key_opt pred s =
+  let f k _v acc = match pred k with true -> Some k | false -> acc in
+  Hashtbl.fold f s None
+;;
+
 let load_direct file =
   let ic = open_in file in
   let content = really_input_string ic @@ in_channel_length ic in
