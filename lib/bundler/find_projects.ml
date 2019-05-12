@@ -28,7 +28,7 @@ let rec find_projects root_dir =
     | true ->
       let acc = SS.union acc @@ find_projects path in
       let dune = Filename.concat path "dune" in
-      (match Sys.file_exists dune with true -> SS.add name acc | false -> acc)
+      (match Sys.file_exists dune with true -> SS.add path acc | false -> acc)
   in
   Sys.readdir root_dir |> Array.fold_left aux SS.empty
 ;;
