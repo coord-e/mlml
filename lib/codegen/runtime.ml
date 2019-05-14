@@ -93,25 +93,6 @@ let c_str_to_string ctx buf _label _ret_label =
   assign_to_register buf ptr_save ret_register
 ;;
 
-let print_int ctx buf _label _ret_label =
-  (* emit data *)
-  let str_label = new_label ctx ".string_of_print_int" in
-  B.emit_sub buf (B.Label (string_of_label str_label));
-  B.emit_sub_inst buf ".string \"%ld\"";
-  (* emit function body *)
-  let a1, free1 = nth_arg_register ctx 0 in
-  let a2, free2 = nth_arg_register ctx 1 in
-  (* read the first element of closure tuple *)
-  read_from_address ctx buf (RegisterValue a1) (RegisterValue a2) (-8);
-  restore_marked_int buf (RegisterValue a2);
-  label_ptr_to_register buf str_label a1;
-  B.emit_inst_fmt buf "xorq %s, %s" (register_name "rax") (register_name "rax");
-  let _ = safe_call ctx buf "printf@PLT" [RegisterValue a1; RegisterValue a2] in
-  free1 ctx;
-  free2 ctx;
-  assign_to_register buf (make_tuple_const ctx buf []) ret_register
-;;
-
 let print_char ctx buf _label _ret_label =
   let a1, free1 = nth_arg_register ctx 0 in
   (* read the first element of closure tuple *)
@@ -495,7 +476,6 @@ let exit ctx buf _label _ret_label =
 
 let runtimes =
   [ match_fail, match_fail_name
-  ; print_int, "print_int"
   ; print_char, "print_char"
   ; print_string, "print_string"
   ; prerr_string, "prerr_string"

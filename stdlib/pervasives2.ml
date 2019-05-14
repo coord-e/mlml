@@ -13,6 +13,8 @@ let string_of_int i =
   if i < 0 then "-" ^ string_of_pos (-i) else string_of_pos i
 ;;
 
+let print_int i = print_string @@ string_of_int i
+
 module MlmlInternalFormat = struct
   let fmt_int d = string_of_int d
   let fmt_string s = s
