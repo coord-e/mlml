@@ -66,7 +66,7 @@ let rec codegen_binop ctx buf lhs rhs = function
     free_r ctx;
     make_marked_int buf rem;
     rem
-  | Binop.Or -> codegen_expr ctx buf (Expr.IfThenElse (lhs, lhs, lhs))
+  | Binop.Or -> codegen_expr ctx buf (Expr.IfThenElse (lhs, lhs, rhs))
   | Binop.And -> codegen_expr ctx buf (Expr.IfThenElse (lhs, rhs, lhs))
   | Binop.Follow ->
     let _ = codegen_expr ctx buf lhs in

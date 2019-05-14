@@ -24,6 +24,7 @@ let () =
   Tester.bool_expr "4 >= 8";
   Tester.bool_expr "false || false";
   Tester.bool_expr "true || true";
+  Tester.bool_expr "false || true";
   Tester.bool_expr "true && true";
   Tester.bool_expr "false && true";
   Tester.bool_expr "false && (print_int 42; true)";
