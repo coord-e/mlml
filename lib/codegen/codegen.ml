@@ -302,12 +302,12 @@ and emit_function_with ctx main_buf label fn =
   let buf = B.create () in
   let ret_label = new_unnamed_label ctx in
   start_global_label buf label;
-  B.emit_inst buf "pushq %rbp";
-  B.emit_inst buf "movq %rsp, %rbp";
+  B.emit_inst_fmt buf "pushq %s" (register_name "rbp");
+  B.emit_inst_fmt buf "movq %s, %s" (register_name "rsp") (register_name "rbp");
   let subq_place = B.emit_placeholder buf in
   (* save registers (non-volatile registers) *)
   let exclude_rbp_rsp = function
-    | Register "%rbp" | Register "%rsp" -> false
+    | Register "rbp" | Register "rsp" -> false
     | _ -> true
   in
   let saver r = r, turn_into_stack ctx buf (RegisterValue r) in
@@ -319,9 +319,9 @@ and emit_function_with ctx main_buf label fn =
   let stack_used = ctx.current_env.current_stack in
   let restore (r, s) = assign_to_register buf (StackValue s) r in
   List.iter restore saved_stacks;
-  B.emit_inst buf "movq %rbp, %rsp";
-  B.emit_inst buf "popq %rbp";
-  B.emit_inst buf "ret";
+  B.emit_inst_fmt buf "movq %s, %s" (register_name "rbp") (register_name "rsp");
+  B.emit_inst_fmt buf "popq %s" (register_name "rbp");
+  B.emit_inst_fmt buf "ret";
   let _ = use_env ctx old_env in
   B.substitute
     buf
