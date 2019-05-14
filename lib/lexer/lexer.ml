@@ -90,6 +90,8 @@ let read_one_char = function
     | ' ' :: rest -> rest, Escaped ' '
     | _ ->
       failwith "Invalid escape sequence" (* TODO: Implement ASCII escape sequences *))
+  (* TODO: Escape % in `read_format_string` *)
+  | '%' :: '%' :: rest -> rest, Escaped '%'
   | c :: rest -> rest, Raw c
   | [] -> failwith "attempt to read a char from empty input"
 ;;

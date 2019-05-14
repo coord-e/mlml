@@ -23,5 +23,8 @@ print_string @@ f "hello, " "%s!" "world";
 print_string @@ f "one" "plus %s is %d" "one" 2;
 let f2 = f "No." in
 f2 "%d-%s" 1 "maybe"
+  |};
+  Tester.f {|
+Printf.printf "Escape%%%s!" "escaped!"
   |}
 ;;
