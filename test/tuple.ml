@@ -24,5 +24,10 @@ let () =
     let add (a, b, (d, e)) = a * b + d * e in
     let v, t = 10, (3, 4) in
     add (5, v, t)
+  |};
+  Tester.expr {|
+let t = (1, fun x -> x + 1) in
+let v, f = t in
+f v
   |}
 ;;

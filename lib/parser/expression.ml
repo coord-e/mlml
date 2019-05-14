@@ -93,7 +93,7 @@ and parse_fields tokens =
   in
   match Path.try_parse_path tokens with
   | L.Equal :: rest, Some path ->
-    let rest, expr = parse_let rest in
+    let rest, expr = parse_tuple rest in
     continue path expr rest
   | rest, None -> rest, []
   | rest, Some path -> continue path (T.Var (Tree.Path.last_path path)) rest
@@ -103,7 +103,7 @@ and parse_record tokens =
     let rest, fields = parse_fields tokens in
     rest, T.Record fields
   and try_parse_with tokens =
-    let rest, expr = parse_let tokens in
+    let rest, expr = parse_tuple tokens in
     match rest with
     | L.With :: rest ->
       let rest, fields = parse_fields rest in
@@ -142,7 +142,7 @@ and try_parse_literal tokens =
       | L.RArray :: rest -> rest, []
       | L.Semicolon :: rest -> aux rest
       | tokens ->
-        let rest, v = parse_let tokens in
+        let rest, v = parse_tuple tokens in
         let rest, acc = aux rest in
         rest, v :: acc
     in
@@ -153,7 +153,7 @@ and try_parse_literal tokens =
       | L.RBracket :: rest -> rest, T.Nil
       | L.Semicolon :: rest -> aux rest
       | tokens ->
-        let rest, lhs = parse_let tokens in
+        let rest, lhs = parse_tuple tokens in
         let rest, rhs = aux rest in
         rest, T.BinOp (Binop.Cons, lhs, rhs)
     in
@@ -307,26 +307,11 @@ and parse_or tokens =
     tokens, T.BinOp (Binop.Or, lhs, rhs)
   | _ -> tokens, lhs
 
-and parse_tuple tokens =
-  let rec aux tokens =
-    let rest, curr = parse_or tokens in
-    match rest with
-    | L.Comma :: rest ->
-      let rest, tail = aux rest in
-      rest, curr :: tail
-    | _ -> rest, [curr]
-  in
-  let rest, values = aux tokens in
-  match values with
-  | [] -> failwith "unreachable"
-  | [value] -> rest, value
-  | _ -> rest, T.Tuple values
-
 and parse_assign tokens =
-  let tokens, lhs = parse_tuple tokens in
+  let tokens, lhs = parse_or tokens in
   match tokens with
   | L.LeftArrow :: tokens ->
-    let tokens, rhs = parse_let tokens in
+    let tokens, rhs = parse_tuple tokens in
     (match lhs with
     | T.RecordField (e, field) -> tokens, T.RecordFieldAssign (e, field, rhs)
     | T.BinOp (Binop.ArrayIndex, e, idx) -> tokens, T.ArrayAssign (e, idx, rhs)
@@ -375,12 +360,24 @@ and parse_let = function
     rest, T.LetAnd (is_rec, binds, rhs)
   | tokens -> parse_match tokens
 
+and parse_tuple tokens =
+  let rec aux = function
+    | L.Comma :: rest ->
+      let rest, curr = parse_let rest in
+      let rest, tail = aux rest in
+      rest, curr :: tail
+    | tokens -> tokens, []
+  in
+  let rest, init = parse_let tokens in
+  let rest, values = aux rest in
+  match values with [] -> rest, init | _ -> rest, T.Tuple (init :: values)
+
 and parse_follow tokens =
-  let tokens, lhs = parse_let tokens in
+  let tokens, lhs = parse_tuple tokens in
   let rec aux lhs tokens =
     match tokens with
     | L.Semicolon :: rest ->
-      let rest, rhs = parse_let rest in
+      let rest, rhs = parse_tuple rest in
       aux (T.BinOp (Binop.Follow, lhs, rhs)) rest
     | _ -> tokens, lhs
   in
