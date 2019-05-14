@@ -108,6 +108,7 @@ type t2 = { value : t1 }
 ;;
 let v = { value = { inner_value = 41; t0 = { deep_value = "Hello" }}} in
 print_int v.value.inner_value;
-print_string v.value.t0.deep_value
+print_string v.value.t0.deep_value;
+print_char v.value.t0.deep_value.[2]
   |}
 ;;
