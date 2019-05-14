@@ -74,6 +74,15 @@ let rec split = function
     a :: a_l, b :: b_l
 ;;
 
+let rec iter2 f l1 l2 =
+  match l1, l2 with
+  | [], [] -> ()
+  | h1 :: t1, h2 :: t2 ->
+    f h1 h2;
+    iter2 f t1 t2
+  | _, _ -> failwith "List.iter2"
+;;
+
 (* quick sort *)
 let rec sort pred = function
   | [] -> []

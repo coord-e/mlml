@@ -150,6 +150,11 @@ let test l = List.flatten l |> List.iter print_int in
 test [[4; 2]; [5]; [12; 0; 2]];
 test [[]; [2]; [0]; []; [1; 3]]
   |};
+  Tester.f
+    {|
+let f = Printf.printf "%d, %s" in
+List.iter2 f [1; 2; 3] ["hi"; "hello"; "omg"]
+  |};
   (* String *)
   Tester.f
     {|
