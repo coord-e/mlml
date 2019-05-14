@@ -15,8 +15,9 @@ type value =
 let stack_value s = StackValue s
 let register_value r = RegisterValue r
 let constant_value c = ConstantValue c
-let string_of_register = function Register n -> Printf.sprintf "%%%s" n
-let string_of_stack = function Stack num -> string_of_int num ^ "(%rbp)"
+let register_name r = Printf.sprintf "%%%s" r
+let string_of_register = function Register n -> register_name n
+let string_of_stack = function Stack num -> Printf.sprintf "%d(%%rbp)" num
 let string_of_label = function Label n -> n
 let string_of_constant num = "$" ^ string_of_int num
 
@@ -435,8 +436,8 @@ let comparison_to_value ctx buf cmp v1 v2 =
   use_register ctx rdx;
   B.emit_inst_fmt buf "cmpq %s, %s" (string_of_value v1) (string_of_register v2);
   free ctx;
-  B.emit_inst_fmt buf "set%s %%dl" (string_of_comparison cmp);
-  B.emit_inst buf "movzbq %dl, %rdx";
+  B.emit_inst_fmt buf "set%s %s" (string_of_comparison cmp) (register_name "dl");
+  B.emit_inst_fmt buf "movzbq %s, %s" (register_name "dl") (register_name "rdx");
   make_marked_int buf (RegisterValue rdx);
   let s = push_to_stack ctx buf (RegisterValue rdx) in
   free_register rdx ctx;

@@ -105,7 +105,7 @@ let print_int ctx buf _label _ret_label =
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a2) (-8);
   restore_marked_int buf (RegisterValue a2);
   label_ptr_to_register buf str_label a1;
-  B.emit_inst buf "xorq %rax, %rax";
+  B.emit_inst_fmt buf "xorq %s, %s" (register_name "rax") (register_name "rax");
   let _ = safe_call ctx buf "printf@PLT" [RegisterValue a1; RegisterValue a2] in
   free1 ctx;
   free2 ctx;
