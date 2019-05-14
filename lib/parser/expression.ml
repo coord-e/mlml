@@ -167,23 +167,22 @@ and try_parse_literal tokens =
 
 and try_parse_dot tokens =
   let rest, lhs_opt = try_parse_literal tokens in
-  match lhs_opt with
-  | Some lhs ->
-    (match rest with
+  let rec aux lhs = function
     | L.Dot :: L.LowerIdent ident :: rest ->
-      rest, Some (T.RecordField (lhs, Tree.Path.single ident))
+      aux (T.RecordField (lhs, Tree.Path.single ident)) rest
     | L.Dot :: L.LBracket :: rest ->
       let rest, rhs = parse_expression rest in
       (match rest with
-      | L.RBracket :: rest -> rest, Some (T.BinOp (Binop.StringIndex, lhs, rhs))
+      | L.RBracket :: rest -> aux (T.BinOp (Binop.StringIndex, lhs, rhs)) rest
       | _ -> tokens, None)
     | L.Dot :: L.LParen :: rest ->
       let rest, rhs = parse_expression rest in
       (match rest with
-      | L.RParen :: rest -> rest, Some (T.BinOp (Binop.ArrayIndex, lhs, rhs))
+      | L.RParen :: rest -> aux (T.BinOp (Binop.ArrayIndex, lhs, rhs)) rest
       | _ -> tokens, None)
-    | _ -> rest, Some lhs)
-  | None -> tokens, None
+    | rest -> rest, Some lhs
+  in
+  match lhs_opt with Some lhs -> aux lhs rest | None -> rest, None
 
 and parse_dot tokens =
   match try_parse_dot tokens with
