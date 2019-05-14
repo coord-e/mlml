@@ -15,7 +15,7 @@ type value =
 let stack_value s = StackValue s
 let register_value r = RegisterValue r
 let constant_value c = ConstantValue c
-let string_of_register = function Register n -> n
+let string_of_register = function Register n -> Printf.sprintf "%%%s" n
 let string_of_stack = function Stack num -> string_of_int num ^ "(%rbp)"
 let string_of_label = function Label n -> n
 let string_of_constant num = "$" ^ string_of_int num
@@ -40,35 +40,35 @@ type context =
 
 let usable_registers =
   SS.of_list
-    [Register "%r8"; Register "%r9"; Register "%r10"; Register "%r11"; Register "%rdx"]
+    [Register "r8"; Register "r9"; Register "r10"; Register "r11"; Register "rdx"]
 ;;
 
 (* https://wiki.osdev.org/System_V_ABI#x86-64 *)
 let volatile_registers =
   SS.of_list
-    [ Register "%rax"
-    ; Register "%rdi"
-    ; Register "%rsi"
-    ; Register "%rdx"
-    ; Register "%rcx"
-    ; Register "%r8"
-    ; Register "%r9"
-    ; Register "%r10"
-    ; Register "%r11" ]
+    [ Register "rax"
+    ; Register "rdi"
+    ; Register "rsi"
+    ; Register "rdx"
+    ; Register "rcx"
+    ; Register "r8"
+    ; Register "r9"
+    ; Register "r10"
+    ; Register "r11" ]
 ;;
 
 let non_volatile_registers =
   SS.of_list
-    [ Register "%rbx"
-    ; Register "%rsp"
-    ; Register "%rbp"
-    ; Register "%r12"
-    ; Register "%r13"
-    ; Register "%r14"
-    ; Register "%r15" ]
+    [ Register "rbx"
+    ; Register "rsp"
+    ; Register "rbp"
+    ; Register "r12"
+    ; Register "r13"
+    ; Register "r14"
+    ; Register "r15" ]
 ;;
 
-let ret_register = Register "%rax"
+let ret_register = Register "rax"
 let make_name_of_runtime = Printf.sprintf "_mlml_%s"
 let match_fail_name = "match_fail"
 let match_fail_label = Label (make_name_of_runtime match_fail_name)
@@ -233,12 +233,12 @@ let read_from_address ctx buf src dest_raw offset =
 let nth_arg_register context n =
   let r =
     match n with
-    | 0 -> Register "%rdi"
-    | 1 -> Register "%rsi"
-    | 2 -> Register "%rdx"
-    | 3 -> Register "%rcx"
-    | 4 -> Register "%r8"
-    | 5 -> Register "%r9"
+    | 0 -> Register "rdi"
+    | 1 -> Register "rsi"
+    | 2 -> Register "rdx"
+    | 3 -> Register "rcx"
+    | 4 -> Register "r8"
+    | 5 -> Register "r9"
     | _ -> failwith "Too many arguments"
   in
   if SS.mem r usable_registers
@@ -431,7 +431,7 @@ let branch_if_not_pointer ctx buf = branch_by_value_type ctx buf Ne
 let comparison_to_value ctx buf cmp v1 v2 =
   let v2, free = turn_into_register ctx buf v2 in
   (* Use rdx temporarily (8-bit register(dl) is needed) *)
-  let rdx = Register "%rdx" in
+  let rdx = Register "rdx" in
   use_register ctx rdx;
   B.emit_inst_fmt buf "cmpq %s, %s" (string_of_value v1) (string_of_register v2);
   free ctx;
@@ -600,11 +600,11 @@ let rec pattern_match ctx buf pat v fail_label =
 ;;
 
 let calc_div ctx buf lhs rhs quot rem =
-  let rax = Register "%rax" in
+  let rax = Register "rax" in
   assign_to_register buf (RegisterValue lhs) rax;
   B.emit_inst buf "cltd";
   B.emit_inst_fmt buf "idivq %s" (string_of_register rhs);
-  let rdx = Register "%rdx" in
+  let rdx = Register "rdx" in
   match quot with
   | Some quot -> assign_to_value ctx buf (RegisterValue rax) quot
   | None ->

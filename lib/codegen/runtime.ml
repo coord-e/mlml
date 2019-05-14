@@ -360,7 +360,7 @@ let set_string ctx buf _label _ret_label =
   free_register idx ctx;
   restore_marked_int buf (RegisterValue chr);
   (* Use rdx temporarily (8-bit register(dl) is needed) *)
-  let rdx = Register "%rdx" in
+  let rdx = Register "rdx" in
   use_register ctx rdx;
   assign_to_register buf (RegisterValue chr) rdx;
   B.emit_inst_fmt buf "movb %%dl, (%s)" (string_of_register str);
