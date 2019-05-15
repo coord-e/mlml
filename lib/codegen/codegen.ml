@@ -321,7 +321,7 @@ and emit_function_with ctx main_buf label fn =
   List.iter restore saved_stacks;
   B.emit_inst_fmt buf "movq %s, %s" (register_name "rbp") (register_name "rsp");
   B.emit_inst_fmt buf "popq %s" (register_name "rbp");
-  B.emit_inst_fmt buf "ret";
+  B.emit_inst buf "ret";
   let _ = use_env ctx old_env in
   B.substitute
     buf
