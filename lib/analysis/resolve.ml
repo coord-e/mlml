@@ -29,7 +29,7 @@ let create_module_env () =
   ; modules = Hashtbl.create 32 }
 ;;
 
-let mem_name_local env name =
+let find_name_local env name =
   let or_else optb = function None -> optb | v -> v in
   Hashtbl.find_opt env.ctors name
   |> or_else (Hashtbl.find_opt env.vars name)
@@ -61,7 +61,7 @@ let rec find_aux root_env path =
       | Some (e, None) -> Some (current_resolved, Some e)
       | None ->
         (* not a module *)
-        (match mem_name_local env head with
+        (match find_name_local env head with
         | Some (Entity ()) -> Some (current_resolved, None)
         | Some (Alias path) -> find_aux root_env path
         | None -> None))
@@ -182,10 +182,10 @@ let alias_names from_path from to_ =
   Hashtbl.iter adder_module from.modules
 ;;
 
-let alias_names env ctx path =
+let open_path env ctx path =
   let from = find_module env path in
   let to_ = find_module env ctx.primary in
-  copy_names path from to_
+  alias_names path from to_
 ;;
 
 let in_new_module env ctx name f =
