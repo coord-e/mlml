@@ -18,3 +18,8 @@ let replace t k v =
   remove t k;
   add t k v
 ;;
+
+let iter f t =
+  let g (k, v) = f k v in
+  List.iter g t.data
+;;

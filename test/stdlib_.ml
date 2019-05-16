@@ -63,6 +63,13 @@ let t2 = Hashtbl.copy t in
 Hashtbl.replace t "hello" "yeah";
 print_string @@ Hashtbl.find t2 "hello"
   |};
+  Tester.f
+    {|
+let t = Hashtbl.create 32 in
+Hashtbl.add t "hello" "world";
+Hashtbl.add t "hello" "guys";
+Hashtbl.iter (Printf.printf "%s -> %s\n") t
+  |};
   (* List *)
   Tester.f
     {|
