@@ -9,32 +9,32 @@ module Pat = Tree.Pattern
 module NS = Tree.Namespace
 module SS = Tree.Simple_set
 
-type module_value =
-  | Env of module_env
+type 'a value =
+  | Entity of 'a
   (* absolute path *)
   | Alias of Path.t
 
 and module_env =
-  { mutable vars : string SS.t
-  ; mutable types : string SS.t
-  ; mutable ctors : string SS.t
-  ; mutable fields : string SS.t
-  ; modules : (string, module_value) Hashtbl.t }
+  { vars : (string, unit value) Hashtbl.t
+  ; types : (string, unit value) Hashtbl.t
+  ; ctors : (string, unit value) Hashtbl.t
+  ; fields : (string, unit value) Hashtbl.t
+  ; modules : (string, module_env value) Hashtbl.t }
 
 let create_module_env () =
-  { vars = SS.empty
-  ; types = SS.empty
-  ; ctors = SS.empty
-  ; fields = SS.empty
+  { vars = Hashtbl.create 32
+  ; types = Hashtbl.create 32
+  ; ctors = Hashtbl.create 32
+  ; fields = Hashtbl.create 32
   ; modules = Hashtbl.create 32 }
 ;;
 
 let mem_name_local env name =
   Hashtbl.mem env.modules name
-  || SS.mem name env.ctors
-  || SS.mem name env.vars
-  || SS.mem name env.fields
-  || SS.mem name env.types
+  || Hashtbl.mem env.ctors name
+  || Hashtbl.mem env.vars name
+  || Hashtbl.mem env.fields name
+  || Hashtbl.mem env.types name
 ;;
 
 let find_module_local env name = Hashtbl.find_opt env.modules name
@@ -45,7 +45,7 @@ let rec find_aux root_env path =
   (* returns `module_env` and canonical path if name is alias *)
   let find_module_env_local env name =
     match find_module_local env name with
-    | Some (Env v) -> Some (v, None)
+    | Some (Entity v) -> Some (v, None)
     | Some (Alias path) ->
       (match find_aux root_env path with
       | Some (p, Some m) -> Some (m, Some p)
@@ -124,11 +124,15 @@ let to_env_and_name env path =
     m, last
 ;;
 
-let add_local_with_ns env name = function
-  | NS.Var -> env.vars <- SS.add name env.vars
-  | NS.Ctor -> env.ctors <- SS.add name env.ctors
-  | NS.Field -> env.fields <- SS.add name env.fields
-  | NS.Type -> env.types <- SS.add name env.types
+let add_local_with_ns env name ns =
+  let f =
+    match ns with
+    | NS.Var -> Hashtbl.add env.vars
+    | NS.Ctor -> Hashtbl.add env.ctors
+    | NS.Field -> Hashtbl.add env.fields
+    | NS.Type -> Hashtbl.add env.types
+  in
+  f name (Entity ())
 ;;
 
 let add_with_ns env path ns =
@@ -137,10 +141,10 @@ let add_with_ns env path ns =
 ;;
 
 let mem_local_with_ns env name = function
-  | NS.Var -> SS.mem name env.vars
-  | NS.Ctor -> SS.mem name env.ctors
-  | NS.Field -> SS.mem name env.fields
-  | NS.Type -> SS.mem name env.types
+  | NS.Var -> Hashtbl.mem env.vars name
+  | NS.Ctor -> Hashtbl.mem env.ctors name
+  | NS.Field -> Hashtbl.mem env.fields name
+  | NS.Type -> Hashtbl.mem env.types name
 ;;
 
 let mem_with_ns env path ns =
@@ -170,7 +174,7 @@ let open_path env ctx path =
 let in_new_module env ctx name f =
   let path = absolute_name ctx name in
   let m, name = to_env_and_name env path in
-  Hashtbl.add m.modules name (Env (create_module_env ()));
+  Hashtbl.add m.modules name (Entity (create_module_env ()));
   f {primary = path}
 ;;
 
