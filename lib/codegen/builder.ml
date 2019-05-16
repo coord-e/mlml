@@ -148,7 +148,7 @@ let restore_marked_int buf v = B.emit_inst_fmt buf "sarq $1, %s" (string_of_valu
 let start_label buf label = B.emit buf (B.Label (string_of_label label))
 
 let start_global_label buf label =
-  B.emit_inst buf @@ ".globl " ^ string_of_label label;
+  B.emit_inst_fmt buf ".globl %s" (string_of_label label);
   start_label buf label
 ;;
 
@@ -277,7 +277,7 @@ let safe_call ctx buf name args =
     x, s
   in
   let saved_regs = SS.elements regs_to_save |> List.map saver in
-  B.emit_inst buf @@ "call " ^ name;
+  B.emit_inst_fmt buf "call %s" name;
   List.iter (fun f -> f ctx) free_fns;
   let restore (x, s) = assign_to_register buf (StackValue s) x in
   List.iter restore saved_regs;
