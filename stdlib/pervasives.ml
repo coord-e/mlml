@@ -1,6 +1,6 @@
 external print_char : char -> unit = "_mlml_print_char"
 external print_string : string -> unit = "_mlml_print_string"
-external prerr_string : string -> unit = "_mlml_print_string"
+external prerr_string : string -> unit = "_mlml_prerr_string"
 external int_of_char : char -> int = "_mlml_identity"
 external char_of_int : int -> char = "_mlml_identity"
 external _append_string : string * string -> string = "_mlml_append_string"
