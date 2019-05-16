@@ -17,7 +17,7 @@ let mapi f str =
   init (length str) aux
 ;;
 
-let rec concat d = function [] -> "" | h :: t -> h ^ d ^ concat d t
+let rec concat d = function [] -> "" | [h] -> h | h :: t -> h ^ d ^ concat d t
 
 (* does not exists in official stdlib *)
 let get_opt str i = if length str > i then Some str.[i] else None

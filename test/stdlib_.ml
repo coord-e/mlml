@@ -208,5 +208,10 @@ in
 test ',' "hello,world,mlml";
 test ' ' "happy new  year";
 test '.' "...this is mlml. mlml has stdlib."
+  |};
+  Tester.f {|
+["hello"; "world"; "mlml"]
+|> String.concat ", "
+|> print_endline
   |}
 ;;
