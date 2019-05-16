@@ -100,18 +100,14 @@ let mem env path = match find_aux env path with Some _ -> true | None -> false
 
 (* conversion context *)
 (* TODO: Replace list with some other generic mutable set type *)
-type context =
-  { primary : Path.t
-  ; mutable opened_paths : Path.t list }
+type context = {primary : Path.t}
 
-let create_context () = {primary = Path.root; opened_paths = []}
-let open_path ctx path = ctx.opened_paths <- path :: ctx.opened_paths
+let create_context () = {primary = Path.root}
 let absolute ctx path = Path.join ctx.primary path
 let absolute_name ctx name = absolute ctx (Path.single name)
 
 let resolve env ctx path =
-  let subpaths = Path.subpaths ctx.primary in
-  let candidates = ctx.opened_paths @ subpaths in
+  let candidates = Path.subpaths ctx.primary in
   let make_abs c = Path.join c path in
   match List.find_opt (mem env) (List.map make_abs candidates) with
   | Some p -> canonical env p
@@ -157,11 +153,25 @@ let insert_alias env path target =
   Hashtbl.add m.modules name (Alias target)
 ;;
 
+let copy_names from to_ =
+  to_.vars <- SS.union to_.vars from.vars;
+  to_.types <- SS.union to_.types from.types;
+  to_.ctors <- SS.union to_.ctors from.ctors;
+  to_.fields <- SS.union to_.fields from.fields;
+  Hashtbl.iter (Hashtbl.add to_.modules) from.modules
+;;
+
+let open_path env ctx path =
+  let from = find_module env path in
+  let to_ = find_module env ctx.primary in
+  copy_names from to_
+;;
+
 let in_new_module env ctx name f =
   let path = absolute_name ctx name in
   let m, name = to_env_and_name env path in
   Hashtbl.add m.modules name (Env (create_module_env ()));
-  f {ctx with primary = path}
+  f {primary = path}
 ;;
 
 (* expression-local environment *)
@@ -264,7 +274,7 @@ let rec convert_defn env ctx defn =
     in_new_module env ctx name f
   | Mod.Open path ->
     let path = resolve env ctx path in
-    open_path ctx path;
+    open_path env ctx path;
     []
   | Mod.External (name, ty, decl) ->
     let path = absolute_name ctx name in
