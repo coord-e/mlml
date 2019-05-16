@@ -30,11 +30,11 @@ let create_module_env () =
 ;;
 
 let mem_name_local env name =
-  Hashtbl.mem env.modules name
-  || Hashtbl.mem env.ctors name
-  || Hashtbl.mem env.vars name
-  || Hashtbl.mem env.fields name
-  || Hashtbl.mem env.types name
+  let or_else optb = function None -> optb | v -> v in
+  Hashtbl.find_opt env.ctors name
+  |> or_else (Hashtbl.find_opt env.vars name)
+  |> or_else (Hashtbl.find_opt env.fields name)
+  |> or_else (Hashtbl.find_opt env.types name)
 ;;
 
 let find_module_local env name = Hashtbl.find_opt env.modules name
@@ -62,8 +62,9 @@ let rec find_aux root_env path =
       | None ->
         (* not a module *)
         (match mem_name_local env head with
-        | true -> Some (current_resolved, None)
-        | false -> None))
+        | Some (Entity ()) -> Some (current_resolved, None)
+        | Some (Alias path) -> find_aux root_env path
+        | None -> None))
     | head :: tail ->
       (match find_module_env_local env head with
       | Some (e, None) ->
