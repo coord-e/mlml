@@ -142,5 +142,23 @@ module A = struct
     end
   end
 end
+    |};
+  Tester.f
+    {|
+module B = struct
+  let var = 3
+end
+module A = struct
+  open B ;;
+  print_int var ;;
+  let var = 10 ;;
+  print_int var
+end
+    |};
+  Tester.f
+    {|
+let print_string s = print_string s; print_string "hi!"
+;;
+print_string "wow"
     |}
 ;;
