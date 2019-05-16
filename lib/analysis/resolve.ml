@@ -124,7 +124,7 @@ let to_env_and_name env path =
     m, last
 ;;
 
-let add_local_with_ns env name ns =
+let add_local_with_ns env name v ns =
   let f =
     match ns with
     | NS.Var -> Hashtbl.add env.vars
@@ -132,12 +132,15 @@ let add_local_with_ns env name ns =
     | NS.Field -> Hashtbl.add env.fields
     | NS.Type -> Hashtbl.add env.types
   in
-  f name (Entity ())
+  f name v
 ;;
+
+let add_local_name_with_ns env name ns = add_local_with_ns env name (Entity ()) ns
+let add_local_alias_with_ns env name path ns = add_local_with_ns env name (Alias path) ns
 
 let add_with_ns env path ns =
   let m, name = to_env_and_name env path in
-  add_local_with_ns m name ns
+  add_local_name_with_ns m name ns
 ;;
 
 let mem_local_with_ns env name = function
@@ -157,18 +160,31 @@ let insert_alias env path target =
   Hashtbl.add m.modules name (Alias target)
 ;;
 
-let copy_names from to_ =
-  to_.vars <- SS.union to_.vars from.vars;
-  to_.types <- SS.union to_.types from.types;
-  to_.ctors <- SS.union to_.ctors from.ctors;
-  to_.fields <- SS.union to_.fields from.fields;
-  Hashtbl.iter (Hashtbl.add to_.modules) from.modules
+let iter_names f env =
+  let apply ns k _ = f k ns in
+  Hashtbl.iter (apply NS.Var) env.vars;
+  Hashtbl.iter (apply NS.Ctor) env.ctors;
+  Hashtbl.iter (apply NS.Field) env.fields;
+  Hashtbl.iter (apply NS.Type) env.types
 ;;
 
-let open_path env ctx path =
+let alias_names from_path from to_ =
+  let adder v ns =
+    let abs = Path.join from_path (Path.single v) in
+    add_local_alias_with_ns to_ v abs ns
+  in
+  iter_names adder from;
+  let adder_module k _ =
+    let abs = Path.join from_path (Path.single k) in
+    Hashtbl.add to_.modules k (Alias abs)
+  in
+  Hashtbl.iter adder_module from.modules
+;;
+
+let alias_names env ctx path =
   let from = find_module env path in
   let to_ = find_module env ctx.primary in
-  copy_names from to_
+  copy_names path from to_
 ;;
 
 let in_new_module env ctx name f =
@@ -294,7 +310,7 @@ and convert_module_item env ctx = function
 
 let add_primitives env =
   let types = ["unit"; "int"; "bool"; "char"; "string"; "bytes"; "array"; "list"] in
-  let adder x = add_local_with_ns env x NS.Type in
+  let adder x = add_local_name_with_ns env x NS.Type in
   List.iter adder types
 ;;
 
