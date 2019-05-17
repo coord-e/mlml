@@ -70,6 +70,14 @@ Hashtbl.add t "hello" "world";
 Hashtbl.add t "hello" "guys";
 Hashtbl.iter (Printf.printf "%s -> %s\n") t
   |};
+  Tester.f
+    {|
+let t = Hashtbl.create 32 in
+Hashtbl.add t "hello" "world";
+Hashtbl.add t "fantastic" "ramen";
+Hashtbl.remove t "hello";
+print_string @@ Hashtbl.find t "fantastic"
+  |};
   (* List *)
   Tester.f
     {|
