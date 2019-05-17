@@ -8,7 +8,7 @@ RUN sudo groupmod -g ${LOCAL_GID} -o opam
 
 RUN opam install dune bisect_ppx
 RUN sudo apt-get update
-RUN sudo apt-get install -y inotify-tools
+RUN sudo apt-get install -y inotify-tools libgc-dev
 
 ENV SRC_DIR=${HOME}/src
 
