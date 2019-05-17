@@ -323,10 +323,7 @@ and emit_function_with ctx main_buf label fn =
   B.emit_inst_fmt buf "popq %s" (register_name "rbp");
   B.emit_inst buf "ret";
   let _ = use_env ctx old_env in
-  B.substitute
-    buf
-    subq_place
-    (B.Inst (Printf.sprintf "subq $%d, %%rsp" (-stack_used + 7)));
+  B.substitute buf subq_place (B.Inst (Printf.sprintf "subq $%d, %%rsp" (-stack_used)));
   B.prepend_buffer main_buf buf
 
 and emit_let_bindings ctx buf is_rec l =
@@ -386,6 +383,7 @@ and emit_function_value ctx buf is_rec name param ast =
 
 and emit_main ctx buf label items =
   let emit ctx buf _label _ =
+    let _ = safe_call ctx buf "GC_init@PLT" [] in
     let argc, free1 = nth_arg_register ctx 0 in
     let argv, free2 = nth_arg_register ctx 1 in
     let _ =
