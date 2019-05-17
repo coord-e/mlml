@@ -63,5 +63,5 @@ let escaped str =
     let acc = e ^ acc in
     match i with 0 -> acc | i -> aux acc (i - 1)
   in
-  aux "" (length str - 1)
+  match length str with 0 -> "" | i -> aux "" (i - 1)
 ;;

@@ -221,5 +221,8 @@ test '.' "...this is mlml. mlml has stdlib."
 ["hello"; "world"; "mlml"]
 |> String.concat ", "
 |> print_endline
+  |};
+  Tester.f {|
+print_endline @@ String.escaped ""
   |}
 ;;
