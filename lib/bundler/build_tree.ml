@@ -47,7 +47,6 @@ let build_tree_pre cache name is_stdlib file =
   ModCache.load_with (preprocess name is_stdlib) cache file |> Find_deps.f |> SS.elements
 ;;
 
-(* non-permissive builder: fails when the name is not found *)
 let rec build_tree cache name is_stdlib file =
   build_tree_pre cache name is_stdlib file
   |> List.map (build_tree_node cache @@ Filename.dirname file)
@@ -61,26 +60,3 @@ let build_tree_root cache file =
   let name = Printf.sprintf "//%s//" file in
   DepTree.Node (file, build_tree cache name false file)
 ;;
-
-(* permissive builder: correct only existing modules *)
-let rec build_tree_perm cache name is_stdlib file =
-  let is_some = function Some _ -> true | None -> false
-  and unwrap = function Some v -> v | None -> failwith "unreachable" in
-  build_tree_pre cache name is_stdlib file
-  |> List.map (build_tree_node_perm cache @@ Filename.dirname file)
-  |> List.filter is_some
-  |> List.map unwrap
-
-and build_tree_node_perm cache dir name =
-  match find_module_opt cache dir name with
-  | Some (is_stdlib, file) ->
-    Some (DepTree.Node (file, build_tree_perm cache name is_stdlib file))
-  | None -> None
-;;
-
-let build_tree_root_perm cache file =
-  let name = Printf.sprintf "//%s//" file in
-  DepTree.Node (file, build_tree_perm cache name false file)
-;;
-
-let bundle_libs cache libs = List.rev_map (ModCache.get cache) libs |> List.flatten
