@@ -8,6 +8,14 @@ let parent path =
     Filename.dirname path
 ;;
 
+let abstract path =
+  match Filename.is_relative path with
+  | true ->
+    let cwd = Sys.getcwd () in
+    Filename.concat cwd path
+  | false -> path
+;;
+
 let find_project_root dir =
   let rec aux dir =
     let candidate = Filename.concat dir "dune-project" in
@@ -16,8 +24,7 @@ let find_project_root dir =
     | false when dir = "/" -> failwith "could not detect project root"
     | false -> aux @@ parent dir
   in
-  if Filename.is_relative dir then failwith "find_project_root with relative dir";
-  aux dir
+  aux @@ abstract dir
 ;;
 
 let rec find_projects root_dir =
