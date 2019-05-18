@@ -4,7 +4,7 @@ type 'a t =
 
 type 'a dep =
   | Entry of 'a
-  | Scoped of string * dep_list
+  | Scoped of string * 'a dep_list
 
 and 'a dep_list = 'a dep list
 
@@ -25,5 +25,5 @@ let rec collapse_list l = List.map collapse l |> List.fold_left merge_list []
 and collapse = function
   | Node (file, []) -> [Entry file]
   | Node (file, l) -> Entry file :: collapse_list l
-  | Submodule (name, l) -> Scoped (name, collapse_list l)
+  | Submodule (name, l) -> [Scoped (name, collapse_list l)]
 ;;

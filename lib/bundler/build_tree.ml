@@ -49,19 +49,48 @@ let find_module projs dir name =
   | None -> failwith @@ Printf.sprintf "could not find module named %s" name
 ;;
 
-let rec build_tree cache projs name loc =
+let filename_to_module path =
+  let file = Filename.basename path in
+  let name = Filename.chop_suffix file ".ml" in
+  String.capitalize_ascii name
+;;
+
+let rec build_submodule_tree cache projs path =
+  let name = Filename.basename path in
+  let entry_path = Filename.concat path name ^ ".ml" in
+  match Sys.file_exists entry_path with
+  | true -> DepTree.Node (entry_path, build_tree cache projs name false entry_path)
+  | false ->
+    let is_module_file x = Filename.check_suffix x ".ml" in
+    let build path =
+      let name = filename_to_module path in
+      DepTree.Node (path, build_tree cache projs name false path)
+    in
+    let l =
+      Sys.readdir path
+      |> Array.to_list
+      |> List.filter is_module_file
+      |> List.map (Filename.concat path)
+      |> List.map build
+    in
+    DepTree.Submodule (name, l)
+
+and build_tree cache projs name is_stdlib file =
   (* run preprocess in first load *)
-  ModCache.load_with (preprocess name @@ is_stdlib loc) cache file
+  ModCache.load_with (preprocess name is_stdlib) cache file
   |> Find_deps.f
   |> SS.elements
-  |> List.map (build_tree_node cache @@ Filename.dirname file)
+  |> List.map (build_tree_node cache projs @@ Filename.dirname file)
 
 and build_tree_node cache projs dir name =
-  let loc = find_module cache dir name in
-  DepTree.Node (file, build_tree cache projs name loc)
+  let loc = find_module projs dir name in
+  match loc with
+  | Single file | Stdlib file ->
+    DepTree.Node (file, build_tree cache projs name (is_stdlib loc) file)
+  | Submodule path -> build_submodule_tree cache projs path
 ;;
 
 let build_tree_root cache projs file =
   let name = Printf.sprintf "//%s//" file in
-  DepTree.Node (file, build_tree cache projs name (Single file))
+  DepTree.Node (file, build_tree cache projs name false file)
 ;;
