@@ -21,42 +21,47 @@ let preprocess name is_stdlib tree =
   [Mod.Definition (Mod.Module (name, Mod.Struct tree))]
 ;;
 
-let find_module_opt cache dir name =
+type module_location =
+  | Single of string
+  | Submodule of string
+  | Stdlib of string
+
+let find_module_opt projs dir name =
   let name = String.uncapitalize_ascii name in
   let std_filename = Printf.sprintf "%s/%s.ml" stdlib_dir name in
   let local_filename = Printf.sprintf "%s/%s.ml" dir name in
   (* find registered dune modules first *)
   let f x = Filename.basename x = name in
-  match ModCache.find_key_opt f cache with
-  | Some path -> Some (false, path)
+  match List.find_opt f projs with
+  | Some path -> Some (Submodule path)
   | None ->
     (match Sys.file_exists local_filename, Sys.file_exists std_filename with
-    | true, _ when dir <> stdlib_dir -> Some (false, local_filename)
-    | _, true -> Some (true, std_filename)
+    | true, _ when dir <> stdlib_dir -> Some (Single local_filename)
+    | _, true -> Some (Stdlib std_filename)
     | _ -> None)
 ;;
 
-let find_module cache dir name =
-  match find_module_opt cache dir name with
-  | Some (is_stdlib, file) -> is_stdlib, file
+let is_stdlib = function Stdlib _ -> true | _ -> false
+
+let find_module projs dir name =
+  match find_module_opt projs dir name with
+  | Some loc -> loc
   | None -> failwith @@ Printf.sprintf "could not find module named %s" name
 ;;
 
-let build_tree_pre cache name is_stdlib file =
+let rec build_tree cache projs name loc =
   (* run preprocess in first load *)
-  ModCache.load_with (preprocess name is_stdlib) cache file |> Find_deps.f |> SS.elements
-;;
-
-let rec build_tree cache name is_stdlib file =
-  build_tree_pre cache name is_stdlib file
+  ModCache.load_with (preprocess name @@ is_stdlib loc) cache file
+  |> Find_deps.f
+  |> SS.elements
   |> List.map (build_tree_node cache @@ Filename.dirname file)
 
-and build_tree_node cache dir name =
-  let is_stdlib, file = find_module cache dir name in
-  DepTree.Node (file, build_tree cache name is_stdlib file)
+and build_tree_node cache projs dir name =
+  let loc = find_module cache dir name in
+  DepTree.Node (file, build_tree cache projs name loc)
 ;;
 
-let build_tree_root cache file =
+let build_tree_root cache projs file =
   let name = Printf.sprintf "//%s//" file in
-  DepTree.Node (file, build_tree cache name false file)
+  DepTree.Node (file, build_tree cache projs name (Single file))
 ;;
