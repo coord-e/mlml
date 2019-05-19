@@ -35,8 +35,15 @@ let merge_list a b =
 
 let rec collapse_list l = List.map collapse l |> List.fold_left merge_list []
 
+and upper_lower l =
+  let aux = function Node (file, l) -> [Entry file], l | t -> collapse t, [] in
+  let upper, lower = List.map aux l |> List.split in
+  List.flatten upper, List.flatten lower
+
 and collapse = function
   | Node (file, []) -> [Entry file]
   | Node (file, l) -> Entry file :: collapse_list l
-  | Submodule (name, l) -> [Scoped (name, collapse_list l)]
+  | Submodule (name, l) ->
+    let upper, lower = upper_lower l in
+    Scoped (name, upper) :: collapse_list lower
 ;;
