@@ -655,6 +655,34 @@ let getenv ctx buf _label _ret_label =
   ()
 ;;
 
+let open_in ctx buf _label _ret_label =
+  (* emit data *)
+  let str_label = new_label ctx ".open_in_mode" in
+  B.emit_sub buf (B.Label (string_of_label str_label));
+  B.emit_sub_inst buf ".string \"r\"";
+  (* emit body *)
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  let tmp = alloc_register ctx in
+  label_ptr_to_register buf str_label tmp;
+  (* rax holds the resulting fd *)
+  let _ = safe_call ctx buf "fopen@PLT" [RegisterValue a1; RegisterValue tmp] in
+  free_register tmp ctx;
+  free1 ctx
+;;
+
+let close_in ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  let _ = safe_call ctx buf "fclose@PLT" [RegisterValue a1] in
+  free1 ctx;
+  assign_to_register buf (make_tuple_const ctx buf []) ret_register
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_char, "print_char"
@@ -682,7 +710,9 @@ let runtimes =
   ; readdir, "readdir"
   ; readdir_filter, readdir_filter_name
   ; has_env, "has_env"
-  ; getenv, "getenv" ]
+  ; getenv, "getenv"
+  ; open_in, "open_in"
+  ; close_in, "close_in" ]
 ;;
 
 let emit_all f =
