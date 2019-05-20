@@ -720,7 +720,10 @@ let really_input_string ctx buf _label _ret_label =
   free1 ctx;
   restore_marked_int buf (RegisterValue len);
   let buff = alloc_register ctx in
+  (* to store \0, increment the length *)
+  B.emit_inst_fmt buf "incq %s" (string_of_register len);
   alloc_heap_ptr ctx buf (RegisterValue len) (RegisterValue buff);
+  B.emit_inst_fmt buf "decq %s" (string_of_register len);
   let _ =
     safe_call
       ctx
@@ -728,8 +731,12 @@ let really_input_string ctx buf _label _ret_label =
       "fread@PLT"
       [RegisterValue buff; ConstantValue 1; RegisterValue len; RegisterValue fd]
   in
+  (* buff is not null-terminated here *)
+  let buff_save = turn_into_stack ctx buf (RegisterValue buff) in
+  B.emit_inst_fmt buf "addq %s, %s" (string_of_register len) (string_of_register buff);
+  B.emit_inst_fmt buf "movb $0, (%s)" (string_of_register buff);
   (* rax contains resulting string *)
-  let _ = call_runtime ctx buf "c_str_to_string" [RegisterValue buff] in
+  let _ = call_runtime ctx buf "c_str_to_string" [StackValue buff_save] in
   ()
 ;;
 
