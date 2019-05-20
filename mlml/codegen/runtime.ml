@@ -519,6 +519,82 @@ let getcwd ctx buf _label _ret_label =
   ()
 ;;
 
+let readdir ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  let dir =
+    safe_call ctx buf "opendir@PLT" [RegisterValue a1]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  free1 ctx;
+  (* where namelist is stored *)
+  let dest = alloc_stack ctx |> stack_value in
+  (* retrieve all directory entries *)
+  (* call scandir(3) *)
+  let dest_addr = alloc_register ctx in
+  let sort_addr = alloc_register ctx in
+  B.emit_inst_fmt buf "leaq %s, %s" (string_of_value dest) (string_of_register dest_addr);
+  label_ptr_to_register buf (Label "alphasort@PLT") sort_addr;
+  let num_entries =
+    safe_call
+      ctx
+      buf
+      "readdir@PLT"
+      [ RegisterValue dir
+      ; RegisterValue dest_addr
+      ; ConstantValue 0
+      ; RegisterValue sort_addr ]
+    |> register_value
+    |> turn_into_stack ctx buf
+    |> stack_value
+  in
+  free_register dest_addr ctx;
+  free_register sort_addr ctx;
+  (* close the DIR pointer *)
+  let _ = safe_call ctx buf "closedir@PLT" [RegisterValue dir] in
+  free_register dir ctx;
+  (* allocate destination array *)
+  let size_tmp = assign_to_new_register ctx buf num_entries in
+  make_marked_int buf (RegisterValue size_tmp);
+  let ary_ptr =
+    call_runtime_mlml ctx buf "create_array" [RegisterValue size_tmp]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  free_register size_tmp ctx;
+  let ary_ptr_save = turn_into_stack ctx buf (RegisterValue ary_ptr) |> stack_value in
+  (* copy namelist to array *)
+  (* loop until count = target *)
+  let target = num_entries in
+  let count = assign_to_new_register ctx buf (ConstantValue 0) in
+  let loop_label = new_unnamed_label ctx in
+  start_label buf loop_label;
+  (* loop block *)
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_register ary_ptr);
+  let dest_tmp = alloc_register ctx in
+  (* 19 is a magic number (d_name) *)
+  read_from_address ctx buf dest (RegisterValue dest_tmp) 19;
+  let str =
+    call_runtime ctx buf "c_str_to_string" [RegisterValue dest_tmp]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  free_register dest_tmp ctx;
+  assign_to_address ctx buf (RegisterValue str) (RegisterValue ary_ptr) 0;
+  free_register str ctx;
+  B.emit_inst_fmt buf "incq %s" (string_of_register count);
+  B.emit_inst_fmt buf "addq $8, %s" (string_of_value dest);
+  branch_by_comparison ctx buf Ne target (RegisterValue count) loop_label;
+  free_register count ctx;
+  free_register ary_ptr ctx;
+  (* end of loop *)
+  assign_to_register buf ary_ptr_save ret_register
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_char, "print_char"
@@ -542,7 +618,8 @@ let runtimes =
   ; get_argv, "get_argv"
   ; file_exists, "file_exists"
   ; is_directory, "is_directory"
-  ; getcwd, "getcwd" ]
+  ; getcwd, "getcwd"
+  ; readdir, "readdir" ]
 ;;
 
 let emit_all f =
