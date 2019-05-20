@@ -22,8 +22,4 @@ let basename path =
   | l -> List.nth l (List.length l - 1)
 ;;
 
-let dirname path =
-  match String.split_on_char '/' @@ _strip_slash path with
-  | [] | [_] -> "."
-  | l -> List.nth l (List.length l - 2)
-;;
+let dirname path = _strip_slash @@ chop_suffix (_strip_slash path) (basename path)
