@@ -496,21 +496,18 @@ let is_directory ctx buf _label ret_label =
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
   (* assume reg is a pointer to string value *)
   string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
-  (* refresh a1 use *)
-  let a1 = assign_to_new_register ctx buf (RegisterValue a1) in
-  free1 ctx;
   let res =
     safe_call ctx buf "opendir@PLT" [RegisterValue a1]
     |> register_value
     |> assign_to_new_register ctx buf
   in
+  free1 ctx;
   (* return with rax = false *)
   assign_to_register buf (make_marked_const 0) ret_register;
   branch_by_comparison ctx buf Eq (ConstantValue 0) (RegisterValue res) ret_label;
-  free_register res ctx;
   (* if found, close it and assign rax = true *)
-  let _ = safe_call ctx buf "closedir@PLT" [RegisterValue a1] in
-  free_register a1 ctx;
+  let _ = safe_call ctx buf "closedir@PLT" [RegisterValue res] in
+  free_register res ctx;
   assign_to_register buf (make_marked_const 1) ret_register
 ;;
 
