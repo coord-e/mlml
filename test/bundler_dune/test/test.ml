@@ -1,0 +1,3 @@
+let () =
+  (* dummy *)
+  assert true
