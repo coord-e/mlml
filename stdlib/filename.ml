@@ -12,14 +12,18 @@ let check_suffix path suff =
   String.sub path len len_suff = suff
 ;;
 
+let _strip_slash path =
+  match check_suffix path "/" with true -> chop_suffix path "/" | false -> path
+;;
+
 let basename path =
-  match String.split_on_char '/' path with
+  match String.split_on_char '/' @@ _strip_slash path with
   | [] -> "."
   | l -> List.nth l (List.length l - 1)
 ;;
 
 let dirname path =
-  match String.split_on_char '/' path with
+  match String.split_on_char '/' @@ _strip_slash path with
   | [] | [_] -> "."
   | l -> List.nth l (List.length l - 2)
 ;;
