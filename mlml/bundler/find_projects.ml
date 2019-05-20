@@ -16,12 +16,12 @@ let absolute path =
   | false -> path
 ;;
 
-let find_project_root dir =
+let find_project_root_opt dir =
   let rec aux dir =
     let candidate = Filename.concat dir "dune-project" in
     match Sys.file_exists candidate with
-    | true -> dir
-    | false when dir = "/" -> failwith "could not detect project root"
+    | true -> Some dir
+    | false when dir = "/" -> None
     | false -> aux @@ parent dir
   in
   aux @@ absolute dir

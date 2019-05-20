@@ -19,6 +19,10 @@ let rec bundle_libs cache libs =
 
 let f file =
   let cache = ModCache.empty () in
-  let projects = Find.find_project_root file |> Find.find_projects |> SS.elements in
+  let projects =
+    match Find.find_project_root_opt file with
+    | Some root -> Find.find_projects root |> SS.elements
+    | None -> []
+  in
   Build.build_tree_root cache projects file |> DepTree.collapse |> bundle_libs cache
 ;;
