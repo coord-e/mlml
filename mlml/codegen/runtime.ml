@@ -564,7 +564,7 @@ let readdir ctx buf _label _ret_label =
   let sort_addr = alloc_register ctx in
   let filt_addr = alloc_register ctx in
   B.emit_inst_fmt buf "leaq %s, %s" (string_of_value dest) (string_of_register dest_addr);
-  label_ptr_to_register buf readdir_filter_label sort_addr;
+  label_ptr_to_register buf readdir_filter_label filt_addr;
   label_ptr_to_register buf (Label "alphasort@PLT") sort_addr;
   let num_entries =
     safe_call
