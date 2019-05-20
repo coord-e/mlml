@@ -8,7 +8,7 @@ let parent path =
     Filename.dirname path
 ;;
 
-let abstract path =
+let absolute path =
   match Filename.is_relative path with
   | true ->
     let cwd = Sys.getcwd () in
@@ -24,7 +24,7 @@ let find_project_root dir =
     | false when dir = "/" -> failwith "could not detect project root"
     | false -> aux @@ parent dir
   in
-  aux @@ abstract dir
+  aux @@ absolute dir
 ;;
 
 let rec find_projects root_dir =
