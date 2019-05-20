@@ -490,6 +490,30 @@ let file_exists ctx buf _label _ret_label =
   free1 ctx
 ;;
 
+let is_directory ctx buf _label ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  (* refresh a1 use *)
+  let a1 = assign_to_new_register ctx buf (RegisterValue a1) in
+  free1 ctx;
+  let res =
+    safe_call ctx buf "opendir@PLT" [RegisterValue a1]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  (* return with rax = false *)
+  assign_to_register buf (make_marked_const 0) ret_register;
+  branch_by_comparison ctx buf Eq (ConstantValue 0) (RegisterValue res) ret_label;
+  free_register res ctx;
+  (* if found, close it and assign rax = true *)
+  let _ = safe_call ctx buf "closedir@PLT" [RegisterValue a1] in
+  free_register a1 ctx;
+  assign_to_register buf (make_marked_const 1) ret_register
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_char, "print_char"
@@ -511,7 +535,8 @@ let runtimes =
   ; c_str_to_string, "c_str_to_string"
   ; handle_argv, "handle_argv"
   ; get_argv, "get_argv"
-  ; file_exists, "file_exists" ]
+  ; file_exists, "file_exists"
+  ; is_directory, "is_directory" ]
 ;;
 
 let emit_all f =
