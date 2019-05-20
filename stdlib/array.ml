@@ -18,3 +18,15 @@ let init n f =
 ;;
 
 let make n x = init n (fun _ -> x)
+
+let to_list a =
+  let rec aux acc = function
+    | 0 -> acc
+    | i ->
+      let i = i - 1 in
+      aux i (get a i :: acc)
+  in
+  aux (length a) []
+;;
+
+let fold_left f acc a = to_list a |> List.fold_left f acc
