@@ -29,7 +29,7 @@ a compiler for a tiny subset of OCaml, which is written just for fun.
   - [x] bytes
   - [x] array
 - [x] formatted output with `Printf`
-- [ ] modules
+- [x] modules
   - [x] definition
   - [x] aliases
   - [x] `open`
