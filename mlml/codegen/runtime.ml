@@ -622,6 +622,39 @@ let readdir ctx buf _label _ret_label =
   assign_to_register buf ary_ptr_save ret_register
 ;;
 
+let has_env ctx buf _label ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  let res =
+    safe_call ctx buf "getenv@PLT" [RegisterValue a1]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  free1 ctx;
+  (* return with rax = false if env is not found (getenv(s) = NULL) *)
+  assign_to_register buf (make_marked_const 0) ret_register;
+  branch_by_comparison ctx buf Eq (ConstantValue 0) (RegisterValue res) ret_label;
+  (* otherwise rax = true *)
+  assign_to_register buf (make_marked_const 1) ret_register;
+  free_register res ctx
+;;
+
+let getenv ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  let res = safe_call ctx buf "getenv@PLT" [RegisterValue a1] in
+  free1 ctx;
+  (* rax holds the resulting string *)
+  let _ = call_runtime ctx buf "c_str_to_string" [RegisterValue res] in
+  ()
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_char, "print_char"
@@ -647,7 +680,9 @@ let runtimes =
   ; is_directory, "is_directory"
   ; getcwd, "getcwd"
   ; readdir, "readdir"
-  ; readdir_filter, readdir_filter_name ]
+  ; readdir_filter, readdir_filter_name
+  ; has_env, "has_env"
+  ; getenv, "getenv" ]
 ;;
 
 let emit_all f =
