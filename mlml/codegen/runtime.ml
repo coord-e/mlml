@@ -708,6 +708,31 @@ let in_channel_length ctx buf _label _ret_label =
   free_register size ctx
 ;;
 
+let really_input_string ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the two element of tuple *)
+  let fd = alloc_register ctx in
+  let len = alloc_register ctx in
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue fd) (-8);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue len) (-16);
+  free1 ctx;
+  restore_marked_int buf (RegisterValue len);
+  let buff = alloc_register ctx in
+  alloc_heap_ptr ctx buf (RegisterValue len) (RegisterValue buff);
+  let _ =
+    safe_call
+      ctx
+      buf
+      "fread@PLT"
+      [RegisterValue buff; ConstantValue 1; RegisterValue len; RegisterValue fd]
+  in
+  (* rax contains resulting string *)
+  let _ = call_runtime ctx buf "c_str_to_string" [RegisterValue buff] in
+  ()
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_char, "print_char"
@@ -738,7 +763,8 @@ let runtimes =
   ; getenv, "getenv"
   ; open_in, "open_in"
   ; close_in, "close_in"
-  ; in_channel_length, "in_channel_length" ]
+  ; in_channel_length, "in_channel_length"
+  ; really_input_string, "really_input_string" ]
 ;;
 
 let emit_all f =
