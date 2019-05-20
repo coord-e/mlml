@@ -525,12 +525,6 @@ let readdir ctx buf _label _ret_label =
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
   (* assume reg is a pointer to string value *)
   string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
-  let dir =
-    safe_call ctx buf "opendir@PLT" [RegisterValue a1]
-    |> register_value
-    |> assign_to_new_register ctx buf
-  in
-  free1 ctx;
   (* where namelist is stored *)
   let dest = alloc_stack ctx |> stack_value in
   (* retrieve all directory entries *)
@@ -543,8 +537,8 @@ let readdir ctx buf _label _ret_label =
     safe_call
       ctx
       buf
-      "readdir@PLT"
-      [ RegisterValue dir
+      "scandir@PLT"
+      [ RegisterValue a1
       ; RegisterValue dest_addr
       ; ConstantValue 0
       ; RegisterValue sort_addr ]
@@ -552,11 +546,9 @@ let readdir ctx buf _label _ret_label =
     |> turn_into_stack ctx buf
     |> stack_value
   in
+  free1 ctx;
   free_register dest_addr ctx;
   free_register sort_addr ctx;
-  (* close the DIR pointer *)
-  let _ = safe_call ctx buf "closedir@PLT" [RegisterValue dir] in
-  free_register dir ctx;
   (* allocate destination array *)
   let size_tmp = assign_to_new_register ctx buf num_entries in
   make_marked_int buf (RegisterValue size_tmp);
