@@ -105,7 +105,7 @@ let rec try_parse_let tokens =
   | L.External :: L.LParen :: L.InfixSymbol name :: L.RParen :: L.Colon :: rest ->
     let rest, tyexpr = TyExpr.parse_type_expression rest in
     (match rest with
-    | L.Equal :: L.StringLiteral s :: rest -> rest, Some (External (name, tyexpr, s))
+    | L.Equal :: L.StringLiteral s :: rest -> rest, Some (T.External (name, tyexpr, s))
     | _ -> failwith "syntax error")
   | L.Let :: rest ->
     let rest, is_rec = Expr.parse_rec rest in
@@ -143,7 +143,7 @@ and parse_module_items = function
 and parse_module_expression = function
   | L.Struct :: rest ->
     let rest, l = parse_module_items rest in
-    rest, Struct l
+    rest, T.Struct l
   | tokens ->
     let rest, path = Path.parse_path tokens in
     rest, Path path
