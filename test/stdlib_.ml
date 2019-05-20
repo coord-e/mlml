@@ -78,6 +78,15 @@ Hashtbl.add t "fantastic" "ramen";
 Hashtbl.remove t "hello";
 print_string @@ Hashtbl.find t "fantastic"
   |};
+  Tester.f
+    {|
+let t = Hashtbl.create 32 in
+Hashtbl.add t "hello" "world";
+Hashtbl.add t "fantastic" "ramen";
+let f k v acc = (k ^ v) :: acc in
+let l = Hashtbl.fold f t [] in
+List.iter print_endline l
+  |};
   (* List *)
   Tester.f
     {|

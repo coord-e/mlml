@@ -23,3 +23,8 @@ let iter f t =
   let g (k, v) = f k v in
   List.iter g t.data
 ;;
+
+let fold f t =
+  let folder (k, v) = f k v in
+  List.fold_right folder t.data
+;;
