@@ -34,6 +34,7 @@ type ('a, 'b, 'c, 'd) let_binding_internal =
   | InternalVarBind of 'a Pat.t * 'b t
   | InternalFunBind of string * 'c Pat.t * 'd t
 
+(* TODO: Handle scope exit *)
 (* apply `f` on reference names, apply `g true` on local binding names, and apply `g
    false` on new binding names *)
 let rec apply_on_let_bindings f g is_rec l =

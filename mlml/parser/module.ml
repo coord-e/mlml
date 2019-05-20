@@ -146,7 +146,7 @@ and parse_module_expression = function
     rest, T.Struct l
   | tokens ->
     let rest, path = Path.parse_path tokens in
-    rest, Path path
+    rest, T.Path path
 ;;
 
 let f = parse_definition

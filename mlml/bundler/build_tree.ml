@@ -41,7 +41,7 @@ let find_module_opt projs dir name =
     | _ -> None)
 ;;
 
-let is_stdlib = function Stdlib _ -> true | _ -> false
+let check_stdlib = function Stdlib _ -> true | _ -> false
 
 let find_module projs dir name =
   match find_module_opt projs dir name with
@@ -86,7 +86,7 @@ and build_tree_node cache projs dir name =
   let loc = find_module projs dir name in
   match loc with
   | Single file | Stdlib file ->
-    DepTree.Node (file, build_tree cache projs name (is_stdlib loc) file)
+    DepTree.Node (file, build_tree cache projs name (check_stdlib loc) file)
   | Submodule path -> build_submodule_tree cache projs path
 ;;
 
