@@ -24,9 +24,9 @@ let to_list a =
     | 0 -> acc
     | i ->
       let i = i - 1 in
-      aux i (get a i :: acc)
+      aux (get a i :: acc) i
   in
-  aux (length a) []
+  aux [] (length a)
 ;;
 
 let fold_left f acc a = to_list a |> List.fold_left f acc
