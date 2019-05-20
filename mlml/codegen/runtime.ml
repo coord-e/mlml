@@ -474,6 +474,22 @@ let exit ctx buf _label _ret_label =
   free1 ctx
 ;;
 
+let file_exists ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  let v =
+    (* 2nd arguments is `F_OK` *)
+    safe_call ctx buf "access@PLT" [RegisterValue a1; ConstantValue 0]
+    |> register_value
+    |> comparison_to_value ctx buf Eq (ConstantValue 0)
+  in
+  assign_to_register buf v ret_register;
+  free1 ctx
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_char, "print_char"
@@ -494,7 +510,8 @@ let runtimes =
   ; exit, "exit"
   ; c_str_to_string, "c_str_to_string"
   ; handle_argv, "handle_argv"
-  ; get_argv, "get_argv" ]
+  ; get_argv, "get_argv"
+  ; file_exists, "file_exists" ]
 ;;
 
 let emit_all f =
