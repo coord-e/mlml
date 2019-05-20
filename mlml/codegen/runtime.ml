@@ -597,7 +597,10 @@ let readdir ctx buf _label _ret_label =
   (* loop until count = target *)
   let target = num_entries in
   let count = assign_to_new_register ctx buf (ConstantValue 0) in
+  let end_label = new_unnamed_label ctx in
   let loop_label = new_unnamed_label ctx in
+  (* end immediately if num_entries = 0 *)
+  branch_by_comparison ctx buf Eq target (ConstantValue 0) end_label;
   start_label buf loop_label;
   (* loop block *)
   B.emit_inst_fmt buf "subq $8, %s" (string_of_register ary_ptr);
@@ -619,6 +622,7 @@ let readdir ctx buf _label _ret_label =
   free_register count ctx;
   free_register ary_ptr ctx;
   (* end of loop *)
+  start_label buf end_label;
   assign_to_register buf ary_ptr_save ret_register
 ;;
 
