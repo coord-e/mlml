@@ -683,6 +683,31 @@ let close_in ctx buf _label _ret_label =
   assign_to_register buf (make_tuple_const ctx buf []) ret_register
 ;;
 
+let in_channel_length ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  let fd = assign_to_new_register ctx buf (RegisterValue a1) in
+  free1 ctx;
+  (* `SEEK_END` = 2 *)
+  let _ =
+    safe_call ctx buf "fseek@PLT" [RegisterValue fd; ConstantValue 0; ConstantValue 2]
+  in
+  let size =
+    safe_call ctx buf "ftell@PLT" [RegisterValue fd]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  (* `SEEK_SET` = 2 *)
+  let _ =
+    safe_call ctx buf "fseek@PLT" [RegisterValue fd; ConstantValue 0; ConstantValue 0]
+  in
+  free_register fd ctx;
+  make_marked_int buf (RegisterValue size);
+  assign_to_register buf (RegisterValue size) ret_register;
+  free_register size ctx
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_char, "print_char"
@@ -712,7 +737,8 @@ let runtimes =
   ; has_env, "has_env"
   ; getenv, "getenv"
   ; open_in, "open_in"
-  ; close_in, "close_in" ]
+  ; close_in, "close_in"
+  ; in_channel_length, "in_channel_length" ]
 ;;
 
 let emit_all f =
