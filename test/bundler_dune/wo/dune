@@ -1,0 +1,3 @@
+(library
+ (name wo)
+ (libraries mo))
