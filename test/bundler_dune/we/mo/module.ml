@@ -1,1 +1,1 @@
-let f = 1
+let f x = Module_second.v * x
