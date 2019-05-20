@@ -569,7 +569,8 @@ let readdir ctx buf _label _ret_label =
   B.emit_inst_fmt buf "subq $8, %s" (string_of_register ary_ptr);
   let dest_tmp = alloc_register ctx in
   (* 19 is a magic number (d_name) *)
-  read_from_address ctx buf dest (RegisterValue dest_tmp) 19;
+  read_from_address ctx buf dest (RegisterValue dest_tmp) 0;
+  B.emit_inst_fmt buf "addq $19, %s" (string_of_register dest_tmp);
   let str =
     call_runtime ctx buf "c_str_to_string" [RegisterValue dest_tmp]
     |> register_value
