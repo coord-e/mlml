@@ -29,11 +29,10 @@ let find_project_root_opt dir =
 
 let is_library_dune path =
   let ic = open_in path in
-  let line = input_line ic in
-  close_in ic;
   let target = "(library" in
-  let len = min (String.length line) (String.length target) in
-  String.sub line 0 len = target
+  let str = really_input_string ic (String.length target) in
+  close_in ic;
+  str = target
 ;;
 
 let rec find_projects root_dir =

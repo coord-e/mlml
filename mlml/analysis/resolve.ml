@@ -310,7 +310,9 @@ and convert_module_item env ctx = function
 ;;
 
 let add_primitives env =
-  let types = ["unit"; "int"; "bool"; "char"; "string"; "bytes"; "array"; "list"] in
+  let types =
+    ["unit"; "int"; "bool"; "char"; "string"; "bytes"; "array"; "list"; "in_channel"]
+  in
   let adder x = add_local_name_with_ns env x NS.Type in
   List.iter adder types
 ;;

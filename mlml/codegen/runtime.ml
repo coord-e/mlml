@@ -474,6 +474,272 @@ let exit ctx buf _label _ret_label =
   free1 ctx
 ;;
 
+let file_exists ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  let v =
+    (* 2nd arguments is `F_OK` *)
+    safe_call ctx buf "access@PLT" [RegisterValue a1; ConstantValue 0]
+    |> register_value
+    |> comparison_to_value ctx buf Eq (ConstantValue 0)
+  in
+  assign_to_register buf v ret_register;
+  free1 ctx
+;;
+
+let is_directory ctx buf _label ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  let res =
+    safe_call ctx buf "opendir@PLT" [RegisterValue a1]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  free1 ctx;
+  (* return with rax = false *)
+  assign_to_register buf (make_marked_const 0) ret_register;
+  branch_by_comparison ctx buf Eq (ConstantValue 0) (RegisterValue res) ret_label;
+  (* if found, close it and assign rax = true *)
+  let _ = safe_call ctx buf "closedir@PLT" [RegisterValue res] in
+  free_register res ctx;
+  assign_to_register buf (make_marked_const 1) ret_register
+;;
+
+let getcwd ctx buf _label _ret_label =
+  (* get_current_dir_name(3) is GNU-dependent, but I don't care *)
+  (* memory leak happens here, but I don't care                 *)
+  let res = safe_call ctx buf "get_current_dir_name@PLT" [] in
+  let _ = call_runtime ctx buf "c_str_to_string" [RegisterValue res] in
+  ()
+;;
+
+let readdir_filter_name = "readdir_filter"
+let readdir_filter_label = Label (make_name_of_runtime readdir_filter_name)
+
+let readdir_filter ctx buf _label ret_label =
+  (* use from scandir(3) in readdir runtime              *)
+  (* name[0] != '.' || (name[1] != 0 && name[1] != '.'); *)
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* 19 is a magic number (d_name) *)
+  B.emit_inst_fmt buf "addq $19, %s" (string_of_register a1);
+  let dot_char = ConstantValue (Char.code '.') in
+  let tmp = assign_to_new_register ctx buf (RegisterValue a1) in
+  B.emit_inst_fmt buf "movzbq (%s), %s" (string_of_register tmp) (string_of_register tmp);
+  (* return with rax = true if 1st char is not dot *)
+  assign_to_register buf (ConstantValue 1) ret_register;
+  branch_by_comparison ctx buf Ne dot_char (RegisterValue tmp) ret_label;
+  assign_to_register buf (RegisterValue a1) tmp;
+  free1 ctx;
+  B.emit_inst_fmt
+    buf
+    "movzbq 1(%s), %s"
+    (string_of_register tmp)
+    (string_of_register tmp);
+  (* return with rax = false if 2nd char is dot ".." *)
+  assign_to_register buf (ConstantValue 0) ret_register;
+  branch_by_comparison ctx buf Eq dot_char (RegisterValue tmp) ret_label;
+  (* return with rax = false if 2nd char is null "." *)
+  branch_by_comparison ctx buf Eq (ConstantValue 0) (RegisterValue tmp) ret_label;
+  assign_to_register buf (ConstantValue 1) ret_register;
+  free_register tmp ctx
+;;
+
+let readdir ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  (* where namelist is stored *)
+  let dest = alloc_stack ctx |> stack_value in
+  (* retrieve all directory entries *)
+  (* call scandir(3) *)
+  let dest_addr = alloc_register ctx in
+  let sort_addr = alloc_register ctx in
+  let filt_addr = alloc_register ctx in
+  B.emit_inst_fmt buf "leaq %s, %s" (string_of_value dest) (string_of_register dest_addr);
+  label_ptr_to_register buf readdir_filter_label filt_addr;
+  label_ptr_to_register buf (Label "alphasort@PLT") sort_addr;
+  let num_entries =
+    safe_call
+      ctx
+      buf
+      "scandir@PLT"
+      [ RegisterValue a1
+      ; RegisterValue dest_addr
+      ; RegisterValue filt_addr
+      ; RegisterValue sort_addr ]
+    |> register_value
+    |> turn_into_stack ctx buf
+    |> stack_value
+  in
+  free1 ctx;
+  free_register dest_addr ctx;
+  free_register sort_addr ctx;
+  free_register filt_addr ctx;
+  (* allocate destination array *)
+  let size_tmp = assign_to_new_register ctx buf num_entries in
+  make_marked_int buf (RegisterValue size_tmp);
+  let ary_ptr =
+    call_runtime_mlml ctx buf "create_array" [RegisterValue size_tmp]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  free_register size_tmp ctx;
+  let ary_ptr_save = turn_into_stack ctx buf (RegisterValue ary_ptr) |> stack_value in
+  (* copy namelist to array *)
+  (* loop until count = target *)
+  let target = num_entries in
+  let count = assign_to_new_register ctx buf (ConstantValue 0) in
+  let loop_label = new_unnamed_label ctx in
+  start_label buf loop_label;
+  (* loop block *)
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_register ary_ptr);
+  let dest_tmp = alloc_register ctx in
+  (* 19 is a magic number (d_name) *)
+  read_from_address ctx buf dest (RegisterValue dest_tmp) 0;
+  B.emit_inst_fmt buf "addq $19, %s" (string_of_register dest_tmp);
+  let str =
+    call_runtime ctx buf "c_str_to_string" [RegisterValue dest_tmp]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  free_register dest_tmp ctx;
+  assign_to_address ctx buf (RegisterValue str) (RegisterValue ary_ptr) 0;
+  free_register str ctx;
+  B.emit_inst_fmt buf "incq %s" (string_of_register count);
+  B.emit_inst_fmt buf "addq $8, %s" (string_of_value dest);
+  branch_by_comparison ctx buf Ne target (RegisterValue count) loop_label;
+  free_register count ctx;
+  free_register ary_ptr ctx;
+  (* end of loop *)
+  assign_to_register buf ary_ptr_save ret_register
+;;
+
+let has_env ctx buf _label ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  let res =
+    safe_call ctx buf "getenv@PLT" [RegisterValue a1]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  free1 ctx;
+  (* return with rax = false if env is not found (getenv(s) = NULL) *)
+  assign_to_register buf (make_marked_const 0) ret_register;
+  branch_by_comparison ctx buf Eq (ConstantValue 0) (RegisterValue res) ret_label;
+  (* otherwise rax = true *)
+  assign_to_register buf (make_marked_const 1) ret_register;
+  free_register res ctx
+;;
+
+let getenv ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  let res = safe_call ctx buf "getenv@PLT" [RegisterValue a1] in
+  free1 ctx;
+  (* rax holds the resulting string *)
+  let _ = call_runtime ctx buf "c_str_to_string" [RegisterValue res] in
+  ()
+;;
+
+let open_in ctx buf _label _ret_label =
+  (* emit data *)
+  let str_label = new_label ctx ".open_in_mode" in
+  B.emit_sub buf (B.Label (string_of_label str_label));
+  B.emit_sub_inst buf ".string \"r\"";
+  (* emit body *)
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* assume reg is a pointer to string value *)
+  string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
+  let tmp = alloc_register ctx in
+  label_ptr_to_register buf str_label tmp;
+  (* rax holds the resulting fd *)
+  let _ = safe_call ctx buf "fopen@PLT" [RegisterValue a1; RegisterValue tmp] in
+  free_register tmp ctx;
+  free1 ctx
+;;
+
+let close_in ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  let _ = safe_call ctx buf "fclose@PLT" [RegisterValue a1] in
+  free1 ctx;
+  assign_to_register buf (make_tuple_const ctx buf []) ret_register
+;;
+
+let in_channel_length ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  let fd = assign_to_new_register ctx buf (RegisterValue a1) in
+  free1 ctx;
+  (* `SEEK_END` = 2 *)
+  let _ =
+    safe_call ctx buf "fseek@PLT" [RegisterValue fd; ConstantValue 0; ConstantValue 2]
+  in
+  let size =
+    safe_call ctx buf "ftell@PLT" [RegisterValue fd]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  (* `SEEK_SET` = 2 *)
+  let _ =
+    safe_call ctx buf "fseek@PLT" [RegisterValue fd; ConstantValue 0; ConstantValue 0]
+  in
+  free_register fd ctx;
+  make_marked_int buf (RegisterValue size);
+  assign_to_register buf (RegisterValue size) ret_register;
+  free_register size ctx
+;;
+
+let really_input_string ctx buf _label _ret_label =
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* read the first element of closure tuple *)
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
+  (* read the two element of tuple *)
+  let fd = alloc_register ctx in
+  let len = alloc_register ctx in
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue fd) (-8);
+  read_from_address ctx buf (RegisterValue a1) (RegisterValue len) (-16);
+  free1 ctx;
+  restore_marked_int buf (RegisterValue len);
+  let buff = alloc_register ctx in
+  (* to store \0, increment the length *)
+  B.emit_inst_fmt buf "incq %s" (string_of_register len);
+  alloc_heap_ptr ctx buf (RegisterValue len) (RegisterValue buff);
+  B.emit_inst_fmt buf "decq %s" (string_of_register len);
+  let _ =
+    safe_call
+      ctx
+      buf
+      "fread@PLT"
+      [RegisterValue buff; ConstantValue 1; RegisterValue len; RegisterValue fd]
+  in
+  (* buff is not null-terminated here *)
+  let buff_save = turn_into_stack ctx buf (RegisterValue buff) in
+  B.emit_inst_fmt buf "addq %s, %s" (string_of_register len) (string_of_register buff);
+  B.emit_inst_fmt buf "movb $0, (%s)" (string_of_register buff);
+  (* rax contains resulting string *)
+  let _ = call_runtime ctx buf "c_str_to_string" [StackValue buff_save] in
+  ()
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_char, "print_char"
@@ -494,7 +760,18 @@ let runtimes =
   ; exit, "exit"
   ; c_str_to_string, "c_str_to_string"
   ; handle_argv, "handle_argv"
-  ; get_argv, "get_argv" ]
+  ; get_argv, "get_argv"
+  ; file_exists, "file_exists"
+  ; is_directory, "is_directory"
+  ; getcwd, "getcwd"
+  ; readdir, "readdir"
+  ; readdir_filter, readdir_filter_name
+  ; has_env, "has_env"
+  ; getenv, "getenv"
+  ; open_in, "open_in"
+  ; close_in, "close_in"
+  ; in_channel_length, "in_channel_length"
+  ; really_input_string, "really_input_string" ]
 ;;
 
 let emit_all f =

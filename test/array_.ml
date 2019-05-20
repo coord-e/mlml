@@ -57,5 +57,12 @@ let print_array a =
   in aux (Array.length a - 1)
 in
 print_array a
+  |};
+  Tester.f {|
+Array.to_list [|1; 2; 3|] |> List.iter print_int
+  |};
+  Tester.f {|
+let f acc i = acc * (i + 5) in
+Array.fold_left f 0 [|1; 2; 3; 4; 5|]
   |}
 ;;
