@@ -9,21 +9,13 @@ type 'a dep =
 and 'a dep_list = 'a dep list
 
 let merge_list a b =
-  let rec filter_out f = function
-    | [] -> []
-    | h :: t ->
-      (match h with
-      | Entry p when f p -> h :: filter_out f t
-      | Entry _ -> filter_out f t
-      | Scoped (name, l) -> Scoped (name, filter_out f l) :: filter_out f t)
-  in
   let rec aux acc = function
     | h :: t ->
       let t =
         match h with
-        | Entry p ->
-          let f x = x <> p in
-          filter_out f t
+        | Entry _ ->
+          let f x = x <> h in
+          List.filter f t
         | Scoped _ -> t
       in
       aux (h :: acc) t
