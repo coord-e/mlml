@@ -27,6 +27,15 @@ let find_project_root dir =
   aux @@ absolute dir
 ;;
 
+let is_library_dune path =
+  let ic = open_in path in
+  let line = input_line ic in
+  close_in ic;
+  let target = "(library" in
+  let len = min (String.length line) (String.length target) in
+  String.sub line 0 len = target
+;;
+
 let rec find_projects root_dir =
   let aux acc name =
     let path = Filename.concat root_dir name in
@@ -35,7 +44,9 @@ let rec find_projects root_dir =
     | true ->
       let acc = SS.union acc @@ find_projects path in
       let dune = Filename.concat path "dune" in
-      (match Sys.file_exists dune with true -> SS.add path acc | false -> acc)
+      (match Sys.file_exists dune with
+      | true when is_library_dune dune -> SS.add path acc
+      | _ -> acc)
   in
   Sys.readdir root_dir |> Array.fold_left aux SS.empty
 ;;
