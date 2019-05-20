@@ -38,6 +38,11 @@ let mapi f =
   aux 0
 ;;
 
+let rev_map f l =
+  let rec aux acc = function [] -> acc | h :: t -> aux (f h :: acc) t in
+  aux [] l
+;;
+
 let rec fold_left f acc = function [] -> acc | h :: t -> fold_left f (f acc h) t
 
 let rec fold_right f l acc =

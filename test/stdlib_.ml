@@ -129,6 +129,15 @@ test mul [9, 6; 5, 6; 1, 2; 0, 3; 3, 4]
   |};
   Tester.f
     {|
+let square x = x * x in
+let mul (a, b) = a * b in
+let test f l = List.iter print_int @@ List.rev_map f l in
+test succ [2; 3; 1; 3];
+test square [4; 12; 23; 0];
+test mul [9, 6; 5, 6; 1, 2; 0, 3; 3, 4]
+  |};
+  Tester.f
+    {|
 let f i x = i * x in
 let test l = List.iter print_int @@ List.mapi f l in
 test [143; 21; 34];
