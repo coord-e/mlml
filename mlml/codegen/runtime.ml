@@ -514,6 +514,14 @@ let is_directory ctx buf _label ret_label =
   assign_to_register buf (make_marked_const 1) ret_register
 ;;
 
+let getcwd ctx buf _label _ret_label =
+  (* get_current_dir_name(3) is GNU-dependent, but I don't care *)
+  (* memory leak happens here, but I don't care                 *)
+  let res = safe_call ctx buf "get_current_dir_name@PLT" [] in
+  let _ = call_runtime ctx buf "c_str_to_string" [RegisterValue res] in
+  ()
+;;
+
 let runtimes =
   [ match_fail, match_fail_name
   ; print_char, "print_char"
@@ -536,7 +544,8 @@ let runtimes =
   ; handle_argv, "handle_argv"
   ; get_argv, "get_argv"
   ; file_exists, "file_exists"
-  ; is_directory, "is_directory" ]
+  ; is_directory, "is_directory"
+  ; getcwd, "getcwd" ]
 ;;
 
 let emit_all f =
