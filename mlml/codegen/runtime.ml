@@ -519,6 +519,37 @@ let getcwd ctx buf _label _ret_label =
   ()
 ;;
 
+let readdir_filter_name = "readdir_filter"
+let readdir_filter_label = Label (make_name_of_runtime readdir_filter_name)
+
+let readdir_filter ctx buf _label ret_label =
+  (* use from scandir(3) in readdir runtime              *)
+  (* name[0] != '.' || (name[1] != 0 && name[1] != '.'); *)
+  let a1, free1 = nth_arg_register ctx 0 in
+  (* 19 is a magic number (d_name) *)
+  B.emit_inst_fmt buf "addq $19, %s" (string_of_register a1);
+  let dot_char = ConstantValue (Char.code '.') in
+  let tmp = assign_to_new_register ctx buf (RegisterValue a1) in
+  B.emit_inst_fmt buf "movzbq (%s), %s" (string_of_register tmp) (string_of_register tmp);
+  (* return with rax = true if 1st char is not dot *)
+  assign_to_register buf (ConstantValue 1) ret_register;
+  branch_by_comparison ctx buf Ne dot_char (RegisterValue tmp) ret_label;
+  assign_to_register buf (RegisterValue a1) tmp;
+  free1 ctx;
+  B.emit_inst_fmt
+    buf
+    "movzbq 1(%s), %s"
+    (string_of_register tmp)
+    (string_of_register tmp);
+  (* return with rax = false if 2nd char is dot ".." *)
+  assign_to_register buf (ConstantValue 0) ret_register;
+  branch_by_comparison ctx buf Eq dot_char (RegisterValue tmp) ret_label;
+  (* return with rax = false if 2nd char is null "." *)
+  branch_by_comparison ctx buf Eq (ConstantValue 0) (RegisterValue tmp) ret_label;
+  assign_to_register buf (ConstantValue 1) ret_register;
+  free_register tmp ctx
+;;
+
 let readdir ctx buf _label _ret_label =
   let a1, free1 = nth_arg_register ctx 0 in
   (* read the first element of closure tuple *)
@@ -531,7 +562,9 @@ let readdir ctx buf _label _ret_label =
   (* call scandir(3) *)
   let dest_addr = alloc_register ctx in
   let sort_addr = alloc_register ctx in
+  let filt_addr = alloc_register ctx in
   B.emit_inst_fmt buf "leaq %s, %s" (string_of_value dest) (string_of_register dest_addr);
+  label_ptr_to_register buf readdir_filter_label sort_addr;
   label_ptr_to_register buf (Label "alphasort@PLT") sort_addr;
   let num_entries =
     safe_call
@@ -540,7 +573,7 @@ let readdir ctx buf _label _ret_label =
       "scandir@PLT"
       [ RegisterValue a1
       ; RegisterValue dest_addr
-      ; ConstantValue 0
+      ; RegisterValue filt_addr
       ; RegisterValue sort_addr ]
     |> register_value
     |> turn_into_stack ctx buf
@@ -549,6 +582,7 @@ let readdir ctx buf _label _ret_label =
   free1 ctx;
   free_register dest_addr ctx;
   free_register sort_addr ctx;
+  free_register filt_addr ctx;
   (* allocate destination array *)
   let size_tmp = assign_to_new_register ctx buf num_entries in
   make_marked_int buf (RegisterValue size_tmp);
@@ -612,7 +646,8 @@ let runtimes =
   ; file_exists, "file_exists"
   ; is_directory, "is_directory"
   ; getcwd, "getcwd"
-  ; readdir, "readdir" ]
+  ; readdir, "readdir"
+  ; readdir_filter, readdir_filter_name ]
 ;;
 
 let emit_all f =
