@@ -384,7 +384,6 @@ and emit_function_value ctx buf is_rec name param ast =
 
 and emit_main ctx buf label items =
   let emit ctx buf _label _ =
-    let _ = safe_call ctx buf "GC_init@PLT" [] in
     let argc, free1 = nth_arg_register ctx 0 in
     let argv, free2 = nth_arg_register ctx 1 in
     let _ =
