@@ -355,6 +355,8 @@ let create_string ctx buf _label _ret_label =
   (* read the first element of closure tuple *)
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
   restore_marked_int buf (RegisterValue a1);
+  (* increment (for null termination) *)
+  B.emit_inst_fmt buf "incq %s" (string_of_register a1);
   (* actual length of string *)
   let len = alloc_register ctx in
   (* allocated size *)
@@ -371,8 +373,11 @@ let create_string ctx buf _label _ret_label =
   B.emit_inst_fmt buf "subq $8, %s" (string_of_register size);
   make_marked_int buf (RegisterValue size);
   assign_to_address ctx buf (RegisterValue size) (RegisterValue ptr) 0;
+  B.emit_inst_fmt buf "decq %s" (string_of_register len);
   make_marked_int buf (RegisterValue len);
   assign_to_address ctx buf (RegisterValue len) (RegisterValue ptr) (-8);
+  (* null termination *)
+  assign_to_address ctx buf (ConstantValue 0) (RegisterValue ptr) (-16);
   free_register size ctx;
   free_register len ctx;
   assign_to_register buf (RegisterValue ptr) ret_register;
