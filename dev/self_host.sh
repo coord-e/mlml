@@ -21,6 +21,11 @@ function cmd () {
   eval $@
 }
 
+function interrupt () {
+  error "Interrupted."
+  exit 1
+}
+
 function check_environment () {
   function check_stack_size () {
     local max_stack=$(ulimit -s)
@@ -75,5 +80,6 @@ function main () {
   fi
 }
 
+trap interrupt INT
 check_environment
 main
