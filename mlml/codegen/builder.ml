@@ -280,6 +280,8 @@ let safe_call ctx buf name args =
   let saved_regs =
     SS.elements regs_to_save |> List.cons (Register "rsp") |> List.map saver
   in
+  (* change rsp to what it should be (rbp contains initial rsp stored at functions' head) *)
+  B.emit_inst_fmt buf "leaq %d(%%rbp), %%rsp" ctx.current_env.current_stack;
   B.emit_inst_fmt buf "call %s" name;
   List.iter (fun f -> f ctx) free_fns;
   let restore (x, s) = assign_to_register buf (StackValue s) x in
@@ -345,7 +347,7 @@ let calc_aligned_size_const size = ((size / 8) + 1) * 8
 let alloc_heap_ptr_raw ctx buf size dest =
   let size_tmp = assign_to_new_register ctx buf size in
   calc_aligned_size buf (RegisterValue size_tmp);
-  let ptr = RegisterValue (safe_call ctx buf "malloc@PLT" [RegisterValue size_tmp]) in
+  let ptr = RegisterValue (safe_call ctx buf "GC_malloc@PLT" [RegisterValue size_tmp]) in
   B.emit_inst_fmt buf "addq %s, %s" (string_of_register size_tmp) (string_of_value ptr);
   B.emit_inst_fmt buf "subq $8, %s" (string_of_value ptr);
   free_register size_tmp ctx;
