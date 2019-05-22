@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-readonly WORKDIR="$(mktemp -d)"
+readonly WORKDIR="${1:-$(mktemp -d)}"
 
 function info () {
   >&2 echo "$(tput setaf 2)=> $(tput sgr0)$(tput bold)$@$(tput sgr0)"
