@@ -36,8 +36,8 @@ function check_environment () {
 }
 
 function compile () {
-  local ASMOUT="$WORKDIR/mlml.s"
   local EXECOUT="$1"
+  local ASMOUT="$EXECOUT.s"
   shift
 
   cmd "$@ bin/mlmlc.ml > \"$ASMOUT\""
@@ -46,9 +46,9 @@ function compile () {
 }
 
 function main () {
-  readonly GEN1="$WORKDIR/mlml1"
-  readonly GEN2="$WORKDIR/mlml2"
-  readonly GEN3="$WORKDIR/mlml3"
+  readonly GEN1="$WORKDIR/mlmlc_1"
+  readonly GEN2="$WORKDIR/mlmlc_2"
+  readonly GEN3="$WORKDIR/mlmlc_3"
 
   info "Compiling mlml with ocaml"
   readonly GEN1_HASH=$(compile $GEN1 dune exec bin/mlmlc.exe)
