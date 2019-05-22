@@ -5,11 +5,11 @@ set -euo pipefail
 readonly WORKDIR="$(mktemp -d)"
 
 function info () {
-  echo "$(tput setaf 2)=> $(tput sgr0)$(tput bold)$@$(tput sgr0)"
+  >&2 echo "$(tput setaf 2)=> $(tput sgr0)$(tput bold)$@$(tput sgr0)"
 }
 
 function cmd () {
-  echo "$(tput setaf 5)$ $@$(tput sgr0)"
+  >&2 echo "$(tput setaf 5)$ $@$(tput sgr0)"
   eval $@
 }
 
