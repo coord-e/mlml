@@ -59,7 +59,7 @@ let uncapitalize_ascii = apply_hd Char.lowercase_ascii
 
 let escaped str =
   let rec aux acc i =
-    let e = Char.escaped str.[i] in
+    let e = match str.[i] with '"' -> "\\\"" | c -> Char.escaped c in
     let acc = e ^ acc in
     match i with 0 -> acc | i -> aux acc (i - 1)
   in

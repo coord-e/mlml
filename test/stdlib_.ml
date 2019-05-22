@@ -211,7 +211,8 @@ print_string @@ String.uncapitalize_ascii "HELLO"
 let test s = print_string @@ String.escaped s in
 test "hehehe";
 test "hello world\nthis is mlml";
-test "mlml\t@\tOCaml"
+test "mlml\t@\tOCaml";
+test "\"hello, world\""
   |};
   Tester.f
     {|
