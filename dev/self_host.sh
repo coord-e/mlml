@@ -12,6 +12,10 @@ function warn () {
   >&2 echo "$(tput setaf 3)$(tput bold)WARN $(tput sgr0)$@"
 }
 
+function error () {
+  >&2 echo "$(tput setaf 1)$(tput bold)ERROR $(tput sgr0)$@"
+}
+
 function cmd () {
   >&2 echo "$(tput setaf 5)$ $@$(tput sgr0)"
   eval $@
@@ -63,9 +67,11 @@ function main () {
   info "Successfully compiled 3rd-gen compiler: $GEN3 (${GEN3_HASH:0:7})"
 
   if [ "$GEN2_HASH" = "$GEN3_HASH" ]; then
-    info "SELF HOSTING SUCCESSFUL"
+    info "*** SELF HOSTING SUCCEEDED ***"
   else
-    info "Self hosting failed (output mismatch between 2nd and 3rd)"
+    warn "Output mismatch between 2nd and 3rd generation compilers"
+    error "Self hosting failed"
+    exit 2
   fi
 }
 
