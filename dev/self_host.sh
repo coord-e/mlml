@@ -46,7 +46,7 @@ function compile () {
 
   cmd "$@ bin/mlmlc.ml > \"$ASMOUT\""
   cmd "gcc \"$ASMOUT\" -lgc -o \"$EXECOUT\""
-  md5sum "$ASMOUT" | cut -d' ' -f1
+  cmd "md5sum \"$ASMOUT\" | cut -d' ' -f1"
 }
 
 function main () {
@@ -66,7 +66,7 @@ function main () {
   readonly GEN3_HASH=$(compile $GEN3 $GEN2)
   info "Successfully compiled 3rd-gen compiler: $GEN3 (${GEN3_HASH:0:7})"
 
-  if [ "$GEN2_HASH" = "$GEN3_HASH" ]; then
+  if cmd [ "$GEN2_HASH" = "$GEN3_HASH" ]; then
     info "*** SELF HOSTING SUCCEEDED ***"
   else
     warn "Output mismatch between 2nd and 3rd generation compilers"
