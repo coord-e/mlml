@@ -29,16 +29,16 @@ function main () {
   readonly GEN3="$WORKDIR/mlml3"
 
   info "Compiling mlml with ocaml"
-  compile $GEN1 dune exec bin/mlmlc.exe > /dev/null
-  info "Successfully compiled 1st-gen compiler: $GEN1"
+  readonly GEN1_HASH=$(compile $GEN1 dune exec bin/mlmlc.exe)
+  info "Successfully compiled 1st-gen compiler: $GEN1 (${GEN1_HASH:0:7})"
 
   info "Compiling mlml with mlml (1st generation)"
   readonly GEN2_HASH=$(compile $GEN2 $GEN1)
-  info "Successfully compiled 2nd-gen compiler: $GEN2"
+  info "Successfully compiled 2nd-gen compiler: $GEN2 (${GEN2_HASH:0:7})"
 
   info "Compiling mlml with mlml (2nd generation)"
   readonly GEN3_HASH=$(compile $GEN3 $GEN2)
-  info "Successfully compiled 3rd-gen compiler: $GEN3"
+  info "Successfully compiled 3rd-gen compiler: $GEN3 (${GEN3_HASH:0:7})"
 
   if [ "$GEN2_HASH" = "$GEN3_HASH" ]; then
     info "SELF HOSTING SUCCESSFUL"
