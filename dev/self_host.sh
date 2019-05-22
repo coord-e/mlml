@@ -42,7 +42,7 @@ function compile () {
 
   cmd "$@ bin/mlmlc.ml > \"$ASMOUT\""
   cmd "gcc \"$ASMOUT\" -lgc -o \"$EXECOUT\""
-  md5sum "$ASMOUT"
+  md5sum "$ASMOUT" | cut -d' ' -f1
 }
 
 function main () {
