@@ -14,8 +14,8 @@ function cmd () {
 }
 
 function compile () {
-  readonly ASMOUT="$WORKDIR/mlml.s"
-  readonly EXECOUT="$1"
+  local ASMOUT="$WORKDIR/mlml.s"
+  local EXECOUT="$1"
   shift
 
   cmd "$@ bin/mlmlc.ml > \"$ASMOUT\""
