@@ -8,9 +8,31 @@ function info () {
   >&2 echo "$(tput setaf 2)=> $(tput sgr0)$(tput bold)$@$(tput sgr0)"
 }
 
+function warn () {
+  >&2 echo "$(tput setaf 3)$(tput bold)WARN $(tput sgr0)$@"
+}
+
 function cmd () {
   >&2 echo "$(tput setaf 5)$ $@$(tput sgr0)"
   eval $@
+}
+
+function check_environment () {
+  function check_stack_size () {
+    local max_stack=$(ulimit -s)
+    [ $max_stack -gt 1000000 ] \
+      || warn "Compilation might fail with segfault due to small maximum stack size"
+  }
+
+  function check_docker () {
+    # thanks to Henk Lengeveld from StackOverflow
+    # https://stackoverflow.com/questions/23513045/
+    cat /proc/1/cgroup | grep -q "/docker" \
+      || warn "It seems that this script is running outside of the development docker container"
+  }
+
+  check_stack_size
+  check_docker
 }
 
 function compile () {
@@ -47,4 +69,5 @@ function main () {
   fi
 }
 
+check_environment
 main
