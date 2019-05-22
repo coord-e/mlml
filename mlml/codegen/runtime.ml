@@ -197,7 +197,6 @@ let append_string ctx buf _label _ret_label =
   free1 ctx;
   let lhs_len = alloc_register ctx in
   let rhs_len = alloc_register ctx in
-  let size = alloc_stack ctx in
   let len = alloc_stack ctx in
   read_from_address ctx buf (StackValue lhs) (RegisterValue lhs_len) (-8);
   read_from_address ctx buf (StackValue rhs) (RegisterValue rhs_len) (-8);
@@ -205,28 +204,18 @@ let append_string ctx buf _label _ret_label =
   restore_marked_int buf (RegisterValue rhs_len);
   assign_to_stack ctx buf (RegisterValue rhs_len) len;
   B.emit_inst_fmt buf "addq %s, %s" (string_of_register lhs_len) (string_of_stack len);
-  (* calculate aligned size *)
-  assign_to_stack ctx buf (StackValue len) size;
-  calc_aligned_size buf (StackValue size);
-  (* add 16 (metadata) *)
-  B.emit_inst_fmt buf "addq $16, %s" (string_of_stack size);
-  let ptr = alloc_register ctx in
-  alloc_heap_ptr ctx buf (StackValue size) (RegisterValue ptr);
-  let ptr_save = turn_into_stack ctx buf (RegisterValue ptr) in
-  B.emit_inst_fmt buf "subq $8, %s" (string_of_stack size);
-  let size_tmp = assign_to_new_register ctx buf (StackValue size) in
-  B.emit_inst_fmt buf "shlq $1, %s" (string_of_register size_tmp);
-  B.emit_inst_fmt buf "incq %s" (string_of_register size_tmp);
-  (* data size *)
-  assign_to_address ctx buf (RegisterValue size_tmp) (RegisterValue ptr) 0;
-  free_register size_tmp ctx;
-  (* string length *)
-  make_marked_int buf (StackValue len);
-  assign_to_address ctx buf (StackValue len) (RegisterValue ptr) (-8);
-  (* copy strings *)
+  let len_tmp = assign_to_new_register ctx buf (StackValue len) in
+  make_marked_int buf (RegisterValue len_tmp);
+  let ptr =
+    call_runtime_mlml ctx buf "create_string" [RegisterValue len_tmp]
+    |> register_value
+    |> assign_to_new_register ctx buf
+  in
+  let ptr_save = push_to_stack ctx buf (RegisterValue ptr) |> stack_value in
+  free_register len_tmp ctx;
   let src_tmp = assign_to_new_register ctx buf (StackValue lhs) in
   string_value_to_content ctx buf (RegisterValue src_tmp) (RegisterValue src_tmp);
-  B.emit_inst_fmt buf "subq %s, %s" (string_of_stack size) (string_of_register ptr);
+  string_value_to_content ctx buf (RegisterValue ptr) (RegisterValue ptr);
   let _ =
     safe_call
       ctx
@@ -237,8 +226,6 @@ let append_string ctx buf _label _ret_label =
   assign_to_register buf (StackValue rhs) src_tmp;
   string_value_to_content ctx buf (RegisterValue src_tmp) (RegisterValue src_tmp);
   B.emit_inst_fmt buf "addq %s, %s" (string_of_register lhs_len) (string_of_register ptr);
-  (* incr to include one byte of null *)
-  B.emit_inst_fmt buf "incq %s" (string_of_register rhs_len);
   let _ =
     safe_call
       ctx
@@ -249,7 +236,7 @@ let append_string ctx buf _label _ret_label =
   free_register src_tmp ctx;
   free_register lhs_len ctx;
   free_register rhs_len ctx;
-  assign_to_register buf (StackValue ptr_save) ret_register
+  assign_to_register buf ptr_save ret_register
 ;;
 
 let length_string ctx buf _label _ret_label =
@@ -757,11 +744,11 @@ let runtimes =
   ; print_string, "print_string"
   ; prerr_string, "prerr_string"
   ; equal, "equal"
-  ; append_string, "append_string"
   ; length_string, "length_string"
   ; get_string, "get_string"
   ; set_string, "set_string"
   ; create_string, "create_string"
+  ; append_string, "append_string"
   ; shallow_copy, "shallow_copy"
   ; identity, "identity"
   ; length_array, "length_array"
