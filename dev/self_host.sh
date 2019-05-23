@@ -45,6 +45,8 @@ function check_environment () {
 }
 
 function compile () {
+  set -euo pipefail
+
   local EXECOUT="$1"
   local ASMOUT="$EXECOUT.s"
   shift
@@ -54,21 +56,28 @@ function compile () {
   cmd "md5sum \"$ASMOUT\" | cut -d' ' -f1"
 }
 
+function readonly_ () {
+  if [ $? -ne 0 ]; then
+    error "command exited with non-zero code"
+    exit 3
+  fi
+}
+
 function main () {
   readonly GEN1="$WORKDIR/mlmlc_1"
   readonly GEN2="$WORKDIR/mlmlc_2"
   readonly GEN3="$WORKDIR/mlmlc_3"
 
   info "Compiling mlml with ocaml"
-  readonly GEN1_HASH=$(compile $GEN1 dune exec bin/mlmlc.exe)
+  readonly_ GEN1_HASH=$(compile $GEN1 dune exec bin/mlmlc.exe)
   info "Successfully compiled 1st-gen compiler: $GEN1 (${GEN1_HASH:0:7})"
 
   info "Compiling mlml with mlml (1st generation)"
-  readonly GEN2_HASH=$(compile $GEN2 $GEN1)
+  readonly_ GEN2_HASH=$(compile $GEN2 $GEN1)
   info "Successfully compiled 2nd-gen compiler: $GEN2 (${GEN2_HASH:0:7})"
 
   info "Compiling mlml with mlml (2nd generation)"
-  readonly GEN3_HASH=$(compile $GEN3 $GEN2)
+  readonly_ GEN3_HASH=$(compile $GEN3 $GEN2)
   info "Successfully compiled 3rd-gen compiler: $GEN3 (${GEN3_HASH:0:7})"
 
   if cmd [ "$GEN2_HASH" = "$GEN3_HASH" ]; then
