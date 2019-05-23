@@ -3,6 +3,7 @@ module Path = Tree.Path
 module ModCache = Modules_cache
 module SS = Tree.Simple_set
 module DepTree = Dependency_tree
+module FindDeps = Find_dependencies
 
 let stdlib_dir =
   match Sys.getenv_opt "MLML_STDLIB_DIR" with Some d -> d | None -> "../../../stdlib"
@@ -78,7 +79,7 @@ let rec build_submodule_tree cache projs path =
 and build_tree cache projs name is_stdlib file =
   (* run preprocess in first load *)
   ModCache.load_with (preprocess name is_stdlib) cache file
-  |> Find_deps.f
+  |> FindDeps.f
   |> SS.elements
   |> List.map (build_tree_node cache projs @@ Filename.dirname file)
 
