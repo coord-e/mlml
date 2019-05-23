@@ -11,5 +11,10 @@ let () =
       then 43
       else 0
     )
+  |};
+  Tester.f {|
+if false
+then print_endline "true";
+print_endline "outer!"
   |}
 ;;

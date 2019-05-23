@@ -323,10 +323,10 @@ and parse_if = function
     let rest, cond = parse_expression rest in
     (match rest with
     | L.Then :: rest ->
-      let rest, then_ = parse_expression rest in
+      let rest, then_ = parse_tuple rest in
       (match rest with
       | L.Else :: rest ->
-        let rest, else_ = parse_expression rest in
+        let rest, else_ = parse_tuple rest in
         rest, T.IfThenElse (cond, then_, else_)
       | _ ->
         (* (if c then v)             *)

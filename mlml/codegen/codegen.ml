@@ -5,6 +5,7 @@ module Mod = Tree.Module
 module Binop = Tree.Binop
 module Uop = Tree.Unaryop
 module B = Output_buffer
+module SS = Tree.Simple_set
 
 let rec codegen_binop ctx buf lhs rhs = function
   | Binop.Add ->

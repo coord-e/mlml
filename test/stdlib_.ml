@@ -78,6 +78,15 @@ Hashtbl.add t "fantastic" "ramen";
 Hashtbl.remove t "hello";
 print_string @@ Hashtbl.find t "fantastic"
   |};
+  Tester.f
+    {|
+let t = Hashtbl.create 32 in
+Hashtbl.add t "hello" "world";
+Hashtbl.add t "fantastic" "ramen";
+let f k v acc = (k ^ v) :: acc in
+let l = Hashtbl.fold f t [] in
+List.iter print_endline l
+  |};
   (* List *)
   Tester.f
     {|
@@ -114,6 +123,15 @@ test [2; 3] 5
 let square x = x * x in
 let mul (a, b) = a * b in
 let test f l = List.iter print_int @@ List.map f l in
+test succ [2; 3; 1; 3];
+test square [4; 12; 23; 0];
+test mul [9, 6; 5, 6; 1, 2; 0, 3; 3, 4]
+  |};
+  Tester.f
+    {|
+let square x = x * x in
+let mul (a, b) = a * b in
+let test f l = List.iter print_int @@ List.rev_map f l in
 test succ [2; 3; 1; 3];
 test square [4; 12; 23; 0];
 test mul [9, 6; 5, 6; 1, 2; 0, 3; 3, 4]
@@ -193,7 +211,8 @@ print_string @@ String.uncapitalize_ascii "HELLO"
 let test s = print_string @@ String.escaped s in
 test "hehehe";
 test "hello world\nthis is mlml";
-test "mlml\t@\tOCaml"
+test "mlml\t@\tOCaml";
+test "\"hello, world\""
   |};
   Tester.f
     {|

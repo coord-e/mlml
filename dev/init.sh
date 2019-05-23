@@ -19,5 +19,9 @@ fi
 
 function exec_docker() {
   # TRAVIS_JOB_ID is for CI environment
-  $DOCKER run --rm -t -v $(pwd):/home/opam/src -e TRAVIS_JOB_ID=${TRAVIS_JOB_ID:-} ${IMAGE_NAME} "$@"
+  $DOCKER run --rm -it \
+    --ulimit stack=4294967296 \
+    -v $(pwd):/home/opam/src \
+    -e TRAVIS_JOB_ID=${TRAVIS_JOB_ID:-} \
+    ${IMAGE_NAME} "$@"
 }

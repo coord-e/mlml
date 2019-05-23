@@ -79,5 +79,10 @@ let s = Concat (
     Just "dogs"
   )
 ) in print_string (f s)
+  |};
+  Tester.bool_expr {|
+let a = "mutable" in
+let b = "mut" ^ "able" in
+a = b
   |}
 ;;

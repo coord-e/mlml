@@ -335,9 +335,22 @@ let label_ptr_to_register buf label reg =
     (string_of_register reg)
 ;;
 
+(* calculate aligned size *)
+let calc_aligned_size buf size =
+  B.emit_inst_fmt buf "shrq $3, %s" (string_of_value size);
+  B.emit_inst_fmt buf "incq %s" (string_of_value size);
+  B.emit_inst_fmt buf "shlq $3, %s" (string_of_value size)
+;;
+
+let calc_aligned_size_const size = ((size / 8) + 1) * 8
+
 let alloc_heap_ptr_raw ctx buf size dest =
-  let ptr = RegisterValue (safe_call ctx buf "GC_malloc@PLT" [size]) in
-  B.emit_inst_fmt buf "addq %s, %s" (string_of_value size) (string_of_value ptr);
+  let size_tmp = assign_to_new_register ctx buf size in
+  calc_aligned_size buf (RegisterValue size_tmp);
+  let ptr = RegisterValue (safe_call ctx buf "GC_malloc@PLT" [RegisterValue size_tmp]) in
+  B.emit_inst_fmt buf "addq %s, %s" (string_of_register size_tmp) (string_of_value ptr);
+  B.emit_inst_fmt buf "subq $8, %s" (string_of_value ptr);
+  free_register size_tmp ctx;
   match dest with
   | RegisterValue r -> assign_to_register buf ptr r
   | StackValue s -> assign_to_stack ctx buf ptr s
@@ -353,15 +366,6 @@ let alloc_heap_ptr ctx buf size dest =
 let alloc_heap_ptr_constsize ctx buf size dest =
   alloc_heap_ptr_raw ctx buf (ConstantValue size) dest
 ;;
-
-(* calculate aligned size *)
-let calc_aligned_size buf size =
-  B.emit_inst_fmt buf "shrq $3, %s" (string_of_value size);
-  B.emit_inst_fmt buf "incq %s" (string_of_value size);
-  B.emit_inst_fmt buf "shlq $3, %s" (string_of_value size)
-;;
-
-let calc_aligned_size_const size = ((size / 8) + 1) * 8
 
 let make_tuple_const ctx buf values =
   let size = List.length values in
@@ -464,20 +468,17 @@ let shallow_copy ctx buf src dest =
 ;;
 
 let make_string_const ctx buf s =
-  let len = String.length s in
-  let aligned = calc_aligned_size_const len in
-  (* emit data *)
   let str_label = new_unnamed_label ctx in
-  let pad = aligned - len - 1 in
-  B.emit_sub_inst_fmt buf ".string \"%s\"" @@ String.escaped s;
-  B.emit_sub_inst_fmt buf ".fill %d" pad;
-  B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const len;
   B.emit_sub buf (B.Label (string_of_label str_label));
-  B.emit_sub_inst_fmt buf ".quad %d" @@ calc_marked_const (aligned + 8);
+  B.emit_sub_inst_fmt buf ".string \"%s\"" @@ String.escaped s;
   let r = alloc_register ctx in
   label_ptr_to_register buf str_label r;
-  let res = StackValue (alloc_stack ctx) in
-  shallow_copy ctx buf (RegisterValue r) res;
+  let res =
+    call_runtime ctx buf "c_str_to_string" [RegisterValue r]
+    |> register_value
+    |> push_to_stack ctx buf
+    |> stack_value
+  in
   free_register r ctx;
   res
 ;;
