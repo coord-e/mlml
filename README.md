@@ -34,9 +34,24 @@ a compiler for a tiny subset of OCaml, which is written just for fun.
   - [x] aliases
   - [x] `open`
   - [x] importing from other files
-- [ ] **self-hosting!**
+- [x] **self-hosting!**
 - [ ] exceptions
 - [ ] type checker & type inference
+
+## self hosting
+
+mlml is self-hosted. i.e. mlml can compile itself.
+
+```shell
+./dev/exec.sh ./dev/self_host.sh
+```
+
+To obtain build artifacts, pass a path to local directory as below. You will see compiled binaries under `./self_host`.
+
+```shell
+mkdir self_host
+./dev/exec.sh ./dev/self_host.sh ./self_host
+```
 
 ## limitations
 
