@@ -60,6 +60,8 @@ function readonly_ () {
   if [ $? -ne 0 ]; then
     error "command exited with non-zero code"
     exit 3
+  else
+    readonly $@
   fi
 }
 
