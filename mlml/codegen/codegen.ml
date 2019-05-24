@@ -70,7 +70,7 @@ let rec codegen_binop ctx buf lhs rhs = function
   | Binop.Or -> codegen_expr ctx buf (Expr.IfThenElse (lhs, lhs, rhs))
   | Binop.And -> codegen_expr ctx buf (Expr.IfThenElse (lhs, rhs, lhs))
   | Binop.Follow ->
-    let _ = codegen_expr ctx buf lhs in
+    ignore @@ codegen_expr ctx buf lhs;
     codegen_expr ctx buf rhs
   | Binop.NotPhysicalEqual ->
     let lhs = codegen_expr ctx buf lhs in
@@ -292,9 +292,7 @@ and codegen_type_def ctx _buf = function
 
 and codegen_module_item ctx buf = function
   | Mod.Definition def -> codegen_definition ctx buf def
-  | Mod.Expression expr ->
-    let _ = codegen_expr ctx buf expr in
-    ()
+  | Mod.Expression expr -> ignore @@ codegen_expr ctx buf expr
 
 and codegen_module ctx buf = List.iter (codegen_module_item ctx buf)
 
@@ -323,7 +321,7 @@ and emit_function_with ctx main_buf label fn =
   B.emit_inst_fmt buf "movq %s, %s" (register_name "rbp") (register_name "rsp");
   B.emit_inst_fmt buf "popq %s" (register_name "rbp");
   B.emit_inst buf "ret";
-  let _ = use_env ctx old_env in
+  ignore @@ use_env ctx old_env;
   B.substitute buf subq_place (B.Inst (Printf.sprintf "subq $%d, %%rsp" (-stack_used)));
   B.prepend_buffer main_buf buf
 
@@ -384,12 +382,10 @@ and emit_function_value ctx buf is_rec name param ast =
 
 and emit_main ctx buf label items =
   let emit ctx buf _label _ =
-    let _ = safe_call ctx buf "GC_init@PLT" [] in
+    ignore @@ safe_call ctx buf "GC_init@PLT" [];
     let argc, free1 = nth_arg_register ctx 0 in
     let argv, free2 = nth_arg_register ctx 1 in
-    let _ =
-      call_runtime ctx buf "handle_argv" [RegisterValue argc; RegisterValue argv]
-    in
+    ignore @@ call_runtime ctx buf "handle_argv" [RegisterValue argc; RegisterValue argv];
     free1 ctx;
     free2 ctx;
     codegen_module ctx buf items;

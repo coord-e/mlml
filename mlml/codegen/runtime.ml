@@ -10,11 +10,10 @@ let match_fail ctx buf _label _ret_label =
   (* emit function body *)
   let a1, free1 = nth_arg_register ctx 0 in
   label_ptr_to_register buf str_label a1;
-  let _ = safe_call ctx buf "puts@PLT" [RegisterValue a1] in
+  ignore @@ safe_call ctx buf "puts@PLT" [RegisterValue a1];
   free1 ctx;
   assign_to_register buf (ConstantValue 1) ret_register;
-  let _ = safe_call ctx buf "exit@PLT" [RegisterValue a1] in
-  ()
+  ignore @@ safe_call ctx buf "exit@PLT" [RegisterValue a1]
 ;;
 
 let get_argv ctx buf _label _ret_label =
@@ -87,7 +86,7 @@ let c_str_to_string ctx buf _label _ret_label =
   free_register size_tmp ctx;
   let ptr_save = push_to_stack ctx buf (RegisterValue ptr) |> stack_value in
   string_value_to_content ctx buf (RegisterValue ptr) (RegisterValue ptr);
-  let _ = safe_call ctx buf "memcpy@PLT" [RegisterValue ptr; a1; RegisterValue len] in
+  ignore @@ safe_call ctx buf "memcpy@PLT" [RegisterValue ptr; a1; RegisterValue len];
   free_register len ctx;
   free_register ptr ctx;
   assign_to_register buf ptr_save ret_register
@@ -98,7 +97,7 @@ let print_char ctx buf _label _ret_label =
   (* read the first element of closure tuple *)
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
   restore_marked_int buf (RegisterValue a1);
-  let _ = safe_call ctx buf "putchar@PLT" [RegisterValue a1] in
+  ignore @@ safe_call ctx buf "putchar@PLT" [RegisterValue a1];
   free1 ctx;
   assign_to_register buf (make_tuple_const ctx buf []) ret_register
 ;;
@@ -111,7 +110,7 @@ let print_string ctx buf _label _ret_label =
   (* assume reg is a pointer to string value *)
   string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
   B.emit_inst_fmt buf "movq stdout(%%rip), %s" (string_of_register a2);
-  let _ = safe_call ctx buf "fputs@PLT" [RegisterValue a1; RegisterValue a2] in
+  ignore @@ safe_call ctx buf "fputs@PLT" [RegisterValue a1; RegisterValue a2];
   free1 ctx;
   free2 ctx;
   assign_to_register buf (make_tuple_const ctx buf []) ret_register
@@ -125,7 +124,7 @@ let prerr_string ctx buf _label _ret_label =
   (* assume reg is a pointer to string value *)
   string_value_to_content ctx buf (RegisterValue a1) (RegisterValue a1);
   B.emit_inst_fmt buf "movq stderr(%%rip), %s" (string_of_register a2);
-  let _ = safe_call ctx buf "fputs@PLT" [RegisterValue a1; RegisterValue a2] in
+  ignore @@ safe_call ctx buf "fputs@PLT" [RegisterValue a1; RegisterValue a2];
   free1 ctx;
   free2 ctx;
   assign_to_register buf (make_tuple_const ctx buf []) ret_register
@@ -216,23 +215,21 @@ let append_string ctx buf _label _ret_label =
   let src_tmp = assign_to_new_register ctx buf (StackValue lhs) in
   string_value_to_content ctx buf (RegisterValue src_tmp) (RegisterValue src_tmp);
   string_value_to_content ctx buf (RegisterValue ptr) (RegisterValue ptr);
-  let _ =
-    safe_call
-      ctx
-      buf
-      "memcpy@PLT"
-      [RegisterValue ptr; RegisterValue src_tmp; RegisterValue lhs_len]
-  in
+  ignore
+  @@ safe_call
+       ctx
+       buf
+       "memcpy@PLT"
+       [RegisterValue ptr; RegisterValue src_tmp; RegisterValue lhs_len];
   assign_to_register buf (StackValue rhs) src_tmp;
   string_value_to_content ctx buf (RegisterValue src_tmp) (RegisterValue src_tmp);
   B.emit_inst_fmt buf "addq %s, %s" (string_of_register lhs_len) (string_of_register ptr);
-  let _ =
-    safe_call
-      ctx
-      buf
-      "memcpy@PLT"
-      [RegisterValue ptr; RegisterValue src_tmp; RegisterValue rhs_len]
-  in
+  ignore
+  @@ safe_call
+       ctx
+       buf
+       "memcpy@PLT"
+       [RegisterValue ptr; RegisterValue src_tmp; RegisterValue rhs_len];
   free_register src_tmp ctx;
   free_register lhs_len ctx;
   free_register rhs_len ctx;
@@ -264,13 +261,12 @@ let shallow_copy ctx buf _label _ret_label =
   B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_register dest);
   B.emit_inst_fmt buf "subq %s, %s" (string_of_register size) (string_of_stack src);
   B.emit_inst_fmt buf "addq $8, %s" (string_of_register size);
-  let _ =
-    safe_call
-      ctx
-      buf
-      "memcpy@PLT"
-      [RegisterValue dest; StackValue src; RegisterValue size]
-  in
+  ignore
+  @@ safe_call
+       ctx
+       buf
+       "memcpy@PLT"
+       [RegisterValue dest; StackValue src; RegisterValue size];
   free_register size ctx;
   assign_to_register buf (StackValue ptr) ret_register;
   free_register dest ctx
@@ -462,7 +458,7 @@ let exit ctx buf _label _ret_label =
   (* read the first element of closure tuple *)
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
   restore_marked_int buf (RegisterValue a1);
-  let _ = safe_call ctx buf "exit@PLT" [RegisterValue a1] in
+  ignore @@ safe_call ctx buf "exit@PLT" [RegisterValue a1];
   free1 ctx
 ;;
 
@@ -498,7 +494,7 @@ let is_directory ctx buf _label ret_label =
   assign_to_register buf (make_marked_const 0) ret_register;
   branch_by_comparison ctx buf Eq (ConstantValue 0) (RegisterValue res) ret_label;
   (* if found, close it and assign rax = true *)
-  let _ = safe_call ctx buf "closedir@PLT" [RegisterValue res] in
+  ignore @@ safe_call ctx buf "closedir@PLT" [RegisterValue res];
   free_register res ctx;
   assign_to_register buf (make_marked_const 1) ret_register
 ;;
@@ -507,8 +503,7 @@ let getcwd ctx buf _label _ret_label =
   (* get_current_dir_name(3) is GNU-dependent, but I don't care *)
   (* memory leak happens here, but I don't care                 *)
   let res = safe_call ctx buf "get_current_dir_name@PLT" [] in
-  let _ = call_runtime ctx buf "c_str_to_string" [RegisterValue res] in
-  ()
+  ignore @@ call_runtime ctx buf "c_str_to_string" [RegisterValue res]
 ;;
 
 let readdir_filter_name = "readdir_filter"
@@ -647,8 +642,7 @@ let getenv ctx buf _label _ret_label =
   let res = safe_call ctx buf "getenv@PLT" [RegisterValue a1] in
   free1 ctx;
   (* rax holds the resulting string *)
-  let _ = call_runtime ctx buf "c_str_to_string" [RegisterValue res] in
-  ()
+  ignore @@ call_runtime ctx buf "c_str_to_string" [RegisterValue res]
 ;;
 
 let open_in ctx buf _label _ret_label =
@@ -665,7 +659,7 @@ let open_in ctx buf _label _ret_label =
   let tmp = alloc_register ctx in
   label_ptr_to_register buf str_label tmp;
   (* rax holds the resulting fd *)
-  let _ = safe_call ctx buf "fopen@PLT" [RegisterValue a1; RegisterValue tmp] in
+  ignore @@ safe_call ctx buf "fopen@PLT" [RegisterValue a1; RegisterValue tmp];
   free_register tmp ctx;
   free1 ctx
 ;;
@@ -674,7 +668,7 @@ let close_in ctx buf _label _ret_label =
   let a1, free1 = nth_arg_register ctx 0 in
   (* read the first element of closure tuple *)
   read_from_address ctx buf (RegisterValue a1) (RegisterValue a1) (-8);
-  let _ = safe_call ctx buf "fclose@PLT" [RegisterValue a1] in
+  ignore @@ safe_call ctx buf "fclose@PLT" [RegisterValue a1];
   free1 ctx;
   assign_to_register buf (make_tuple_const ctx buf []) ret_register
 ;;
@@ -686,18 +680,16 @@ let in_channel_length ctx buf _label _ret_label =
   let fd = assign_to_new_register ctx buf (RegisterValue a1) in
   free1 ctx;
   (* `SEEK_END` = 2 *)
-  let _ =
-    safe_call ctx buf "fseek@PLT" [RegisterValue fd; ConstantValue 0; ConstantValue 2]
-  in
+  ignore
+  @@ safe_call ctx buf "fseek@PLT" [RegisterValue fd; ConstantValue 0; ConstantValue 2];
   let size =
     safe_call ctx buf "ftell@PLT" [RegisterValue fd]
     |> register_value
     |> assign_to_new_register ctx buf
   in
   (* `SEEK_SET` = 2 *)
-  let _ =
-    safe_call ctx buf "fseek@PLT" [RegisterValue fd; ConstantValue 0; ConstantValue 0]
-  in
+  ignore
+  @@ safe_call ctx buf "fseek@PLT" [RegisterValue fd; ConstantValue 0; ConstantValue 0];
   free_register fd ctx;
   make_marked_int buf (RegisterValue size);
   assign_to_register buf (RegisterValue size) ret_register;
@@ -725,13 +717,12 @@ let really_input_string ctx buf _label _ret_label =
   free_register len_tmp ctx;
   let buff_save = turn_into_stack ctx buf (RegisterValue buff) in
   string_value_to_content ctx buf (RegisterValue buff) (RegisterValue buff);
-  let _ =
-    safe_call
-      ctx
-      buf
-      "fread@PLT"
-      [RegisterValue buff; ConstantValue 1; RegisterValue len; RegisterValue fd]
-  in
+  ignore
+  @@ safe_call
+       ctx
+       buf
+       "fread@PLT"
+       [RegisterValue buff; ConstantValue 1; RegisterValue len; RegisterValue fd];
   free_register len ctx;
   free_register buff ctx;
   (* rax contains resulting string *)
