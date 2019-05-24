@@ -29,7 +29,7 @@ let binds x _ = x
 
 let type_expression env ex =
   let s = empty () in
-  let _ = TyExpr.apply_on_names (vars env s) binds ex in
+  ignore @@ TyExpr.apply_on_names (vars env s) binds ex;
   s.data
 ;;
 
@@ -45,13 +45,13 @@ let type_definition env = function
 
 let pattern env p =
   let s = empty () in
-  let _ = Pat.apply_on_names (vars env s) binds p in
+  ignore @@ Pat.apply_on_names (vars env s) binds p;
   s.data
 ;;
 
 let expression env e =
   let s = empty () in
-  let _ = Expr.apply_on_names (vars env s) binds e in
+  ignore @@ Expr.apply_on_names (vars env s) binds e;
   s.data
 ;;
 

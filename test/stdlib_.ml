@@ -243,5 +243,10 @@ test '.' "...this is mlml. mlml has stdlib."
   |};
   Tester.f {|
 print_endline @@ String.escaped ""
+  |};
+  (* Unit operations *)
+  Tester.f {|
+let f x = print_int x; x ;;
+let () = ignore @@ f 42
   |}
 ;;

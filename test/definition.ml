@@ -14,11 +14,12 @@ let f a = a * 2
 let d = f var ;;
 print_int var
   |};
-  Tester.f {|
+  Tester.f
+    {|
 let f a = a + 1 ;;
 let v = f 2 ;;
 let g x = print_int x ;;
-let _ = g v
+ignore @@ g v
   |};
   Tester.f {|
 let a = 1 ;;

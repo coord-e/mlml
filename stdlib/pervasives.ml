@@ -50,3 +50,4 @@ external in_channel_length : in_channel -> int = "_mlml_in_channel_length"
 external _really_input_string : in_channel * int -> string = "_mlml_really_input_string"
 
 let really_input_string ic len = _really_input_string (ic, len)
+let ignore _ = ()
