@@ -157,7 +157,7 @@ let assign_to_register buf v reg =
 ;;
 
 let turn_into_register ctx buf = function
-  | RegisterValue r -> r, fun _ -> ()
+  | RegisterValue r -> r, ignore
   | v ->
     let new_register = alloc_register ctx in
     assign_to_register buf v new_register;
@@ -246,7 +246,7 @@ let nth_arg_register context n =
   then (
     use_register context r;
     r, free_register r )
-  else r, fun _ -> ()
+  else r, ignore
 ;;
 
 let nth_arg_stack ctx buf n =
