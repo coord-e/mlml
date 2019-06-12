@@ -6,7 +6,9 @@
 ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/coorde/mlml.svg)
 [![MicroBadger Image](https://images.microbadger.com/badges/image/coorde/mlml.svg)](https://microbadger.com/images/coorde/mlml)
 
-a compiler for a tiny subset of OCaml, which is written just for fun.
+mlml is a self-hosted toy compiler for a tiny subset of OCaml.
+
+a detailed description can be found in my blog post (in Japanese): [自作OCamlコンパイラでセルフホストした - molecular coordinates](https://coordination.hatenablog.com/entry/2019/05/23/212720)
 
 ## roadmap
 
@@ -33,7 +35,7 @@ a compiler for a tiny subset of OCaml, which is written just for fun.
   - [x] definition
   - [x] aliases
   - [x] `open`
-  - [x] importing from other files
+  - [x] dune-like bundler
 - [x] **self-hosting!**
 - [ ] exceptions
 - [ ] type checker & type inference
